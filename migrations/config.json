@@ -1,0 +1,15 @@
+{
+  "databaseUrl": {
+    "env": "DATABASE_URL"
+  },
+  "migrationsTable": "pgmigrations",
+  "dir": "migrations",
+  "direction": "up",
+  "count": 1,
+  "ignorePattern": "\\..*|config\\.json",
+  "schema": "public",
+  "decamelize": false,
+  "createSchema": true,
+  "createMigrationsSchema": false,
+  "log": "migrations/migration.log"
+}

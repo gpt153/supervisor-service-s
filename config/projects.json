@@ -1,0 +1,47 @@
+{
+  "meta": {
+    "name": "meta",
+    "displayName": "Meta Infrastructure",
+    "path": "/home/samuel/sv/supervisor-service",
+    "description": "Meta supervisor infrastructure and service management",
+    "endpoints": ["/mcp/meta"],
+    "tools": ["*"],
+    "enabled": true
+  },
+  "consilio": {
+    "name": "consilio",
+    "displayName": "Consilio",
+    "path": "/home/samuel/sv/consilio-s",
+    "description": "Consilio project supervision",
+    "endpoints": ["/mcp/consilio"],
+    "tools": ["*"],
+    "enabled": true
+  },
+  "odin": {
+    "name": "odin",
+    "displayName": "Odin",
+    "path": "/home/samuel/sv/odin-s",
+    "description": "Odin project supervision",
+    "endpoints": ["/mcp/odin"],
+    "tools": ["*"],
+    "enabled": true
+  },
+  "openhorizon": {
+    "name": "openhorizon",
+    "displayName": "OpenHorizon",
+    "path": "/home/samuel/sv/openhorizon-s",
+    "description": "OpenHorizon project supervision",
+    "endpoints": ["/mcp/openhorizon"],
+    "tools": ["*"],
+    "enabled": true
+  },
+  "health-agent": {
+    "name": "health-agent",
+    "displayName": "Health Agent",
+    "path": "/home/samuel/sv/health-agent-s",
+    "description": "Health Agent project supervision",
+    "endpoints": ["/mcp/health-agent"],
+    "tools": ["*"],
+    "enabled": true
+  }
+}
