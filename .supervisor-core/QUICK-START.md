@@ -1,17 +1,17 @@
 # Quick Start: Add New Core Instruction
 
-**5-minute guide to adding new behavior that follows the reference pattern**
+**5-minute guide for adding new behavior**
 
 ---
 
-## Step 1: Create Core File (2 min)
+## Step 1: Create Core File
 
 ```bash
 cd /home/samuel/sv/supervisor-service-s/.supervisor-core/
-vim 09-new-topic.md
+vim 10-new-topic.md  # Use next number
 ```
 
-**Template**:
+**Template** (60-130 lines target):
 ```markdown
 # Topic Name
 
@@ -21,109 +21,65 @@ vim 09-new-topic.md
 
 ## Checklist
 
-**Must include:**
 1. ✅ Item 1
 2. ✅ Item 2
 3. ✅ Item 3
 
-## When to Update
+## When to Act
 
 - Trigger 1
 - Trigger 2
-- Trigger 3
 
-## Templates & Guides
+## References
 
-**Need a template?**
-- See: `/home/samuel/sv/docs/templates/topic-template.md`
-
-**Detailed guide:**
-- See: `/home/samuel/sv/docs/guides/topic-guide.md`
-
----
-
-**Maintained by**: Each project-supervisor (PS)
-**Update frequency**: After [trigger event]
+**Template**: `/home/samuel/sv/docs/templates/topic-template.md`
+**Guide**: `/home/samuel/sv/docs/guides/topic-guide.md`
 ```
 
-**Size target**: 60-130 lines
+---
+
+## Step 2: Create External Docs (Optional)
+
+**Template** (`/docs/templates/topic-template.md`):
+- Copy-paste ready structure
+- Placeholders for project-specific content
+
+**Guide** (`/docs/guides/topic-guide.md`):
+- Detailed walkthrough
+- Real examples
+- Common mistakes
+
+**Examples** (`/docs/examples/topic-examples.sh`):
+- Concrete code examples
+- Exact commands to run
 
 ---
 
-## Step 2: Create Template (1 min, optional)
-
-```bash
-vim /home/samuel/sv/docs/templates/topic-template.md
-```
-
-**Include**:
-- Complete copy-paste ready structure
-- Placeholders: `[YOUR_CONTENT]`
-- All sections PSes need to fill
-
----
-
-## Step 3: Create Guide (2 min, optional)
-
-```bash
-vim /home/samuel/sv/docs/guides/topic-guide.md
-```
-
-**Include**:
-- Section-by-section walkthrough
-- Real examples from projects
-- Common mistakes (❌ vs ✅)
-- Quick self-test
-
----
-
-## Step 4: Test & Deploy (1 min)
+## Step 3: Test & Deploy
 
 ```bash
 cd /home/samuel/sv/supervisor-service-s
 
-# Test with one project
+# Test one project
 npm run init-projects -- --project consilio-s --verbose
 
-# Check it worked
-head -15 /home/samuel/sv/consilio-s/CLAUDE.md
+# Check size
+wc -c /home/samuel/sv/consilio-s/CLAUDE.md  # Should be < 40k
 
-# Deploy to all projects
+# Deploy all
 npm run init-projects -- --verbose
-
-# Verify file sizes reasonable
-wc -l /home/samuel/sv/*/CLAUDE.md
 ```
-
----
-
-## Example: Real Instruction
-
-**File**: `07-deployment-documentation.md` (78 lines)
-
-**Inline (core file)**:
-- ✅ Critical rule: "Keep deployment info current"
-- ✅ Checklist: 8 items that must be included
-- ✅ When to update: 5 triggers
-- 📄 Reference: Template and guide
-
-**Referenced (external)**:
-- 📄 Template: 149 lines
-- 📄 Guide: 290 lines
-
-**Total saved**: 361 lines per project
 
 ---
 
 ## Key Rules
 
-1. **Keep core file lean** (< 130 lines if possible)
-2. **Core behavior MUST be inline** (not just referenced)
-3. **Extract templates/examples** to /docs/
-4. **Use absolute paths** for references
-5. **Test before propagating** to all projects
+1. **Core behavior inline** (not just referenced)
+2. **Keep lean** (< 130 lines if possible)
+3. **Extract examples** to /docs/
+4. **Absolute paths** in references
+5. **Test before propagating**
 
 ---
 
-**Full docs**: See `README.md` in this directory
-**Detailed guide**: `/home/samuel/sv/docs/guides/instruction-system-maintenance.md`
+**Full guide**: `/home/samuel/sv/docs/guides/instruction-system-maintenance.md`
