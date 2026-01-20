@@ -77,7 +77,8 @@
 7. **Scroll to "Integrations"** section
 8. **Click "Add MCP Server"**
 9. **Enter the MCP Server URL** (from above)
-10. **Save and test**
+10. **Add Playwright MCP** (see ADD-PLAYWRIGHT-MCP.md for instructions)
+11. **Save and test**
 
 ### Test Each Project:
 
@@ -99,6 +100,7 @@ Once configured, test by asking:
 ✅ Track task timing
 ✅ Search knowledge base
 ✅ Update supervisor instructions
+✅ Browser automation (requires Playwright MCP - see ADD-PLAYWRIGHT-MCP.md)
 
 ### Project-Specific (Consilio, Odin, etc.)
 ✅ Access project-specific context
