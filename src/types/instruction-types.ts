@@ -25,6 +25,7 @@ export interface AssemblyOptions {
   preserveProjectSpecific?: boolean;
   includeMetadata?: boolean;
   targetPath?: string;
+  isMetaSupervisor?: boolean; // True for meta-supervisor, includes README/QUICK-START
 }
 
 export interface InstructionMetadata {

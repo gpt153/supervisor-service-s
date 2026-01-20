@@ -196,10 +196,14 @@ async function initProject(
       }
     }
 
+    // Determine if this is meta-supervisor (supervisor-service-s)
+    const isMetaSupervisor = projectName === 'supervisor-service-s';
+
     // Assemble and write CLAUDE.md
     const assemblyResult = await assembler.assembleAndWrite(claudeMdPath, {
       preserveProjectSpecific: true,
       includeMetadata: true,
+      isMetaSupervisor,
     });
 
     result.status = claudeMdExists ? 'updated' : 'created';

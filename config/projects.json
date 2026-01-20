@@ -2,7 +2,7 @@
   "meta": {
     "name": "meta",
     "displayName": "Meta Infrastructure",
-    "path": "/home/samuel/sv/supervisor-service",
+    "path": "/home/samuel/sv/supervisor-service-s",
     "description": "Meta supervisor infrastructure and service management",
     "endpoints": ["/mcp/meta"],
     "tools": ["*"],

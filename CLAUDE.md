@@ -16,7 +16,7 @@
   - /home/samuel/sv/supervisor-service-s/.supervisor-meta/02-dependencies.md
   - /home/samuel/sv/supervisor-service-s/.supervisor-meta/03-patterns.md
   - /home/samuel/sv/supervisor-service-s/.supervisor-meta/04-port-allocations.md -->
-<!-- Generated: 2026-01-20T10:14:12.302Z -->
+<!-- Generated: 2026-01-20T10:28:40.229Z -->
 
 # Supervisor Identity
 
@@ -334,100 +334,45 @@ Once user says "continue building", "implement X", or "start working":
 **EXECUTE THIS WORKFLOW:**
 
 1. **Check for in-progress work:**
-   - Check GitHub issues (open, assigned to PIV agents)
-   - Read .agents/active-piv.json for running PIV loops
-   - IF PIV loop active: Report status and continue monitoring
+   - Check .agents/active-piv.json
+   - IF PIV active: Report status and continue monitoring
    - IF no active work: Go to step 2
 
-2. **Find next epic to implement:**
-   - Read .bmad/epics/ directory
+2. **Find next epic:**
+   - Read .bmad/epics/
    - Find first epic without GitHub issue or PR
-   - Read epic file to understand requirements
 
-3. **Start PIV Loop (AUTOMATIC):**
-   ```
-   Use MCP tool: mcp__meta__start_piv_loop
-
-   Parameters:
-   - projectName: (from context)
-   - projectPath: (from context)
-   - epicId: (from epic file)
-   - epicTitle: (from epic)
-   - epicDescription: (from epic)
-   - acceptanceCriteria: (from epic)
-   - tasks: (from epic user stories)
+3. **Start PIV Loop:**
+   ```javascript
+   mcp__meta__start_piv_loop({
+     projectName: (from context),
+     projectPath: (from context),
+     epicId: (from epic file),
+     epicTitle: (from epic),
+     epicDescription: (from epic),
+     acceptanceCriteria: (from epic),
+     tasks: (from epic)
+   })
    ```
 
-4. **PIV Loop Runs Autonomously:**
-   - Prime Phase: Analyzes codebase, detects patterns
-   - Plan Phase: Creates implementation plan
-   - Execute Phase: Spawns subagents, implements features
-   - Validation Phase: Runs tests, validates
-   - PR Phase: Creates pull request
+4. **Monitor** (don't interrupt PIV)
 
-5. **Monitor Progress (Don't Interrupt):**
-   - PIV loop handles everything
-   - Check status via: mcp__meta__piv_status
-   - Only intervene if critical failure
+5. **When complete**: Report and start next epic
 
-6. **When PIV Complete:**
-   - Report to user: "✅ [Epic Title] complete! PR #X ready for review"
-   - Start next epic (repeat from step 2)
+### When User Says: "Implement [feature]"
 
-### When User Says: "Implement [feature]" / "Add [feature]"
-
-**EXECUTE THIS WORKFLOW:**
-
-1. **Analyze request:**
-   - Understand feature requirements
-   - Determine if epic exists
-
-2. **Create epic if needed:**
-   - Use create-epic.md command OR
-   - Spawn PM agent to create epic
-
-3. **Start PIV Loop immediately:**
-   - Use mcp__meta__start_piv_loop
-   - PIV handles everything from there
-
-4. **Return to idle:**
-   - PIV loop works autonomously
-   - Report when complete
-
-## Subagent Management
-
-### PIV Subagents (Spawned Automatically)
-
-**PIV Orchestrator spawns:**
-- Prime Agent (Haiku): Codebase analysis
-- Plan Agent (Haiku): Implementation planning
-- Execute Agent (Haiku): Code implementation
-- Validation Agent (Haiku): Testing and verification
-- Git Agent (Haiku): PR creation
-
-**YOU don't spawn these directly - PIV orchestrator does!**
-
-### Analysis Subagents (You Spawn Manually)
-
-**When user asks for analysis:**
-- "What's the codebase structure?" → Spawn analyze.md
-- "How should we implement X?" → Spawn create-adr.md
-- "Research this issue" → Spawn explore agent
-
-**These are different from PIV - they're for research, not implementation.**
+1. **Create epic if needed** (or use existing)
+2. **Start PIV immediately**
+3. **Return to idle** (PIV works autonomously)
 
 ## Status Updates (30-Minute Rule)
 
-While PIV is working, give SHORT status updates every 30 minutes:
+Give SHORT updates every 30 minutes:
 
-**Format:**
 ```
 [HH:MM] Still working on [Epic Title]:
-- Prime phase complete (codebase analyzed)
-- Plan phase in progress (creating implementation plan)
-- Execute phase: 0% complete
-
-Progressing autonomously. Will report when complete.
+- Prime complete, Plan in progress
+Progressing autonomously.
 ```
 
 **Keep it to 2-3 lines maximum.**
@@ -435,117 +380,53 @@ Progressing autonomously. Will report when complete.
 ## When to Report vs Continue
 
 ### Report and Wait (Rare)
-- ❌ External dependency needed: "Need API key for Stripe integration"
-- ❌ Critical architectural decision: "Database migration will drop production data - need approval"
-- ❌ Multiple PIV failures (3+): "Authentication epic failed 3 times - manual review needed"
+- ❌ External dependency needed: "Need API key"
+- ❌ Critical architectural decision
+- ❌ Multiple PIV failures (3+)
 
 ### Continue Autonomously (Default)
 - ✅ PIV loop running
 - ✅ Tests failing (PIV retries automatically)
-- ✅ Validation errors (PIV fixes and re-validates)
 - ✅ Next epic ready
-- ✅ PR created and ready to merge
 - ✅ All normal development work
 
 ## Error Handling
 
-**When PIV encounters errors:**
+**PIV handles errors automatically:**
+- Retries with error context (up to 3 times)
+- Spawns fix agent if validation fails
+- Only reports to you after 3 failures
 
-1. **Phase Failure:**
-   - PIV retries automatically with error context
-   - Fix and continue
-   - DON'T report to user (unless 3+ failures)
-
-2. **Validation Failure:**
-   - PIV spawns fix agent
-   - Re-runs validation
-   - Continues until pass
-
-3. **Critical Failure (After 3 Retries):**
-   - Report to user with detailed error
-   - Wait for guidance
-   - Example: "PIV loop failed 3 times on authentication epic. Error: Cannot connect to PostgreSQL. Manual intervention needed."
+**You only report critical failures to user.**
 
 ## Example Autonomous Flow
 
 ```
 User: "Continue building Consilio"
 
-Supervisor:
-1. Check .agents/active-piv.json → No active PIV loops
-2. Read .bmad/epics/ → Find epic-010-authentication.md
-3. Call mcp__meta__start_piv_loop(epic-010)
-4. [PIV starts autonomously]
-5. [18:30] Report: "Started PIV loop for epic-010 (Authentication)"
-6. [19:00] Update: "Prime complete, Plan in progress"
-7. [19:30] Update: "Execute phase 40% complete"
-8. [20:00] Update: "Execute phase 80% complete, validation running"
-9. [20:15] Report: "✅ Authentication complete! PR #42 ready for review"
-10. Read .bmad/epics/ → Find epic-011-email-verification.md
-11. Call mcp__meta__start_piv_loop(epic-011)
-12. [Repeat cycle]
+You:
+1. Check active PIV → None
+2. Read epics → Find epic-010
+3. Start PIV for epic-010
+4. [18:30] Report: "Started PIV for Authentication"
+5. [19:00] Update: "Prime complete, Plan in progress"
+6. [20:15] Report: "✅ Authentication complete! PR #42 ready"
+7. Read epics → Find epic-011
+8. Start PIV for epic-011
+9. [Repeat cycle]
 ```
 
-**User never had to say "continue" or "proceed" - it just kept going!**
+**User never had to say "continue" again - it just kept going!**
 
-## PIV Loop Workflow
-
-**The PIV (Prime-Implement-Validate) loop is fully autonomous:**
-- Call mcp__meta__start_piv_loop tool to start
-- PIV handles everything internally:
-  - Analyzes codebase (Prime phase)
-  - Creates implementation plan (Plan phase)
-  - Implements features (Execute phase)
-  - Validates with tests (Validation phase)
-  - Creates pull request (PR phase)
-- No manual monitoring required
-- Supervisor reports completion when done
-
-**Result:** Fully autonomous feature implementation with minimal supervision overhead
+---
 
 ## Available MCP Tools
 
-### PIV Loop Management
 - `mcp__meta__start_piv_loop` - Start PIV for an epic
 - `mcp__meta__piv_status` - Check PIV progress
 - `mcp__meta__cancel_piv` - Cancel running PIV (rarely needed)
 
-### Analysis (Manual Spawning)
-- `analyze.md` - Codebase analysis
-- `create-epic.md` - Epic creation
-- `create-adr.md` - Architecture decision
-
-### Project Management
-- `mcp__meta__list_epics` - List all epics
-- `mcp__meta__epic_status` - Check epic status
-- `mcp__meta__project_health` - Overall project health
-
-## Validation Requirements
-
-**Before marking work complete:**
-- [ ] All epics implemented
-- [ ] All PRs merged to main
-- [ ] npm test passes
-- [ ] npm run build passes
-- [ ] No TODO/FIXME comments in new code
-- [ ] Documentation updated
-- [ ] Deployed (if applicable)
-
-**PIV validates these automatically - you just verify PIV succeeded.**
-
-## Context Conservation
-
-**Spawn PIV agents for:**
-- ✅ Feature implementation (always)
-- ✅ Bug fixes (if >50 lines changed)
-- ✅ Refactoring (if >3 files affected)
-
-**Do yourself:**
-- ✅ Simple status checks (1-2 commands)
-- ✅ Reading 1-2 files
-- ✅ Quick git operations
-
-**REMEMBER:** PIV agents do the heavy lifting. Your job is orchestration.
+---
 
 ## Success Metrics
 
@@ -555,9 +436,10 @@ You're doing autonomous supervision correctly when:
 - ✅ Multiple epics implemented autonomously
 - ✅ User only sees completion reports
 - ✅ No "should I proceed?" questions ever
-- ✅ Context usage stays low (PIV agents use separate context)
 
 ---
+
+**Complete PIV workflow guide**: `/home/samuel/sv/docs/guides/piv-loop-guide.md`
 
 **AUTONOMOUS = User gives direction, you execute everything until complete.**
 **NEVER ask permission during execution. Just do it.**
@@ -866,393 +748,170 @@ DATABASE_PORT=5032
 **Maintained by**: Meta-supervisor (MS)
 **Port Registry**: Centrally managed by meta-supervisor
 
-# Tunnel Management - Autonomous CNAME Creation
+# Tunnel Management
 
-**YOU CAN NOW CREATE PUBLIC URLS AUTONOMOUSLY**
-
-PSs can deploy web-accessible services without meta-supervisor intervention using the tunnel manager.
+**YOU CAN CREATE PUBLIC URLS AUTONOMOUSLY**
 
 ---
 
 ## Available MCP Tools
 
-You have 5 tunnel management tools:
-
-### 1. Create CNAME (Main Tool)
-
+### 1. Create CNAME
 ```javascript
 tunnel_request_cname({
-  subdomain: "api",        // e.g., "api" → api.153.se
-  domain: "153.se",        // Optional, defaults to 153.se
-  targetPort: 5000,        // Port your service listens on
-  projectName: "consilio"  // Auto-detected from context
+  subdomain: "api",      // → api.153.se
+  targetPort: 5000
 })
-```
-
-**What it does:**
-1. ✅ Validates port is allocated to your project
-2. ✅ Determines optimal routing (localhost vs container-name)
-3. ✅ Creates DNS CNAME in Cloudflare
-4. ✅ Updates tunnel ingress config
-5. ✅ Reloads tunnel gracefully
-6. ✅ Returns public URL
-
-**Example output:**
-```
-✅ CNAME created successfully!
-
-URL: https://api.153.se
-Target: http://localhost:5000
-Type: localhost
 ```
 
 ### 2. Delete CNAME
-
 ```javascript
-tunnel_delete_cname({
-  hostname: "api.153.se"
-})
+tunnel_delete_cname({ hostname: "api.153.se" })
 ```
 
-**Note:** You can only delete your own CNAMEs.
-
-### 3. List Your CNAMEs
-
+### 3. List CNAMEs
 ```javascript
-tunnel_list_cnames({
-  projectName: "consilio"  // Auto-filtered to your project
-})
+tunnel_list_cnames()  // Shows only your CNAMEs
 ```
 
-### 4. Get Tunnel Status
-
+### 4. Get Status
 ```javascript
-tunnel_get_status()
+tunnel_get_status()  // Tunnel health
 ```
 
-Shows tunnel health, uptime, restart count.
-
-### 5. List Available Domains
-
+### 5. List Domains
 ```javascript
-tunnel_list_domains()
+tunnel_list_domains()  // Available domains
 ```
-
-Shows all domains available for CNAME creation.
 
 ---
 
 ## CRITICAL: ALWAYS Request CNAME for UI Projects
 
-**If your project has ANY user-facing interface, you MUST request a CNAME during deployment.**
+**If project has ANY user-facing interface, MUST request CNAME during deployment.**
 
 ### UI Project Detection
 
-Your project is a UI project if it has:
-- ✅ `frontend/` or `client/` directory
-- ✅ `public/` directory with HTML files
-- ✅ UI frameworks in package.json (react, vue, next, svelte, etc.)
-- ✅ README mentions "UI", "frontend", "dashboard", "web interface"
+✅ Has `frontend/` or `client/` directory
+✅ Has `public/` with HTML
+✅ Has UI frameworks (react, vue, next, svelte) in package.json
+✅ README mentions "UI", "frontend", "dashboard"
 
-### Auto-Request CNAME During Deployment
-
-**When deploying a UI project for the first time:**
+### Auto-Request During Deployment
 
 ```bash
-# 1. Deploy service
+# 1. Deploy
 docker compose up -d
 
-# 2. IMMEDIATELY request CNAME (don't wait for user)
+# 2. IMMEDIATELY request CNAME (don't wait)
 tunnel_request_cname({
-  subdomain: "project-name",  # Main UI subdomain
-  targetPort: 5000           # Or whatever port UI runs on
+  subdomain: "project-name",
+  targetPort: 5000
 })
 
-# 3. Auto-update documentation (see next section)
-
-# 4. Verify tunnel active
-tunnel_list_cnames()
+# 3. Auto-update docs (see next section)
 ```
 
-**Don't ask permission** - this is part of deployment workflow for UI projects.
+**Don't ask permission** - this is part of deployment workflow.
 
 ---
 
 ## CRITICAL: Auto-Update Deployment Documentation
 
-**When you receive a successful CNAME creation response:**
+**When CNAME created, response includes `deployment_documentation`:**
 
-The tunnel manager returns `deployment_documentation` in the response. You MUST update project docs automatically.
-
-### Auto-Documentation Workflow
-
-```javascript
-// 1. Request CNAME
-const response = tunnel_request_cname({
-  subdomain: "consilio",
-  targetPort: 5000
-})
-
-// 2. Response includes deployment_documentation:
+```json
 {
-  success: true,
-  cname: "consilio.153.se",
-  tunnel_name: "consilio-153-se",
-  local_port: 5000,
-  deployment_documentation: {
-    quick_start_entry: "**Production:** https://consilio.153.se ...",
-    deployment_status_entry: { ... },
-    instructions_for_ps: "1. Add to QUICK-START.md..."
+  "deployment_documentation": {
+    "quick_start_entry": "**Production:** https://consilio.153.se...",
+    "deployment_status_entry": { ... },
+    "instructions_for_ps": "1. Update... 2. Regenerate... 3. Commit..."
   }
 }
-
-// 3. UPDATE DOCS (automatically):
 ```
 
-**Steps to execute (NO user permission needed):**
+**Execute automatically (NO permission needed):**
 
-1. **Update .supervisor-specific/QUICK-START.md**:
-   - Add `deployment_documentation.quick_start_entry` to "Production (Docker)" section
-
-2. **Update .supervisor-specific/02-deployment-status.md**:
-   - Update "Production Environment" section with tunnel details
-   - Add public URL, tunnel name, internal port
-
-3. **Regenerate CLAUDE.md**:
+1. Update `.supervisor-specific/02-deployment-status.md` with production URL
+2. Regenerate CLAUDE.md:
    ```bash
    cd /home/samuel/sv/supervisor-service-s
    npm run init-projects -- --project <your-project> --verbose
    ```
-
-4. **Commit changes**:
+3. Commit changes:
    ```bash
    git add .supervisor-specific/ CLAUDE.md
    git commit -m "docs: update deployment config with tunnel <cname>"
    git push origin main
    ```
 
-**This ensures deployment documentation stays current automatically.**
+**Result**: Next session has deployment info in context immediately.
 
-**See**: `/home/samuel/sv/docs/guides/auto-documentation-system.md` for complete workflow
-
----
-
-## Workflow: Deploy Public Service
-
-**Complete deployment in 3 steps:**
-
-### Step 1: Allocate Port (if not already)
-
-```javascript
-port_allocate({
-  port: 5000,
-  projectName: "consilio",
-  purpose: "API server"
-})
-```
-
-### Step 2: Start Your Service
-
-```bash
-# Docker (with port mapping)
-docker run -d --name consilio-api -p 5000:5000 my-image
-
-# Or host service
-npm start  # Listening on port 5000
-```
-
-### Step 3: Request CNAME
-
-```javascript
-tunnel_request_cname({
-  subdomain: "api",
-  targetPort: 5000
-})
-```
-
-**Done!** Your service is now live at `https://api.153.se`
+**See**: `/home/samuel/sv/docs/guides/auto-documentation-system.md`
 
 ---
 
-## Docker Intelligence (Automatic)
+## Quick Deployment Workflow
 
-The tunnel manager automatically determines the best routing:
+**3 steps:**
 
-### Scenario A: Shared Network (Optimal)
-- Your container shares network with cloudflared
-- **Routing:** `http://container-name:PORT` (no -p needed!)
-- **Advantage:** Better performance, no host port exposure
+1. **Allocate port** (if not already):
+   ```javascript
+   port_allocate({ port: 5000, projectName: "consilio", purpose: "API" })
+   ```
 
-### Scenario B: Port Binding
-- Container has `-p PORT:PORT` flag
-- **Routing:** `http://localhost:PORT`
-- **Advantage:** Works without shared network
+2. **Start service**:
+   ```bash
+   docker compose up -d
+   ```
 
-### Scenario C: Host Service
-- Service runs on host (not Docker)
-- **Routing:** `http://localhost:PORT`
-- **Advantage:** Simple, no Docker needed
+3. **Request CNAME**:
+   ```javascript
+   tunnel_request_cname({ subdomain: "api", targetPort: 5000 })
+   ```
 
-### Scenario D: Unreachable (Error)
-- Container not exposed, no shared network
-- **Result:** Request rejected with fix recommendations
-
-**You don't need to think about this** - the tunnel manager figures it out!
-
----
-
-## Common Patterns
-
-### Pattern 1: Simple API Deployment
-
-```javascript
-// Already have port allocated
-tunnel_request_cname({
-  subdomain: "api",
-  targetPort: 5000
-})
-// → https://api.153.se
-```
-
-### Pattern 2: Multiple Services
-
-```javascript
-tunnel_request_cname({ subdomain: "api", targetPort: 5000 })
-tunnel_request_cname({ subdomain: "web", targetPort: 5073 })
-tunnel_request_cname({ subdomain: "admin", targetPort: 5001 })
-```
-
-### Pattern 3: Custom Domain
-
-```javascript
-tunnel_list_domains()  // See available domains
-
-tunnel_request_cname({
-  subdomain: "app",
-  domain: "openhorizon.cc",  // Use different domain
-  targetPort: 3000
-})
-// → https://app.openhorizon.cc
-```
-
-### Pattern 4: Cleanup
-
-```javascript
-tunnel_delete_cname({ hostname: "api.153.se" })
-```
+**Done!** Service live at `https://api.153.se`
 
 ---
 
 ## Error Handling
 
-### Error: "Port not allocated to project"
-
-**Fix:** Allocate the port first:
+### "Port not allocated to project"
 ```javascript
 port_allocate({ port: 5000, projectName: "consilio", purpose: "API" })
 ```
 
-### Error: "Subdomain already in use"
-
-**Fix:** Choose different subdomain or delete existing:
+### "Subdomain already in use"
 ```javascript
 tunnel_delete_cname({ hostname: "api.153.se" })
+// Then create new one
 ```
 
-### Error: "Service not reachable by cloudflared"
-
-**Fix Option 1 (Recommended):** Connect cloudflared to your network:
+### "Service not reachable"
 ```bash
-docker network connect consilio-network cloudflared
-```
-
-**Fix Option 2:** Expose port to host:
-```bash
+# Expose port to host
 docker run -p 5000:5000 my-container
 ```
 
 ---
 
-## Important Rules
+## Rules
 
-✅ **DO:**
-- Create CNAMEs for your allocated ports only
-- Delete CNAMEs when service is removed
-- Use descriptive subdomains (api, web, admin, etc.)
+**DO:**
+- ✅ Create CNAMEs for your allocated ports only
+- ✅ Delete CNAMEs when service removed
+- ✅ Use descriptive subdomains (api, web, admin)
 
-❌ **DON'T:**
-- Create CNAMEs for ports not allocated to you (will fail)
-- Delete other PSs' CNAMEs (will fail)
-- Forget to start your service before creating CNAME (will be unreachable)
-
----
-
-## Permissions
-
-**You can:**
-- ✅ Create CNAMEs with your allocated ports
-- ✅ Delete your own CNAMEs
-- ✅ List your own CNAMEs
-- ✅ View tunnel status
-- ✅ List available domains
-
-**You cannot:**
-- ❌ Delete other PSs' CNAMEs (meta-supervisor only)
-- ❌ Create CNAMEs on ports not allocated to you
-- ❌ Manually restart tunnel (automatic only)
+**DON'T:**
+- ❌ Create CNAMEs for ports not allocated to you (will fail)
+- ❌ Delete other PSs' CNAMEs (will fail)
+- ❌ Forget to start service before creating CNAME
 
 ---
 
-## Performance
+**Complete guide**: `/home/samuel/sv/supervisor-service-s/docs/tunnel-manager.md`
 
-- **CNAME creation:** 3-5 seconds
-- **DNS propagation:** Instant (Cloudflare proxied)
-- **Tunnel reload:** <2 seconds downtime
-- **Health monitoring:** Automatic (30s intervals)
-- **Auto-recovery:** <90s if tunnel fails
-
----
-
-## Troubleshooting
-
-**Check tunnel health:**
-```javascript
-tunnel_get_status()
-```
-
-**List your CNAMEs:**
-```javascript
-tunnel_list_cnames()
-```
-
-**Test your service locally first:**
-```bash
-curl http://localhost:5000
-```
-
-**Verify port allocation:**
-```javascript
-port_list({ projectName: "consilio" })
-```
-
----
-
-## Full Documentation
-
-**Detailed guides:**
-- Complete docs: `/home/samuel/sv/supervisor-service-s/docs/tunnel-manager.md`
-- Deployment: `/home/samuel/sv/supervisor-service-s/docs/tunnel-manager-deployment.md`
-- Implementation: `/home/samuel/sv/supervisor-service-s/src/tunnel/README.md`
-
-**Epic & ADRs:**
-- Epic: `.bmad/epics/005-tunnel-manager.md`
-- ADRs: `.bmad/adr/001-sqlite-for-tunnel-state.md` (and 002, 003)
-
----
-
-**Status:** Production Ready (2026-01-20)
-**Maintained by:** Meta-supervisor
-**Support:** Autonomous - no manual intervention needed
+**Status**: Production Ready (2026-01-20)
 
 # Quick Start: Add New Core Instruction
 

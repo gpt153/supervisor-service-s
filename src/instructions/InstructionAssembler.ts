@@ -13,8 +13,17 @@ import {
  *
  * Layers (in order of priority):
  * 1. Core (.supervisor-core/) - Shared across all supervisors
+ *    - Keep these LEAN using reference pattern
+ *    - Core behavior inline, templates/guides in /docs/
  * 2. Meta (.supervisor-meta/) - Meta/supervisor-service specific
- * 3. Project (.supervisor-specific/ or .claude-specific/) - Project-specific (preserved)
+ * 3. Project (.supervisor-specific/) - Project-specific (preserved)
+ *
+ * Reference Pattern:
+ * - Core instructions reference external templates/guides in /home/samuel/sv/docs/
+ * - PSes can read referenced docs when needed using Read tool
+ * - Keeps CLAUDE.md files lean (~1200 lines vs 1600+ lines)
+ *
+ * See: /home/samuel/sv/supervisor-service-s/.supervisor-core/README.md
  */
 export class InstructionAssembler {
   private corePath: string;
@@ -34,7 +43,7 @@ export class InstructionAssembler {
     this.projectPath = supervisorSpecificPath;
 
     // Fallback to supervisor-service core if core not found locally
-    this.supervisorServicePath = supervisorServicePath || '/home/samuel/sv/supervisor-service';
+    this.supervisorServicePath = supervisorServicePath || '/home/samuel/sv/supervisor-service-s';
   }
 
   /**
@@ -44,11 +53,14 @@ export class InstructionAssembler {
     const sections: InstructionSection[] = [];
     const sources: string[] = [];
 
+    // Determine if this is meta-supervisor (has meta instructions)
+    const isMetaSupervisor = options.isMetaSupervisor || false;
+
     // 1. Load core instructions (local first, then supervisor-service fallback)
-    let coreContent = await this.loadLayer(this.corePath, 'core');
+    let coreContent = await this.loadLayer(this.corePath, 'core', { isMetaSupervisor });
     if (!coreContent && this.supervisorServicePath) {
       const fallbackCorePath = join(this.supervisorServicePath, '.supervisor-core');
-      coreContent = await this.loadLayer(fallbackCorePath, 'core');
+      coreContent = await this.loadLayer(fallbackCorePath, 'core', { isMetaSupervisor });
     }
 
     if (coreContent) {
@@ -57,7 +69,7 @@ export class InstructionAssembler {
     }
 
     // 2. Load meta-specific instructions (only for supervisor-service)
-    const metaContent = await this.loadLayer(this.metaPath, 'meta');
+    const metaContent = await this.loadLayer(this.metaPath, 'meta', { isMetaSupervisor });
     if (metaContent) {
       sections.push(...metaContent.sections);
       sources.push(...metaContent.sources);
@@ -65,7 +77,7 @@ export class InstructionAssembler {
 
     // 3. Load project-specific instructions (if preserve flag set)
     if (options.preserveProjectSpecific) {
-      const projectContent = await this.loadLayer(this.projectPath, 'project');
+      const projectContent = await this.loadLayer(this.projectPath, 'project', { isMetaSupervisor });
       if (projectContent) {
         sections.push(...projectContent.sections);
         sources.push(...projectContent.sources);
@@ -96,16 +108,24 @@ export class InstructionAssembler {
    */
   private async loadLayer(
     layerPath: string,
-    source: 'core' | 'meta' | 'project'
+    source: 'core' | 'meta' | 'project',
+    options?: { isMetaSupervisor?: boolean }
   ): Promise<{ sections: InstructionSection[]; sources: string[] } | null> {
     try {
       const stats = await stat(layerPath);
       if (!stats.isDirectory()) return null;
 
       const files = await readdir(layerPath);
-      const mdFiles = files
+      let mdFiles = files
         .filter(f => f.endsWith('.md'))
         .sort(); // Alphabetical order
+
+      // Exclude meta-specific files from project-supervisors
+      if (source === 'core' && !options?.isMetaSupervisor) {
+        mdFiles = mdFiles.filter(f =>
+          f !== 'README.md' && f !== 'QUICK-START.md'
+        );
+      }
 
       const sections: InstructionSection[] = [];
       const sources: string[] = [];

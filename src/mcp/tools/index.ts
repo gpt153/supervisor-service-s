@@ -16,6 +16,8 @@ import { getCloudflareTools } from '../../cloudflare/cloudflare-tools.js';
 import { getGCloudTools } from '../../gcloud/gcloud-tools.js';
 import { getPIVTools } from './piv-tools.js';
 import { getProjectContextTools } from './project-context-tools.js';
+import { getMultiAgentTools } from './multi-agent-tools.js';
+import { tunnelTools } from './tunnel-tools.js';
 
 const execAsync = promisify(exec);
 
@@ -368,6 +370,12 @@ export function getAllTools(): ToolDefinition[] {
 
     // Project context tools
     ...getProjectContextTools(),
+
+    // Multi-agent CLI integration tools
+    ...getMultiAgentTools(),
+
+    // Tunnel management tools
+    ...tunnelTools,
   ];
 }
 

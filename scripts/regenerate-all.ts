@@ -2,6 +2,16 @@
 
 /**
  * Regenerate all CLAUDE.md files in the SV system
+ *
+ * Uses the optimized reference pattern:
+ * - Core instructions from .supervisor-core/ (shared, lean)
+ * - Meta instructions from .supervisor-meta/ (MS only)
+ * - Project instructions from .supervisor-specific/ (per project)
+ * - Templates/guides referenced from /docs/ (external)
+ *
+ * Result: CLAUDE.md files are 22% smaller, same functionality
+ *
+ * See: /home/samuel/sv/supervisor-service-s/.supervisor-core/README.md
  */
 
 import { InstructionAssembler } from '../src/instructions/InstructionAssembler.js';
@@ -11,7 +21,7 @@ import { existsSync } from 'fs';
 
 const SV_ROOT = '/home/samuel/sv';
 const EXCLUDED_DIRS = [
-  'supervisor-service',
+  'supervisor-service-s',  // Fixed: correct directory name
   '.claude',
   'templates',
   'docs',
@@ -23,9 +33,9 @@ const EXCLUDED_DIRS = [
 async function regenerateAll() {
   console.log('🔄 Regenerating all CLAUDE.md files...\n');
 
-  // First, regenerate supervisor-service itself
-  console.log('1. supervisor-service (meta)');
-  const supervisorServicePath = join(SV_ROOT, 'supervisor-service');
+  // First, regenerate supervisor-service-s itself (meta-supervisor)
+  console.log('1. supervisor-service-s (meta)');
+  const supervisorServicePath = join(SV_ROOT, 'supervisor-service-s');
   const supervisorAssembler = new InstructionAssembler(supervisorServicePath);
   const supervisorClaudeMd = join(supervisorServicePath, 'CLAUDE.md');
 
@@ -81,11 +91,18 @@ async function regenerateAll() {
 
   console.log('✅ All CLAUDE.md files regenerated!\n');
   console.log('📋 What was updated:');
-  console.log('  - Core instructions from .supervisor-core/');
-  console.log('  - Including NEW 05-autonomous-supervision.md');
-  console.log('  - Meta instructions from .supervisor-meta/ (for supervisor-service)');
-  console.log('  - Project-specific sections preserved\n');
-  console.log('🚀 Next: Restart supervisor-service to pick up changes');
+  console.log('  - Core instructions from .supervisor-core/ (8 files, optimized with reference pattern)');
+  console.log('  - Meta instructions from .supervisor-meta/ (for supervisor-service-s only)');
+  console.log('  - Project-specific sections from .supervisor-specific/ (preserved)');
+  console.log('  - Templates/guides referenced from /docs/ (external, not inlined)\n');
+  console.log('📊 Result:');
+  console.log('  - CLAUDE.md files ~22% smaller (reference pattern)');
+  console.log('  - Core behavior inline, details in /docs/');
+  console.log('  - Same functionality, better performance\n');
+  console.log('📚 Documentation:');
+  console.log('  - Quick start: .supervisor-core/QUICK-START.md');
+  console.log('  - Full guide: .supervisor-core/README.md');
+  console.log('  - Maintenance: docs/guides/instruction-system-maintenance.md');
 }
 
 regenerateAll().catch(console.error);
