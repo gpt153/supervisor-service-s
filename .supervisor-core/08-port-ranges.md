@@ -1,6 +1,33 @@
 # Port Management
 
-**Last Updated**: 2026-01-19
+**Last Updated**: 2026-01-20
+
+---
+
+## 🚨 CRITICAL: Port Range Compliance
+
+**YOU MUST ONLY USE PORTS FROM YOUR ASSIGNED RANGE. NO EXCEPTIONS.**
+
+### Before Configuring ANY Service
+
+**MANDATORY validation checklist:**
+
+1. ✅ **Read your assigned range** from `.supervisor-specific/02-deployment-status.md`
+2. ✅ **Verify port is within range** before using it
+3. ✅ **Request allocation** if you need a new port
+4. ❌ **NEVER use default ports** (3000, 4000, 8080, etc.) without verification
+
+### Common Port Pitfalls (AVOID!)
+
+| ❌ Default Port | Project Using It | ✅ What You Should Do |
+|----------------|------------------|---------------------|
+| 3000 | Common Node.js default | Use port from YOUR range |
+| 4000 | Common API default | Use port from YOUR range |
+| 5000 | Flask/Python default | Check if it's in YOUR range |
+| 8000 | Common server default | Reserved for infrastructure |
+| 8080 | Common alt-HTTP | Use port from YOUR range |
+
+**If you're tempted to use a "common" port → STOP and verify your assigned range first.**
 
 ---
 
@@ -9,86 +36,58 @@
 Each project in the SV system is assigned a dedicated port range to prevent conflicts.
 
 **Your Project's Port Range:**
-- Check `.supervisor-specific/` files for your assigned range
+- **ALWAYS check** `.supervisor-specific/02-deployment-status.md` for your assigned range
 - Typically: 100 ports per project (e.g., 5000-5099, 5100-5199)
+- **Example ranges:**
+  - consilio-s: 5000-5099
+  - odin-s: 5100-5199
+  - openhorizon-s: 5200-5299
+  - health-agent-s: 5300-5399
 
 **Reserved Infrastructure Ports:**
 - **8000-8099**: Supervisor infrastructure (MCP server, etc.)
-- **3000-3099**: Legacy/shared ports (avoid using)
+- **3000-3099**: Legacy/shared ports (DO NOT USE)
 
 ---
 
 ## Requesting Ports
 
-### Need a New Port?
+### Before Using a New Port
 
-Ask the meta-supervisor (MS) to allocate a port from your range:
+**MANDATORY workflow:**
 
-**In Supervisor Session in Browser (SSB):**
-```
-Use MCP tool: mcp__meta__allocate_port
+1. Identify service (frontend, backend, database, etc.)
+2. Read your range from `.supervisor-specific/02-deployment-status.md`
+3. Pick next available port from YOUR range
+4. Request allocation:
+   - **SSB**: Use `mcp__meta__allocate_port` MCP tool
+   - **SSC**: Contact meta-supervisor (MS)
+5. Update `.env`, `docker-compose.yml`, deployment docs
 
-Parameters:
-- projectName: your-project-name
-- serviceName: postgres | redis | api | frontend | etc.
-- purpose: Brief description
-```
-
-**In Supervisor Session in CLI (SSC):**
-```
-Contact meta-supervisor to request port allocation
-```
-
-The meta-supervisor (MS) will:
-1. Check your project's allocated range
-2. Find next available port
-3. Update central port registry
-4. Return assigned port
+**MS validates:** Port in your range, not already allocated. Rejects if outside range.
 
 ---
 
 ## Checking Port Usage
 
-**See what's using a port:**
-```bash
-# Check specific port
-lsof -i :5000
-
-# All listening ports on system
-sudo lsof -i -P -n | grep LISTEN
-
-# Docker port mappings
-docker ps --format "table {{.Names}}\t{{.Ports}}"
-```
-
-**Kill process on port:**
-```bash
-# Find and kill
-kill $(lsof -ti:5000)
-```
+**Quick commands:**
+- Check port: `lsof -i :5000`
+- Kill process: `kill $(lsof -ti:5000)`
+- Docker ports: `docker ps --format "table {{.Names}}\t{{.Ports}}"`
 
 ---
 
 ## Port Configuration Files
 
-**Update these when using new ports:**
+**MUST update these when using new ports:**
 - `docker-compose.yml` - Docker port mappings
-- `.env.example` - Document port variables
-- `README.md` - Update deployment docs
+- `.env` - Runtime configuration
+- `.env.example` - Template for new environments
+- `.supervisor-specific/02-deployment-status.md` - Document allocation
 
-**Example docker-compose.yml:**
-```yaml
-services:
-  postgres:
-    ports:
-      - "5032:5432"  # Map external:internal
-```
+**Key Rule:** External/host ports MUST be in your range. Internal container ports can be anything.
 
-**Example .env:**
-```bash
-API_PORT=5000
-DATABASE_PORT=5032
-```
+**Examples:** See `/home/samuel/sv/docs/guides/port-management-examples.md` for complete configuration examples
 
 ---
 
@@ -107,21 +106,9 @@ DATABASE_PORT=5032
 ## Port Conflicts
 
 **If you encounter a port conflict:**
-
-1. **Check what's using it:**
-   ```bash
-   lsof -i :5000
-   ```
-
-2. **Ask meta-supervisor (MS):**
-   - "Which port should I use for [service]?"
-   - MS will consult central registry
-   - MS will assign available port from your range
-
-3. **Update configuration:**
-   - Update docker-compose.yml
-   - Update .env.example
-   - Restart services
+1. Check what's using it: `lsof -i :5000`
+2. Ask meta-supervisor (MS) for available port from your range
+3. Update docker-compose.yml, .env files, and restart services
 
 ---
 

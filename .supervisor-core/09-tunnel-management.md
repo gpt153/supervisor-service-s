@@ -103,33 +103,30 @@ tunnel_request_cname({
 
 ## Quick Deployment Workflow
 
-**3 steps:**
+**CRITICAL: Port MUST be in your assigned range.**
 
-1. **Allocate port** (if not already):
-   ```javascript
-   port_allocate({ port: 5000, projectName: "consilio", purpose: "API" })
-   ```
+**Steps:**
+1. Verify port in YOUR range (check `.supervisor-specific/02-deployment-status.md`)
+2. Allocate port: `port_allocate({ port, projectName, purpose })`
+3. Start service: `docker compose up -d`
+4. Request CNAME: `tunnel_request_cname({ subdomain, targetPort })`
 
-2. **Start service**:
-   ```bash
-   docker compose up -d
-   ```
-
-3. **Request CNAME**:
-   ```javascript
-   tunnel_request_cname({ subdomain: "api", targetPort: 5000 })
-   ```
-
-**Done!** Service live at `https://api.153.se`
+**MCP tool validates:**
+- ✅ Port allocated to your project
+- ✅ Port within assigned range
+- ❌ Rejects if outside range
 
 ---
 
 ## Error Handling
 
 ### "Port not allocated to project"
-```javascript
-port_allocate({ port: 5000, projectName: "consilio", purpose: "API" })
-```
+
+**Solution:** Check `.supervisor-specific/02-deployment-status.md` for your assigned range, pick a port from YOUR range, allocate it via `port_allocate`, then retry.
+
+### "Port outside assigned range"
+
+**Solution:** Use a port from YOUR assigned range, NOT common defaults (3000, 4000, 8080). Update .env and docker-compose.yml.
 
 ### "Subdomain already in use"
 ```javascript
