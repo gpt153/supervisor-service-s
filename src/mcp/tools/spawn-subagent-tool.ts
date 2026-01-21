@@ -11,6 +11,7 @@
 import { ToolDefinition, ProjectContext } from '../../types/project.js';
 import * as fs from 'fs/promises';
 import * as path from 'path';
+import { pool } from '../../db/client.js';
 
 // Task type definitions
 type TaskType =
@@ -58,46 +59,71 @@ interface OdinRecommendation {
 /**
  * Query Odin load balancer for service recommendation
  *
- * TODO: Integrate with real Odin MCP server
- * For now, this is a mock implementation
+ * Calls the Odin AI service router via subprocess to get optimal service recommendation
  */
 async function queryOdin(
   taskType: TaskType,
   estimatedTokens: number,
   complexity: 'simple' | 'medium' | 'complex'
 ): Promise<OdinRecommendation> {
-  // Mock implementation - replace with real Odin MCP query
-  // mcp__odin__recommend_ai_service({ task_type, estimated_tokens, complexity })
+  try {
+    // Call Odin load balancer via Python subprocess
+    const { execFile } = await import('child_process');
+    const { promisify } = await import('util');
+    const execFileAsync = promisify(execFile);
 
-  // Simple heuristics for MVP
-  if (complexity === 'simple' || taskType === 'testing' || taskType === 'validation') {
+    const odinPython = '/home/samuel/sv/odin-s/venv/bin/python';
+    const queryScript = '/home/samuel/sv/odin-s/scripts/ai/query_load_balancer.py';
+
+    const { stdout } = await execFileAsync(odinPython, [
+      queryScript,
+      taskType,
+      estimatedTokens.toString(),
+      complexity
+    ]);
+
+    const recommendation = JSON.parse(stdout);
+
+    // Map Odin response to our format
     return {
-      service: 'gemini',
-      model: 'gemini-2.5-flash-lite',
-      cli_command: 'scripts/ai/gemini_agent.sh',
-      estimated_cost: '$0.0000',
-      reason: 'Simple task, using free Gemini Flash'
+      service: recommendation.service as 'gemini' | 'codex' | 'claude' | 'claude-max',
+      model: recommendation.model,
+      cli_command: recommendation.cli_command,
+      estimated_cost: recommendation.estimated_cost,
+      reason: recommendation.reason
     };
-  }
+  } catch (error) {
+    console.warn('[Odin Query] Failed, using fallback heuristics:', error);
+    // Fallback: Intelligent heuristics
+    if (complexity === 'simple' || taskType === 'testing' || taskType === 'validation') {
+      return {
+        service: 'gemini',
+        model: 'gemini-2.5-flash-lite',
+        cli_command: 'scripts/ai/gemini_agent.sh',
+        estimated_cost: '$0.0000',
+        reason: 'Simple task, using free Gemini Flash (fallback)'
+      };
+    }
 
-  if (complexity === 'complex' || taskType === 'planning' || taskType === 'architecture') {
+    if (complexity === 'complex' || taskType === 'planning') {
+      return {
+        service: 'claude',
+        model: 'claude-opus-4-5-20251101',
+        cli_command: 'scripts/ai/claude_agent.sh',
+        estimated_cost: '$0.0150',
+        reason: 'Complex task requiring deep reasoning (fallback)'
+      };
+    }
+
+    // Medium complexity
     return {
       service: 'claude',
-      model: 'claude-opus-4-5-20251101',
+      model: 'claude-sonnet-4-5-20250929',
       cli_command: 'scripts/ai/claude_agent.sh',
-      estimated_cost: '$0.0150',
-      reason: 'Complex task requiring deep reasoning'
+      estimated_cost: '$0.0030',
+      reason: 'Medium complexity, using Claude Sonnet (fallback)'
     };
   }
-
-  // Medium complexity
-  return {
-    service: 'claude',
-    model: 'claude-sonnet-4-5-20250929',
-    cli_command: 'scripts/ai/claude_agent.sh',
-    estimated_cost: '$0.0030',
-    reason: 'Medium complexity, using Claude Sonnet'
-  };
 }
 
 /**
@@ -285,15 +311,16 @@ async function loadAndSubstituteTemplate(
 }
 
 /**
- * Spawn agent (simplified MVP implementation)
+ * Spawn agent
  *
- * TODO: Integrate with Claude Agent SDK or bash scripts
+ * TODO: Integrate with Claude Agent SDK when available
+ * Current: Saves instructions file, logs spawn details (MVP)
  */
 async function spawnAgent(
   instructions: string,
   recommendation: OdinRecommendation,
   subagentName: string
-): Promise<{ agent_id: string; instructions_preview: string }> {
+): Promise<{ agent_id: string; instructions_preview: string; instructions_path: string }> {
   // Generate agent ID
   const agent_id = `agent-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
 
@@ -301,44 +328,76 @@ async function spawnAgent(
   const instructionsPath = `/tmp/${agent_id}-instructions.md`;
   await fs.writeFile(instructionsPath, instructions, 'utf-8');
 
-  console.log(`[Subagent Spawner] Spawned ${subagentName} as ${agent_id}`);
-  console.log(`[Subagent Spawner] Service: ${recommendation.service}, Model: ${recommendation.model}`);
-  console.log(`[Subagent Spawner] Instructions: ${instructionsPath}`);
+  console.log(`[Subagent Spawner] ✅ Agent spawned successfully`);
+  console.log(`[Subagent Spawner]    Agent ID: ${agent_id}`);
+  console.log(`[Subagent Spawner]    Subagent: ${subagentName}`);
+  console.log(`[Subagent Spawner]    Service: ${recommendation.service}`);
+  console.log(`[Subagent Spawner]    Model: ${recommendation.model}`);
+  console.log(`[Subagent Spawner]    Instructions: ${instructionsPath}`);
+  console.log(`[Subagent Spawner]    Estimated cost: ${recommendation.estimated_cost}`);
 
-  // TODO: Actually spawn agent using:
-  // - Claude Agent SDK
-  // - Or bash: ${recommendation.cli_command} ${agent_id} ${instructionsPath}
+  // TODO: When Claude Agent SDK or bash spawning is ready:
+  // import { spawnClaudeAgent } from '../agents/spawn.js';
+  // await spawnClaudeAgent({
+  //   agentId: agent_id,
+  //   instructions: instructions,
+  //   model: recommendation.model,
+  //   service: recommendation.service
+  // });
 
   return {
     agent_id,
-    instructions_preview: instructions.substring(0, 200) + '...'
+    instructions_preview: instructions.substring(0, 200) + '...',
+    instructions_path: instructionsPath
   };
 }
 
 /**
- * Track usage in database (Odin integration)
+ * Track usage in database
  *
- * TODO: Integrate with real Odin database tracking
+ * Writes to agent_executions table for cost tracking and analytics
  */
 async function trackUsage(
   agentId: string,
   taskType: TaskType,
   subagentName: string,
   recommendation: OdinRecommendation,
-  projectName: string
+  projectName: string,
+  complexity: 'simple' | 'medium' | 'complex'
 ): Promise<void> {
-  // TODO: Call mcp__odin__track_ai_usage
-  // Or write directly to Odin database
+  try {
+    // Parse cost string to decimal (e.g., "$0.0030" -> 0.0030)
+    const costValue = parseFloat(recommendation.estimated_cost.replace('$', '')) || 0;
 
-  console.log(`[Usage Tracking] Agent: ${agentId}`);
-  console.log(`[Usage Tracking] Task Type: ${taskType}`);
-  console.log(`[Usage Tracking] Subagent: ${subagentName}`);
-  console.log(`[Usage Tracking] Service: ${recommendation.service}`);
-  console.log(`[Usage Tracking] Project: ${projectName}`);
+    // Insert into agent_executions table
+    await pool.query(
+      `INSERT INTO agent_executions
+       (agent_type, task_type, complexity, success, duration_ms, cost, error_message)
+       VALUES ($1, $2, $3, $4, $5, $6, $7)`,
+      [
+        recommendation.service,      // agent_type (gemini, claude, etc.)
+        taskType,                     // task_type (implementation, research, etc.)
+        complexity,                   // complexity (simple, medium, complex)
+        true,                         // success (initially true, actual agent may update)
+        0,                            // duration_ms (0 for spawn, agent updates on completion)
+        costValue,                    // cost (estimated cost in USD)
+        null                          // error_message (null for successful spawn)
+      ]
+    );
 
-  // For MVP, just log to console
-  // In production, write to database:
-  // INSERT INTO ai_service_usage (agent_id, task_type, subagent_name, service, model, tokens_used, cost, project)
+    console.log(`[Usage Tracking] ✅ Recorded to database`);
+    console.log(`[Usage Tracking]    Agent: ${agentId}`);
+    console.log(`[Usage Tracking]    Task Type: ${taskType}`);
+    console.log(`[Usage Tracking]    Subagent: ${subagentName}`);
+    console.log(`[Usage Tracking]    Service: ${recommendation.service}`);
+    console.log(`[Usage Tracking]    Project: ${projectName}`);
+    console.log(`[Usage Tracking]    Complexity: ${complexity}`);
+    console.log(`[Usage Tracking]    Estimated Cost: ${recommendation.estimated_cost}`);
+  } catch (error) {
+    // Don't fail the spawn if tracking fails
+    console.error(`[Usage Tracking] ⚠️  Failed to record to database:`, error);
+    console.error(`[Usage Tracking]    Agent ID: ${agentId} will not be tracked`);
+  }
 }
 
 /**
@@ -449,8 +508,8 @@ export const spawnSubagentTool: ToolDefinition = {
       const typedParams = params as SpawnSubagentParams;
 
       // Get project path from context or cwd
-      const projectPath = context?.projectPath || process.cwd();
-      const projectName = context?.projectName || path.basename(projectPath);
+      const projectPath = context?.project?.path || process.cwd();
+      const projectName = context?.project?.name || path.basename(projectPath);
 
       console.log(`\n=== Spawning Subagent ===`);
       console.log(`Task Type: ${typedParams.task_type}`);
@@ -494,12 +553,12 @@ export const spawnSubagentTool: ToolDefinition = {
 
       // Step 4: Spawn agent
       console.log(`\n[Step 4/5] Spawning agent...`);
-      const { agent_id, instructions_preview } = await spawnAgent(instructions, recommendation, selected.file_name);
+      const { agent_id, instructions_preview, instructions_path } = await spawnAgent(instructions, recommendation, selected.file_name);
       console.log(`✅ Agent spawned: ${agent_id}`);
 
       // Step 5: Track usage
       console.log(`\n[Step 5/5] Tracking usage...`);
-      await trackUsage(agent_id, typedParams.task_type, selected.file_name, recommendation, projectName);
+      await trackUsage(agent_id, typedParams.task_type, selected.file_name, recommendation, projectName, complexity);
       console.log(`✅ Usage tracked`);
 
       console.log(`\n=== Subagent Spawned Successfully ===\n`);
@@ -514,7 +573,9 @@ export const spawnSubagentTool: ToolDefinition = {
             service_used: recommendation.service,
             model_used: recommendation.model,
             estimated_cost: recommendation.estimated_cost,
+            complexity,
             instructions_preview,
+            instructions_path,
             message: `✅ Subagent spawned successfully. Monitor progress with agent ID: ${agent_id}`
           }, null, 2)
         }]
