@@ -1,6 +1,6 @@
 # Core Supervisor Instructions
 
-**Last Updated**: 2026-01-20
+**Last Updated**: 2026-01-21
 
 This directory contains **core instructions** shared by all project-supervisors (PSes).
 
@@ -18,6 +18,7 @@ This directory contains **core instructions** shared by all project-supervisors 
 07-deployment-documentation.md - Keep deployment info current
 08-port-ranges.md       - Port management
 09-tunnel-management.md - CNAME creation, tunnel tools
+10-secrets-workflow.md  - Mandatory secrets management workflow
 ```
 
 ---
@@ -99,12 +100,13 @@ wc -c /home/samuel/sv/*/CLAUDE.md  # Should be < 40k chars
 | 07-deployment-documentation.md | 78 | ✅ Optimized |
 | 08-port-ranges.md | 129 | ✅ Lean |
 | 09-tunnel-management.md | 164 | ✅ Optimized |
+| 10-secrets-workflow.md | 209 | ✅ Optimized |
 
-**Total**: ~886 lines (core shared across all PSes)
+**Total**: ~1095 lines (core shared across all PSes)
 
 **Complete maintenance guide**: `/home/samuel/sv/docs/guides/instruction-system-maintenance.md`
 
 ---
 
 **Maintained by**: Meta-supervisor (MS)
-**Last optimized**: 2026-01-20 (README slimmed)
+**Last optimized**: 2026-01-21 (Added secrets workflow)

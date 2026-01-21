@@ -9,6 +9,7 @@
   - /home/samuel/sv/supervisor-service-s/.supervisor-core/07-deployment-documentation.md
   - /home/samuel/sv/supervisor-service-s/.supervisor-core/08-port-ranges.md
   - /home/samuel/sv/supervisor-service-s/.supervisor-core/09-tunnel-management.md
+  - /home/samuel/sv/supervisor-service-s/.supervisor-core/10-secrets-workflow.md
   - /home/samuel/sv/supervisor-service-s/.supervisor-core/QUICK-START.md
   - /home/samuel/sv/supervisor-service-s/.supervisor-core/README.md
   - /home/samuel/sv/supervisor-service-s/.supervisor-meta/00-meta-identity.md
@@ -16,7 +17,7 @@
   - /home/samuel/sv/supervisor-service-s/.supervisor-meta/02-dependencies.md
   - /home/samuel/sv/supervisor-service-s/.supervisor-meta/03-patterns.md
   - /home/samuel/sv/supervisor-service-s/.supervisor-meta/04-port-allocations.md -->
-<!-- Generated: 2026-01-20T12:53:24.980Z -->
+<!-- Generated: 2026-01-21T09:32:23.801Z -->
 
 # Supervisor Identity
 
@@ -263,6 +264,128 @@ Access via `/home/samuel/sv/.claude/commands/`:
 - `supervision/supervise.md` - Full project supervision
 - `supervision/piv-supervise.md` - PIV-specific supervision
 - `supervision/prime-supervisor.md` - Context priming
+
+## AI Service Selection (via Odin)
+
+**CRITICAL: Query Odin BEFORE spawning subagents to get the most cost-effective AI service.**
+
+### Workflow
+
+1. **Get Recommendation** from Odin MCP server:
+```python
+rec = mcp__odin__recommend_ai_service(
+    task_type="code_generation",  # or testing, architecture, etc.
+    estimated_tokens=5000,
+    complexity="simple"  # simple, medium, or complex
+)
+```
+
+2. **Execute with Recommended Service AND Model**:
+```bash
+# Use the CLI command + model from recommendation
+bash(f"{rec['cli_command']} 'implement user authentication' . {rec['model']}")
+
+# Example outputs:
+# - scripts/ai/gemini_agent.sh . gemini-2.5-flash-lite (fast, free)
+# - scripts/ai/codex_agent.sh . gpt-4o-mini (affordable, good for code)
+# - scripts/ai/claude_agent.sh . claude-opus-4-5-20251101 (best reasoning)
+```
+
+**Model Selection**: Odin automatically picks the optimal model within each service:
+- **Simple tasks**: claude-haiku-4-5 / gpt-4o-mini / gemini-2.5-flash-lite (fast, cheap)
+- **Medium tasks**: claude-sonnet-4-5-20250929 / gpt-4.1 / gemini-3-pro-preview (balanced)
+- **Complex tasks**: claude-opus-4-5-20251101 / o3 / gemini-3-pro-preview (best reasoning)
+
+3. **Usage Tracked Automatically** - Odin logs tokens/cost/model for billing
+
+### Available MCP Tools (Odin)
+
+**Service Routing:**
+- `mcp__odin__recommend_ai_service(task_type, estimated_tokens, complexity)` → service + CLI command
+- `mcp__odin__get_service_quotas()` → quota status for all services
+- `mcp__odin__track_ai_usage(service, tokens_used, task_type)` → manual usage logging
+
+**Cost Monitoring:**
+- `mcp__odin__get_usage_summary(days)` → usage across all services
+- `mcp__odin__get_cost_breakdown(days)` → detailed cost analysis
+- `mcp__odin__forecast_monthly_cost(service)` → predict monthly costs
+
+### Task Type Mapping
+
+| Task Type | Best Service | Reason |
+|-----------|--------------|--------|
+| `code_generation` | Codex or Gemini | Optimized for code, free/cheap |
+| `testing` | Gemini or Codex | Pattern-based, doesn't need Claude |
+| `documentation` | Gemini | Excellent for docs, free |
+| `architecture` | Claude MAX | Complex reasoning required |
+| `planning` | Claude MAX | Strategic thinking needed |
+| `debugging` | Codex | Code-focused, good debugging |
+| `review` | Claude or Codex | Either works well |
+| `refactoring` | Codex | Code transformation focus |
+
+### Complexity Guidelines
+
+- **simple**: Basic CRUD, straightforward implementations
+- **medium**: Standard features with moderate logic
+- **complex**: Multi-system integration, advanced algorithms, architecture
+
+### Example: Full Workflow
+
+```python
+# Step 1: Get recommendation
+rec = mcp__odin__recommend_ai_service(
+    task_type="code_generation",
+    estimated_tokens=3000,
+    complexity="simple"
+)
+
+# Odin returns:
+# {
+#   "service": "gemini",
+#   "reason": "Google Gemini: free tier available, optimized for code generation",
+#   "estimated_cost": "$0.0000",
+#   "quota_remaining": "980,000 tokens",
+#   "cli_command": "scripts/ai/gemini_agent.sh"
+# }
+
+# Step 2: Execute with recommended service
+result = bash(f"{rec['cli_command']} 'Write Python function to validate email addresses'")
+
+# Step 3: Usage tracked automatically by CLI wrapper
+```
+
+### Cost Optimization Rules
+
+**DO:**
+- ✅ Always query Odin first
+- ✅ Use Gemini for 60%+ of simple tasks (free)
+- ✅ Reserve Claude MAX for architecture/planning only
+- ✅ Check quotas before large tasks
+
+**DON'T:**
+- ❌ Manually pick service without Odin
+- ❌ Use Claude MAX for simple code generation
+- ❌ Ignore quota warnings
+- ❌ Forget to track usage
+
+### Monitoring
+
+**Check quotas anytime:**
+```python
+quotas = mcp__odin__get_service_quotas()
+# Shows remaining tokens for gemini, codex, claude, claude-max
+```
+
+**View cost breakdown:**
+```python
+costs = mcp__odin__get_cost_breakdown(days=30)
+# See spending per service for last 30 days
+```
+
+---
+
+**Implementation**: Epic 009 - AI Service Router
+**Maintained by**: Odin Project-Supervisor
 
 ## Meta-Specific Tools
 
@@ -897,6 +1020,216 @@ docker run -p 5000:5000 my-container
 
 **Status**: Production Ready (2026-01-20)
 
+# Secrets Management Workflow
+
+**CRITICAL: All project supervisors MUST follow this workflow for secrets.**
+
+---
+
+## 🔒 Mandatory Rule
+
+**When you receive or create ANY secret (API key, password, token, etc.):**
+
+1. ✅ **FIRST**: Store in encrypted secrets manager using MCP tool
+2. ✅ **THEN**: Add to project .env file
+
+**NO EXCEPTIONS.** This ensures encrypted backup for continuity.
+
+---
+
+## Standard Workflow
+
+### When User Gives You a Secret
+
+**Example:** User says "Here's the Stripe API key: sk_live_abc123xyz"
+
+**You MUST do:**
+
+```javascript
+// Step 1: Store in secrets manager (REQUIRED)
+mcp__meta__set_secret({
+  keyPath: 'project/consilio/stripe_api_key',
+  value: 'sk_live_abc123xyz',
+  description: 'Stripe API key for payment processing'
+})
+
+// Step 2: Add to .env file (after Step 1 completes)
+// Edit /home/samuel/sv/consilio-s/.env
+STRIPE_API_KEY=sk_live_abc123xyz
+```
+
+**DO NOT skip Step 1.** The encrypted backup is mandatory.
+
+---
+
+### When You Generate a Secret
+
+**Example:** Creating a JWT secret for authentication
+
+**You MUST do:**
+
+```javascript
+// Step 1: Generate secret
+const secret = generateRandomSecret(); // e.g., openssl rand -base64 48
+
+// Step 2: Store in secrets manager (REQUIRED)
+mcp__meta__set_secret({
+  keyPath: 'project/myproject/jwt_secret',
+  value: secret,
+  description: 'JWT signing secret for authentication'
+})
+
+// Step 3: Add to .env file (after Step 2 completes)
+// Edit .env
+JWT_SECRET=<generated-secret>
+```
+
+---
+
+## Key Path Format
+
+**Always use:** `project/{project-name}/{secret-name-lowercase}`
+
+**Examples:**
+```
+project/consilio/stripe_api_key
+project/odin/openai_api_key
+project/openhorizon/jwt_secret
+project/health-agent/telegram_bot_token
+```
+
+**For meta-level secrets (system-wide):**
+```
+meta/cloudflare/api_token
+meta/gcloud/service_account_key
+```
+
+---
+
+## Description Guidelines
+
+**Write clear descriptions:**
+
+✅ Good:
+- "Stripe API key for payment processing"
+- "PostgreSQL production database password"
+- "SendGrid API key for transactional emails"
+
+❌ Bad:
+- "API key"
+- "Password"
+- "Secret"
+
+---
+
+## Quick Reference Commands
+
+### Store Secret
+```javascript
+mcp__meta__set_secret({
+  keyPath: 'project/{project}/{name}',
+  value: 'actual-secret-value',
+  description: 'What this secret is for'
+})
+```
+
+### Retrieve Secret
+```javascript
+mcp__meta__get_secret({
+  keyPath: 'project/{project}/{name}'
+})
+```
+
+### List Project Secrets
+```javascript
+mcp__meta__list_secrets({
+  scope: 'project',
+  project: 'consilio'
+})
+```
+
+---
+
+## Common Mistakes (DON'T DO THIS)
+
+❌ **Writing to .env first, forgetting to store in vault**
+```bash
+# WRONG - No backup!
+echo "STRIPE_KEY=sk_live_abc" >> .env
+```
+
+❌ **Storing without description**
+```javascript
+// WRONG - No context
+mcp__meta__set_secret({
+  keyPath: 'project/consilio/key',
+  value: 'abc123'
+  // Missing description!
+})
+```
+
+❌ **Using wrong key path format**
+```javascript
+// WRONG - Not following format
+keyPath: 'consilio-stripe-key'  // Missing project/ prefix
+keyPath: 'project/CONSILIO/Key'  // Not lowercase
+```
+
+---
+
+## Why This Matters
+
+**Encrypted backup ensures:**
+- ✅ Recovery if .env file gets corrupted/deleted
+- ✅ Audit trail of all secrets
+- ✅ Centralized secret discovery
+- ✅ Rotation tracking
+- ✅ Never lose critical credentials
+
+**Without backup:**
+- ❌ Lost .env = lost production credentials = service down
+- ❌ No way to know what secrets existed
+- ❌ Must ask user to regenerate everything
+
+---
+
+## Verification
+
+**After storing a secret, verify it worked:**
+
+```javascript
+// Store
+mcp__meta__set_secret({
+  keyPath: 'project/consilio/test_key',
+  value: 'test-value'
+})
+
+// Verify (should return same value)
+const result = mcp__meta__get_secret({
+  keyPath: 'project/consilio/test_key'
+})
+// result.value should be 'test-value'
+```
+
+---
+
+## Detailed Documentation
+
+**Complete secrets management guide:**
+- `/home/samuel/sv/supervisor-service-s/docs/SECRETS_MANAGEMENT.md`
+
+**Production secrets analysis:**
+- `/home/samuel/sv/supervisor-service-s/docs/PRODUCTION_SECRETS_ANALYSIS.md`
+
+**Migration scripts:**
+- `/home/samuel/sv/supervisor-service-s/src/scripts/migrate-env-secrets.ts`
+
+---
+
+**Remember: Store FIRST, .env SECOND. No exceptions.**
+
+**Last Updated**: 2026-01-21
+
 # Quick Start: Add New Core Instruction
 
 **5-minute guide for adding new behavior**
@@ -985,7 +1318,7 @@ npm run init-projects -- --verbose
 
 # Core Supervisor Instructions
 
-**Last Updated**: 2026-01-20
+**Last Updated**: 2026-01-21
 
 This directory contains **core instructions** shared by all project-supervisors (PSes).
 
@@ -1003,6 +1336,7 @@ This directory contains **core instructions** shared by all project-supervisors 
 07-deployment-documentation.md - Keep deployment info current
 08-port-ranges.md       - Port management
 09-tunnel-management.md - CNAME creation, tunnel tools
+10-secrets-workflow.md  - Mandatory secrets management workflow
 ```
 
 ---
@@ -1084,15 +1418,16 @@ wc -c /home/samuel/sv/*/CLAUDE.md  # Should be < 40k chars
 | 07-deployment-documentation.md | 78 | ✅ Optimized |
 | 08-port-ranges.md | 129 | ✅ Lean |
 | 09-tunnel-management.md | 164 | ✅ Optimized |
+| 10-secrets-workflow.md | 209 | ✅ Optimized |
 
-**Total**: ~886 lines (core shared across all PSes)
+**Total**: ~1095 lines (core shared across all PSes)
 
 **Complete maintenance guide**: `/home/samuel/sv/docs/guides/instruction-system-maintenance.md`
 
 ---
 
 **Maintained by**: Meta-supervisor (MS)
-**Last optimized**: 2026-01-20 (README slimmed)
+**Last optimized**: 2026-01-21 (Added secrets workflow)
 
 # Supervisor Identity
 
