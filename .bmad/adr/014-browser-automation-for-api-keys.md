@@ -298,7 +298,7 @@ class GeminiAPIKeyCreator {
 
 - Epic: `/home/samuel/sv/supervisor-service-s/.bmad/epics/014-autonomous-usage-monitoring-optimization.md`
 - PRD: `/home/samuel/sv/supervisor-service-s/.bmad/prds/014-autonomous-optimization-prd.md`
-- Playwright MCP: Available in Claude Desktop configuration
+- Playwright MCP: Available as MCP server for Claude Code CLI
 - Google AI Studio: https://aistudio.google.com/app/apikey
 - Anthropic Console: https://console.anthropic.com/settings/keys
 

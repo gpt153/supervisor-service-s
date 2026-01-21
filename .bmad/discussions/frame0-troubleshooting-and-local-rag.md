@@ -1,6 +1,20 @@
 # Frame0 Troubleshooting & Local RAG System
 
 **Date:** 2026-01-18
+**Status:** ⚠️ OBSOLETE - Contains Claude Desktop config references (user is 97% CLI, 3% browser)
+
+---
+
+## ⚠️ IMPORTANT NOTE
+
+This document includes Claude Desktop configuration references, which are **NOT USED** in this system.
+
+**Actual environment:**
+- **97%**: Claude Code CLI (terminal-based)
+- **3%**: Claude browser (claude.ai)
+- **0%**: Claude Desktop app
+
+**For Claude Code CLI troubleshooting, check MCP server configuration instead of Desktop config files.**
 
 ---
 

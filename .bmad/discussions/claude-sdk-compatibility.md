@@ -1,7 +1,21 @@
 # Claude SDK and Remote Session Compatibility
 
 **Date:** 2026-01-18
+**Status:** ⚠️ OBSOLETE - User environment is 97% Claude Code CLI, 3% Claude browser (NOT Claude Desktop)
 **Question:** Will the new architecture work with Claude SDK / remote sessions?
+
+---
+
+## ⚠️ IMPORTANT NOTE
+
+This analysis discusses Claude Desktop options, which are **NOT USED** in this system.
+
+**Actual environment:**
+- **97%**: Claude Code CLI (terminal-based)
+- **3%**: Claude browser (claude.ai)
+- **0%**: Claude Desktop app
+
+**Keep this document for historical reference only.**
 
 ---
 
