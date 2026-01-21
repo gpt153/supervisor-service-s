@@ -571,6 +571,267 @@ const initGeminiKeysTool: ToolDefinition = {
 };
 
 /**
+ * Get Claude API keys
+ */
+const getClaudeKeysTool: ToolDefinition = {
+  name: 'get-claude-keys',
+  description: 'Get all Claude API keys and their quota status',
+  inputSchema: {
+    type: 'object',
+    properties: {
+      availableOnly: {
+        type: 'boolean',
+        description: 'Only show keys with available quota (default: false)',
+      },
+    },
+  },
+  handler: async (params, context: ProjectContext) => {
+    try {
+      const quotaManager = executor.getQuotaManager();
+      const keys = params.availableOnly
+        ? await quotaManager.getAvailableClaudeKeys()
+        : await quotaManager.getAllClaudeKeys();
+
+      return {
+        success: true,
+        keys: keys.map((k) => ({
+          id: k.id,
+          keyName: k.keyName,
+          accountEmail: k.accountEmail,
+          monthlyQuota: k.monthlyQuota,
+          currentUsage: k.currentUsage,
+          remaining: k.remaining,
+          percentageUsed: Math.round((k.currentUsage / k.monthlyQuota) * 100),
+          quotaResetsAt: k.quotaResetsAt.toISOString(),
+          isActive: k.isActive,
+          priority: k.priority,
+          lastUsedAt: k.lastUsedAt?.toISOString(),
+        })),
+        total: keys.length,
+        totalRemaining: keys.reduce((sum, k) => sum + k.remaining, 0),
+      };
+    } catch (error) {
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Unknown error',
+      };
+    }
+  },
+};
+
+/**
+ * Add Claude API key
+ */
+const addClaudeKeyTool: ToolDefinition = {
+  name: 'add-claude-key',
+  description: 'Add a new Claude API key for rotation',
+  inputSchema: {
+    type: 'object',
+    properties: {
+      keyName: {
+        type: 'string',
+        description: 'Friendly name for the key (e.g., "account1", "personal")',
+      },
+      apiKey: {
+        type: 'string',
+        description: 'Claude API key (starts with sk-ant-...)',
+      },
+      accountEmail: {
+        type: 'string',
+        description: 'Associated email account (optional)',
+      },
+      monthlyQuota: {
+        type: 'number',
+        description: 'Monthly token quota (default: 50000 for free tier)',
+      },
+      priority: {
+        type: 'number',
+        description: 'Priority (lower = higher priority, default: 0)',
+      },
+      notes: {
+        type: 'string',
+        description: 'Optional notes about this key',
+      },
+    },
+    required: ['keyName', 'apiKey'],
+  },
+  handler: async (params, context: ProjectContext) => {
+    try {
+      const quotaManager = executor.getQuotaManager();
+      const keyManager = (quotaManager as any).claudeKeyManager;
+
+      const keyId = await keyManager.addKey({
+        keyName: params.keyName,
+        apiKey: params.apiKey,
+        accountEmail: params.accountEmail,
+        monthlyQuota: params.monthlyQuota,
+        priority: params.priority,
+        notes: params.notes,
+      });
+
+      return {
+        success: true,
+        keyId,
+        message: `Added Claude API key: ${params.keyName}`,
+      };
+    } catch (error) {
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Unknown error',
+      };
+    }
+  },
+};
+
+/**
+ * Remove Claude API key
+ */
+const removeClaudeKeyTool: ToolDefinition = {
+  name: 'remove-claude-key',
+  description: 'Remove a Claude API key from rotation',
+  inputSchema: {
+    type: 'object',
+    properties: {
+      keyId: {
+        type: 'number',
+        description: 'ID of the key to remove',
+      },
+    },
+    required: ['keyId'],
+  },
+  handler: async (params, context: ProjectContext) => {
+    try {
+      const quotaManager = executor.getQuotaManager();
+      const keyManager = (quotaManager as any).claudeKeyManager;
+
+      await keyManager.removeKey(params.keyId);
+
+      return {
+        success: true,
+        message: `Removed Claude API key with ID ${params.keyId}`,
+      };
+    } catch (error) {
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Unknown error',
+      };
+    }
+  },
+};
+
+/**
+ * Enable/disable Claude API key
+ */
+const toggleClaudeKeyTool: ToolDefinition = {
+  name: 'toggle-claude-key',
+  description: 'Enable or disable a Claude API key',
+  inputSchema: {
+    type: 'object',
+    properties: {
+      keyId: {
+        type: 'number',
+        description: 'ID of the key to toggle',
+      },
+      enabled: {
+        type: 'boolean',
+        description: 'Whether to enable (true) or disable (false) the key',
+      },
+    },
+    required: ['keyId', 'enabled'],
+  },
+  handler: async (params, context: ProjectContext) => {
+    try {
+      const quotaManager = executor.getQuotaManager();
+      const keyManager = (quotaManager as any).claudeKeyManager;
+
+      if (params.enabled) {
+        await keyManager.enableKey(params.keyId);
+      } else {
+        await keyManager.disableKey(params.keyId);
+      }
+
+      return {
+        success: true,
+        message: `${params.enabled ? 'Enabled' : 'Disabled'} Claude API key with ID ${params.keyId}`,
+      };
+    } catch (error) {
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Unknown error',
+      };
+    }
+  },
+};
+
+/**
+ * Get Claude key usage statistics
+ */
+const getClaudeKeyStatsTool: ToolDefinition = {
+  name: 'get-claude-key-stats',
+  description: 'Get usage statistics for Claude API keys',
+  inputSchema: {
+    type: 'object',
+    properties: {
+      since: {
+        type: 'string',
+        description: 'ISO timestamp to get stats since (optional)',
+      },
+    },
+  },
+  handler: async (params, context: ProjectContext) => {
+    try {
+      const quotaManager = executor.getQuotaManager();
+      const since = params.since ? new Date(params.since) : undefined;
+
+      const stats = await quotaManager.getClaudeKeyStats(since);
+
+      return {
+        success: true,
+        totalRequests: stats.totalRequests,
+        totalTokens: stats.totalTokens,
+        successRate: Math.round(stats.successRate * 100) / 100,
+        keyStats: stats.keyStats,
+        period: since ? `Since ${since.toISOString()}` : 'All time',
+      };
+    } catch (error) {
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Unknown error',
+      };
+    }
+  },
+};
+
+/**
+ * Initialize Claude keys from environment
+ */
+const initClaudeKeysTool: ToolDefinition = {
+  name: 'init-claude-keys',
+  description: 'Load Claude API keys from environment variables (CLAUDE_KEY_1, CLAUDE_KEY_2, etc.)',
+  inputSchema: {
+    type: 'object',
+    properties: {},
+  },
+  handler: async (params, context: ProjectContext) => {
+    try {
+      const quotaManager = executor.getQuotaManager();
+      const loadedCount = await quotaManager.initializeClaudeKeys();
+
+      return {
+        success: true,
+        loadedCount,
+        message: `Loaded ${loadedCount} Claude API keys from environment`,
+      };
+    } catch (error) {
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Unknown error',
+      };
+    }
+  },
+};
+
+/**
  * Export all multi-agent tools
  */
 export function getMultiAgentTools(): ToolDefinition[] {
@@ -588,5 +849,12 @@ export function getMultiAgentTools(): ToolDefinition[] {
     toggleGeminiKeyTool,
     getGeminiKeyStatsTool,
     initGeminiKeysTool,
+    // Claude key management tools
+    getClaudeKeysTool,
+    addClaudeKeyTool,
+    removeClaudeKeyTool,
+    toggleClaudeKeyTool,
+    getClaudeKeyStatsTool,
+    initClaudeKeysTool,
   ];
 }

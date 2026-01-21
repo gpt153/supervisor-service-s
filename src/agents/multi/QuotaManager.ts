@@ -3,21 +3,24 @@
  *
  * Tracks and manages quota usage for each AI agent.
  * Handles quota refresh, availability checks, and usage updates.
- * For Gemini, integrates with per-key quota tracking.
+ * For Gemini and Claude, integrates with per-key quota tracking.
  */
 
 import { pool } from '../../db/client.js';
 import type { AgentType, QuotaStatus } from './types.js';
 import { GeminiKeyManager } from './GeminiKeyManager.js';
+import { ClaudeKeyManager } from './ClaudeKeyManager.js';
 
 /**
  * Quota manager
  */
 export class QuotaManager {
   private geminiKeyManager: GeminiKeyManager;
+  private claudeKeyManager: ClaudeKeyManager;
 
   constructor() {
     this.geminiKeyManager = new GeminiKeyManager();
+    this.claudeKeyManager = new ClaudeKeyManager();
   }
   /**
    * Get quota status for all agents
@@ -81,12 +84,18 @@ export class QuotaManager {
 
   /**
    * Check if agent has available quota
-   * For Gemini, checks if ANY API key has remaining quota
+   * For Gemini and Claude, checks if ANY API key has remaining quota
    */
   async hasQuota(agent: AgentType): Promise<boolean> {
     // For Gemini, check per-key quotas
     if (agent === 'gemini') {
       const availableKey = await this.geminiKeyManager.getNextAvailableKey();
+      return availableKey !== null;
+    }
+
+    // For Claude, check per-key quotas
+    if (agent === 'claude') {
+      const availableKey = await this.claudeKeyManager.getNextAvailableKey();
       return availableKey !== null;
     }
 
@@ -328,5 +337,37 @@ export class QuotaManager {
    */
   async initializeGeminiKeys(): Promise<number> {
     return await this.geminiKeyManager.loadKeysFromEnv();
+  }
+
+  /**
+   * Get detailed Claude key usage statistics
+   */
+  async getClaudeKeyStats(since?: Date): Promise<{
+    totalRequests: number;
+    totalTokens: number;
+    successRate: number;
+  }> {
+    return await this.claudeKeyManager.getUsageStats(since);
+  }
+
+  /**
+   * Get all available Claude keys
+   */
+  async getAvailableClaudeKeys() {
+    return await this.claudeKeyManager.getAvailableKeys();
+  }
+
+  /**
+   * Get all Claude keys (including exhausted ones)
+   */
+  async getAllClaudeKeys() {
+    return await this.claudeKeyManager.getAllKeys();
+  }
+
+  /**
+   * Initialize Claude keys from environment
+   */
+  async initializeClaudeKeys(): Promise<number> {
+    return await this.claudeKeyManager.loadKeysFromEnv();
   }
 }

@@ -18,6 +18,10 @@ import { getPIVTools } from './piv-tools.js';
 import { getProjectContextTools } from './project-context-tools.js';
 import { getMultiAgentTools } from './multi-agent-tools.js';
 import { tunnelTools } from './tunnel-tools.js';
+import { getUsageMonitoringTools } from './usage-monitoring-tools.js';
+import { getSubscriptionOptimizationTools } from './subscription-optimization-tools.js';
+import { getAPIKeyAutomationTools } from './api-key-automation-tools.js';
+import { spawnSubagentTool } from './spawn-subagent-tool.js';
 
 const execAsync = promisify(exec);
 
@@ -376,6 +380,18 @@ export function getAllTools(): ToolDefinition[] {
 
     // Tunnel management tools
     ...tunnelTools,
+
+    // Usage monitoring and cost tracking tools
+    ...getUsageMonitoringTools(),
+
+    // Subscription optimization tools
+    ...getSubscriptionOptimizationTools(),
+
+    // API key automation tools
+    ...getAPIKeyAutomationTools(),
+
+    // Subagent spawning tool
+    spawnSubagentTool,
   ];
 }
 

@@ -1,12 +1,13 @@
 /**
  * Claude Code CLI Adapter
  *
- * Adapter for executing tasks using Claude Code CLI.
+ * Adapter for executing tasks using Claude Code CLI with automatic key rotation.
  * Best for: Complex tasks, architecture decisions, security-critical code.
  */
 
 import { CLIAdapter } from './CLIAdapter.js';
-import type { AgentRequest, AdapterConfig } from './types.js';
+import type { AgentRequest, AdapterConfig, AgentResult } from './types.js';
+import { ClaudeKeyManager } from './ClaudeKeyManager.js';
 
 /**
  * Default configuration for Claude CLI
@@ -20,11 +21,77 @@ const DEFAULT_CONFIG: AdapterConfig = {
 };
 
 /**
- * Claude Code CLI adapter
+ * Claude Code CLI adapter with automatic key rotation
  */
 export class ClaudeCLIAdapter extends CLIAdapter {
+  private keyManager: ClaudeKeyManager;
+  private currentKeyId: number | null = null;
+
   constructor(config: Partial<AdapterConfig> = {}) {
     super('claude', { ...DEFAULT_CONFIG, ...config });
+    this.keyManager = new ClaudeKeyManager();
+  }
+
+  /**
+   * Initialize by loading keys from environment
+   */
+  async initialize(): Promise<void> {
+    const loadedCount = await this.keyManager.loadKeysFromEnv();
+    console.log(`Loaded ${loadedCount} Claude API keys from environment`);
+  }
+
+  /**
+   * Execute with automatic key rotation
+   */
+  async execute(request: AgentRequest): Promise<AgentResult> {
+    // Get next available API key
+    const keyInfo = await this.keyManager.getNextAvailableKey();
+
+    if (!keyInfo) {
+      return {
+        success: false,
+        agent: this.agentType,
+        output: null,
+        error: 'No Claude API keys available (all exhausted quota)',
+        duration: 0,
+        tokensUsed: 0,
+        cost: 0,
+        timestamp: new Date(),
+      };
+    }
+
+    this.currentKeyId = keyInfo.id;
+    const startTime = Date.now();
+    let tokensUsed = 0;
+    let success = false;
+    let errorMessage: string | undefined;
+
+    try {
+      // Execute with the selected key
+      const result = await super.execute(request);
+      success = result.success;
+      tokensUsed = result.tokensUsed || this.estimateTokens(request);
+
+      if (!result.success) {
+        errorMessage = result.error;
+      }
+
+      return result;
+    } catch (error) {
+      success = false;
+      errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      throw error;
+    } finally {
+      // Record usage regardless of success/failure
+      if (this.currentKeyId) {
+        await this.keyManager.recordUsage(
+          this.currentKeyId,
+          tokensUsed,
+          success,
+          errorMessage
+        );
+      }
+    }
   }
 
   /**
@@ -83,6 +150,52 @@ export class ClaudeCLIAdapter extends CLIAdapter {
   protected isErrorOutput(stderr: string): boolean {
     const errorMarkers = ['Error:', 'Failed:', 'Exception:', 'Fatal:'];
     return errorMarkers.some((marker) => stderr.includes(marker));
+  }
+
+  /**
+   * Get environment variables including API key
+   */
+  protected async getEnvironment(): Promise<Record<string, string>> {
+    const env: Record<string, string> = {};
+
+    // Copy all defined environment variables
+    for (const [key, value] of Object.entries(process.env)) {
+      if (value !== undefined) {
+        env[key] = value;
+      }
+    }
+
+    // Get current key if available
+    if (this.currentKeyId) {
+      const keys = await this.keyManager.getAllKeys();
+      const currentKey = keys.find(k => k.id === this.currentKeyId);
+      if (currentKey) {
+        env.ANTHROPIC_API_KEY = currentKey.apiKey;
+      }
+    }
+
+    return env;
+  }
+
+  /**
+   * Override executeCommand to inject API key into environment
+   */
+  protected async executeCommand(
+    command: string,
+    options: { cwd?: string; timeout?: number; env?: Record<string, string> }
+  ): Promise<{ stdout: string; stderr: string }> {
+    const env = await this.getEnvironment();
+    return super.executeCommand(command, { ...options, env });
+  }
+
+  /**
+   * Estimate tokens from request (rough approximation)
+   */
+  private estimateTokens(request: AgentRequest): number {
+    // Rough estimate: 1 token ≈ 4 characters
+    const promptTokens = Math.ceil(request.prompt.length / 4);
+    // Assume response is similar length to prompt (conservative)
+    return promptTokens * 2;
   }
 
   /**

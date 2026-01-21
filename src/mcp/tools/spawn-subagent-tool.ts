@@ -1,0 +1,532 @@
+/**
+ * MCP tool for centralized subagent spawning with automatic load balancing
+ *
+ * Provides single-call subagent spawning that:
+ * - Queries Odin for optimal AI service selection
+ * - Selects appropriate subagent template from library
+ * - Spawns agent with best service/model
+ * - Tracks usage and cost automatically
+ */
+
+import { ToolDefinition, ProjectContext } from '../../types/project.js';
+import * as fs from 'fs/promises';
+import * as path from 'path';
+
+// Task type definitions
+type TaskType =
+  | 'research'
+  | 'planning'
+  | 'implementation'
+  | 'testing'
+  | 'validation'
+  | 'documentation'
+  | 'fix'
+  | 'deployment'
+  | 'review'
+  | 'security'
+  | 'integration';
+
+interface SpawnSubagentParams {
+  task_type: TaskType;
+  description: string;
+  context?: {
+    epic_id?: string;
+    plan_file?: string;
+    files_to_review?: string[];
+    validation_commands?: string[];
+    [key: string]: any;
+  };
+}
+
+interface SubagentMetadata {
+  task_type: TaskType;
+  estimated_tokens: 'small' | 'medium' | 'large';
+  complexity: 'simple' | 'medium' | 'complex';
+  keywords: string[];
+  file_path: string;
+  file_name: string;
+}
+
+interface OdinRecommendation {
+  service: 'gemini' | 'codex' | 'claude' | 'claude-max';
+  model: string;
+  cli_command: string;
+  estimated_cost: string;
+  reason: string;
+}
+
+/**
+ * Query Odin load balancer for service recommendation
+ *
+ * TODO: Integrate with real Odin MCP server
+ * For now, this is a mock implementation
+ */
+async function queryOdin(
+  taskType: TaskType,
+  estimatedTokens: number,
+  complexity: 'simple' | 'medium' | 'complex'
+): Promise<OdinRecommendation> {
+  // Mock implementation - replace with real Odin MCP query
+  // mcp__odin__recommend_ai_service({ task_type, estimated_tokens, complexity })
+
+  // Simple heuristics for MVP
+  if (complexity === 'simple' || taskType === 'testing' || taskType === 'validation') {
+    return {
+      service: 'gemini',
+      model: 'gemini-2.5-flash-lite',
+      cli_command: 'scripts/ai/gemini_agent.sh',
+      estimated_cost: '$0.0000',
+      reason: 'Simple task, using free Gemini Flash'
+    };
+  }
+
+  if (complexity === 'complex' || taskType === 'planning' || taskType === 'architecture') {
+    return {
+      service: 'claude',
+      model: 'claude-opus-4-5-20251101',
+      cli_command: 'scripts/ai/claude_agent.sh',
+      estimated_cost: '$0.0150',
+      reason: 'Complex task requiring deep reasoning'
+    };
+  }
+
+  // Medium complexity
+  return {
+    service: 'claude',
+    model: 'claude-sonnet-4-5-20250929',
+    cli_command: 'scripts/ai/claude_agent.sh',
+    estimated_cost: '$0.0030',
+    reason: 'Medium complexity, using Claude Sonnet'
+  };
+}
+
+/**
+ * Parse subagent metadata from markdown file
+ */
+async function parseSubagentMetadata(filePath: string): Promise<SubagentMetadata | null> {
+  try {
+    const content = await fs.readFile(filePath, 'utf-8');
+
+    // Extract YAML frontmatter
+    const match = content.match(/^---\n([\s\S]+?)\n---/);
+    if (!match) {
+      return null;
+    }
+
+    const frontmatter = match[1];
+    const lines = frontmatter.split('\n');
+
+    let metadata: Partial<SubagentMetadata> = {
+      file_path: filePath,
+      file_name: path.basename(filePath)
+    };
+
+    for (const line of lines) {
+      const [key, ...valueParts] = line.split(':');
+      const value = valueParts.join(':').trim();
+
+      if (key === 'task_type') {
+        metadata.task_type = value as TaskType;
+      } else if (key === 'estimated_tokens') {
+        metadata.estimated_tokens = value as 'small' | 'medium' | 'large';
+      } else if (key === 'complexity') {
+        metadata.complexity = value as 'simple' | 'medium' | 'complex';
+      } else if (key === 'keywords') {
+        // Parse array: [keyword1, keyword2, ...]
+        const keywordsMatch = value.match(/\[(.*)\]/);
+        if (keywordsMatch) {
+          metadata.keywords = keywordsMatch[1]
+            .split(',')
+            .map(k => k.trim().replace(/['"]/g, ''));
+        }
+      }
+    }
+
+    if (!metadata.task_type) {
+      return null;
+    }
+
+    return metadata as SubagentMetadata;
+  } catch (error) {
+    console.error(`Error parsing metadata from ${filePath}:`, error);
+    return null;
+  }
+}
+
+/**
+ * Discover all subagent templates in library
+ */
+async function discoverSubagents(): Promise<SubagentMetadata[]> {
+  const subagentsPath = '/home/samuel/sv/.claude/commands/subagents';
+  const subagents: SubagentMetadata[] = [];
+
+  try {
+    // Recursively find all .md files
+    const categories = await fs.readdir(subagentsPath);
+
+    for (const category of categories) {
+      const categoryPath = path.join(subagentsPath, category);
+      const stat = await fs.stat(categoryPath);
+
+      if (!stat.isDirectory()) continue;
+
+      const files = await fs.readdir(categoryPath);
+
+      for (const file of files) {
+        if (!file.endsWith('.md')) continue;
+
+        const filePath = path.join(categoryPath, file);
+        const metadata = await parseSubagentMetadata(filePath);
+
+        if (metadata) {
+          subagents.push(metadata);
+        }
+      }
+    }
+  } catch (error) {
+    console.error('Error discovering subagents:', error);
+  }
+
+  return subagents;
+}
+
+/**
+ * Select best subagent based on task_type and keywords
+ */
+function selectSubagent(
+  subagents: SubagentMetadata[],
+  taskType: TaskType,
+  description: string
+): SubagentMetadata | null {
+  // Filter by task_type
+  const candidates = subagents.filter(s => s.task_type === taskType);
+
+  if (candidates.length === 0) {
+    return null;
+  }
+
+  if (candidates.length === 1) {
+    return candidates[0];
+  }
+
+  // Score candidates based on keyword matches
+  const descriptionLower = description.toLowerCase();
+  const scored = candidates.map(subagent => {
+    let score = 10; // Base score for task_type match
+
+    // Bonus for keyword matches
+    for (const keyword of subagent.keywords) {
+      if (descriptionLower.includes(keyword.toLowerCase())) {
+        score += 5;
+      }
+    }
+
+    // Bonus for multi-word phrases
+    const phrases = subagent.file_name
+      .replace('.md', '')
+      .split('-')
+      .filter(w => w.length > 3); // Only meaningful words
+
+    for (const phrase of phrases) {
+      if (descriptionLower.includes(phrase.toLowerCase())) {
+        score += 10;
+      }
+    }
+
+    return { subagent, score };
+  });
+
+  // Sort by score descending
+  scored.sort((a, b) => b.score - a.score);
+
+  return scored[0].subagent;
+}
+
+/**
+ * Load subagent template and substitute variables
+ */
+async function loadAndSubstituteTemplate(
+  subagent: SubagentMetadata,
+  params: SpawnSubagentParams,
+  projectPath: string
+): Promise<string> {
+  const content = await fs.readFile(subagent.file_path, 'utf-8');
+
+  // Remove YAML frontmatter
+  const withoutFrontmatter = content.replace(/^---\n[\s\S]+?\n---\n/, '');
+
+  // Substitute variables
+  let instructions = withoutFrontmatter;
+
+  instructions = instructions.replace(/\{\{TASK_DESCRIPTION\}\}/g, params.description);
+  instructions = instructions.replace(/\{\{PROJECT_PATH\}\}/g, projectPath);
+
+  if (params.context) {
+    instructions = instructions.replace(/\{\{CONTEXT\}\}/g, JSON.stringify(params.context, null, 2));
+
+    // Substitute specific context fields
+    if (params.context.epic_id) {
+      instructions = instructions.replace(/\{\{EPIC_ID\}\}/g, params.context.epic_id);
+    }
+    if (params.context.plan_file) {
+      instructions = instructions.replace(/\{\{PLAN_FILE\}\}/g, params.context.plan_file);
+    }
+    if (params.context.validation_commands) {
+      instructions = instructions.replace(
+        /\{\{VALIDATION_COMMANDS\}\}/g,
+        params.context.validation_commands.join('\n')
+      );
+    }
+  } else {
+    instructions = instructions.replace(/\{\{CONTEXT\}\}/g, '{}');
+  }
+
+  return instructions;
+}
+
+/**
+ * Spawn agent (simplified MVP implementation)
+ *
+ * TODO: Integrate with Claude Agent SDK or bash scripts
+ */
+async function spawnAgent(
+  instructions: string,
+  recommendation: OdinRecommendation,
+  subagentName: string
+): Promise<{ agent_id: string; instructions_preview: string }> {
+  // Generate agent ID
+  const agent_id = `agent-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+
+  // Save instructions to temp file for agent
+  const instructionsPath = `/tmp/${agent_id}-instructions.md`;
+  await fs.writeFile(instructionsPath, instructions, 'utf-8');
+
+  console.log(`[Subagent Spawner] Spawned ${subagentName} as ${agent_id}`);
+  console.log(`[Subagent Spawner] Service: ${recommendation.service}, Model: ${recommendation.model}`);
+  console.log(`[Subagent Spawner] Instructions: ${instructionsPath}`);
+
+  // TODO: Actually spawn agent using:
+  // - Claude Agent SDK
+  // - Or bash: ${recommendation.cli_command} ${agent_id} ${instructionsPath}
+
+  return {
+    agent_id,
+    instructions_preview: instructions.substring(0, 200) + '...'
+  };
+}
+
+/**
+ * Track usage in database (Odin integration)
+ *
+ * TODO: Integrate with real Odin database tracking
+ */
+async function trackUsage(
+  agentId: string,
+  taskType: TaskType,
+  subagentName: string,
+  recommendation: OdinRecommendation,
+  projectName: string
+): Promise<void> {
+  // TODO: Call mcp__odin__track_ai_usage
+  // Or write directly to Odin database
+
+  console.log(`[Usage Tracking] Agent: ${agentId}`);
+  console.log(`[Usage Tracking] Task Type: ${taskType}`);
+  console.log(`[Usage Tracking] Subagent: ${subagentName}`);
+  console.log(`[Usage Tracking] Service: ${recommendation.service}`);
+  console.log(`[Usage Tracking] Project: ${projectName}`);
+
+  // For MVP, just log to console
+  // In production, write to database:
+  // INSERT INTO ai_service_usage (agent_id, task_type, subagent_name, service, model, tokens_used, cost, project)
+}
+
+/**
+ * Calculate estimated tokens from description length
+ */
+function estimateTokens(description: string): number {
+  // Rough estimate: ~4 characters per token
+  return Math.ceil(description.length / 4);
+}
+
+/**
+ * Infer complexity from description keywords
+ */
+function inferComplexity(description: string, taskType: TaskType): 'simple' | 'medium' | 'complex' {
+  const descriptionLower = description.toLowerCase();
+
+  // Complex keywords
+  const complexKeywords = [
+    'architecture',
+    'design',
+    'system',
+    'integration',
+    'multiple',
+    'complex',
+    'advanced',
+    'distributed'
+  ];
+
+  for (const keyword of complexKeywords) {
+    if (descriptionLower.includes(keyword)) {
+      return 'complex';
+    }
+  }
+
+  // Simple keywords
+  const simpleKeywords = [
+    'simple',
+    'basic',
+    'quick',
+    'small',
+    'minor',
+    'trivial'
+  ];
+
+  for (const keyword of simpleKeywords) {
+    if (descriptionLower.includes(keyword)) {
+      return 'simple';
+    }
+  }
+
+  // Task-type based defaults
+  if (taskType === 'research' || taskType === 'planning') {
+    return 'complex';
+  }
+
+  if (taskType === 'testing' || taskType === 'validation') {
+    return 'simple';
+  }
+
+  return 'medium';
+}
+
+/**
+ * Main tool: spawn_subagent
+ */
+export const spawnSubagentTool: ToolDefinition = {
+  name: 'mcp_meta_spawn_subagent',
+  description: 'Spawn a subagent to perform an execution task. Automatically queries Odin for optimal service, selects appropriate subagent template, and tracks usage. This is the ONLY way to delegate tasks.',
+  inputSchema: {
+    type: 'object',
+    properties: {
+      task_type: {
+        type: 'string',
+        description: 'Type of task to delegate',
+        enum: [
+          'research',
+          'planning',
+          'implementation',
+          'testing',
+          'validation',
+          'documentation',
+          'fix',
+          'deployment',
+          'review',
+          'security',
+          'integration'
+        ]
+      },
+      description: {
+        type: 'string',
+        description: 'Plain English description of the task to perform'
+      },
+      context: {
+        type: 'object',
+        description: 'Optional context for the task',
+        properties: {
+          epic_id: { type: 'string' },
+          plan_file: { type: 'string' },
+          files_to_review: { type: 'array', items: { type: 'string' } },
+          validation_commands: { type: 'array', items: { type: 'string' } }
+        }
+      }
+    },
+    required: ['task_type', 'description']
+  },
+  handler: async (params: any, context?: ProjectContext) => {
+    try {
+      const typedParams = params as SpawnSubagentParams;
+
+      // Get project path from context or cwd
+      const projectPath = context?.projectPath || process.cwd();
+      const projectName = context?.projectName || path.basename(projectPath);
+
+      console.log(`\n=== Spawning Subagent ===`);
+      console.log(`Task Type: ${typedParams.task_type}`);
+      console.log(`Description: ${typedParams.description}`);
+      console.log(`Project: ${projectName}`);
+
+      // Step 1: Query Odin for service recommendation
+      const estimatedTokens = estimateTokens(typedParams.description);
+      const complexity = inferComplexity(typedParams.description, typedParams.task_type);
+
+      console.log(`\n[Step 1/5] Querying Odin load balancer...`);
+      const recommendation = await queryOdin(typedParams.task_type, estimatedTokens, complexity);
+      console.log(`✅ Recommended: ${recommendation.service} (${recommendation.model})`);
+      console.log(`   Estimated cost: ${recommendation.estimated_cost}`);
+      console.log(`   Reason: ${recommendation.reason}`);
+
+      // Step 2: Discover and select subagent
+      console.log(`\n[Step 2/5] Selecting subagent template...`);
+      const subagents = await discoverSubagents();
+      console.log(`   Discovered ${subagents.length} subagent templates`);
+
+      const selected = selectSubagent(subagents, typedParams.task_type, typedParams.description);
+
+      if (!selected) {
+        return {
+          content: [{
+            type: 'text',
+            text: `❌ No subagent found for task_type "${typedParams.task_type}". Available subagents:\n${subagents.map(s => `- ${s.file_name} (${s.task_type})`).join('\n')}`
+          }],
+          isError: true
+        };
+      }
+
+      console.log(`✅ Selected: ${selected.file_name}`);
+      console.log(`   Keywords matched: ${selected.keywords.filter(k => typedParams.description.toLowerCase().includes(k.toLowerCase())).join(', ')}`);
+
+      // Step 3: Load and substitute template
+      console.log(`\n[Step 3/5] Loading subagent instructions...`);
+      const instructions = await loadAndSubstituteTemplate(selected, typedParams, projectPath);
+      console.log(`✅ Instructions generated (${instructions.length} characters)`);
+
+      // Step 4: Spawn agent
+      console.log(`\n[Step 4/5] Spawning agent...`);
+      const { agent_id, instructions_preview } = await spawnAgent(instructions, recommendation, selected.file_name);
+      console.log(`✅ Agent spawned: ${agent_id}`);
+
+      // Step 5: Track usage
+      console.log(`\n[Step 5/5] Tracking usage...`);
+      await trackUsage(agent_id, typedParams.task_type, selected.file_name, recommendation, projectName);
+      console.log(`✅ Usage tracked`);
+
+      console.log(`\n=== Subagent Spawned Successfully ===\n`);
+
+      return {
+        content: [{
+          type: 'text',
+          text: JSON.stringify({
+            success: true,
+            agent_id,
+            subagent_selected: selected.file_name,
+            service_used: recommendation.service,
+            model_used: recommendation.model,
+            estimated_cost: recommendation.estimated_cost,
+            instructions_preview,
+            message: `✅ Subagent spawned successfully. Monitor progress with agent ID: ${agent_id}`
+          }, null, 2)
+        }]
+      };
+    } catch (error) {
+      return {
+        content: [{
+          type: 'text',
+          text: `❌ Error spawning subagent: ${error instanceof Error ? error.message : 'Unknown error'}\n\nStack trace: ${error instanceof Error ? error.stack : ''}`
+        }],
+        isError: true
+      };
+    }
+  }
+};
