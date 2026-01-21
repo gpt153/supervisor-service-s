@@ -64,20 +64,33 @@ Create standardized subagent library with 5 core PIV-loop subagents that PS dele
 
 ## Acceptance Criteria
 
-- [ ] Directory created: /home/samuel/sv/.claude/commands/subagents/
-- [ ] Subdirectories created: research/, planning/, implementation/, validation/, testing/
-- [ ] All 5 subagents follow template structure:
-  - [ ] Header with task_type metadata
-  - [ ] FORBIDDEN section (what NOT to do)
-  - [ ] MANDATORY section (what MUST do)
-  - [ ] Step-by-step workflow
-  - [ ] Output requirements
-  - [ ] Validation checklist
-  - [ ] Success criteria
-  - [ ] Common pitfalls to avoid
+**🚨 SLIM DESIGN PROTOCOL (MANDATORY):**
+- [ ] ALL subagent files MUST be <200 lines (CRITICAL: Currently 283-553 lines - MUST SLIM)
+- [ ] YAML frontmatter for metadata (task_type, complexity, keywords) - counts toward 200 lines
+- [ ] All detailed examples extracted to /docs/examples/subagent-patterns/
+- [ ] All "why" explanations extracted to /docs/guides/
+- [ ] Workflow steps: 20-30 lines MAX (concise numbered steps only)
+- [ ] References section at bottom linking to detailed guides
+- [ ] After slimming, verify: `wc -l /home/samuel/sv/.claude/commands/subagents/*/*.md | sort -rn` shows ALL <200 lines
+- [ ] After regeneration, verify: `wc -c /home/samuel/sv/*/CLAUDE.md | sort -rn` shows ALL <40k chars
+
+**DIRECTORY STRUCTURE:**
+- [ ] Directory created: /home/samuel/sv/.claude/commands/subagents/ ✓
+- [ ] Subdirectories created: research/, planning/, implementation/, validation/, testing/ ✓
+
+**SUBAGENT TEMPLATES (SLIM VERSION):**
+- [ ] All 5 subagents follow slim template structure:
+  - [ ] YAML frontmatter with metadata (5-10 lines)
+  - [ ] FORBIDDEN section (10-15 lines, concise bullets)
+  - [ ] MANDATORY section (10-15 lines with placeholders)
+  - [ ] Workflow steps (20-30 lines, numbered, NO code examples >10 lines)
+  - [ ] Output requirements (5-10 lines)
+  - [ ] Success criteria (5-10 lines)
+  - [ ] References section (3-5 lines linking to /docs/)
+- [ ] Total per file: <200 lines
 - [ ] prime-research.md has READ-ONLY enforcement impossible to miss
 - [ ] implement-feature.md has validation requirements
-- [ ] test-ui-complete.md has comprehensive Playwright examples
+- [ ] test-ui-complete.md references Playwright guide (examples in /docs/)
 
 ---
 

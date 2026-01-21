@@ -41,6 +41,14 @@ Current PS identity (01-identity.md):
 
 ## Acceptance Criteria
 
+**🚨 SLIM DESIGN PROTOCOL (MANDATORY):**
+- [ ] 01-identity.md MUST be <150 lines (CRITICAL: Currently 101 lines ✓)
+- [ ] All examples extracted to /docs/examples/ (no inline examples >10 lines)
+- [ ] All "why" explanations extracted to /docs/guides/ (no inline explanations >5 lines)
+- [ ] References section added at bottom linking to external docs
+- [ ] After changes, verify: `wc -c /home/samuel/sv/*/CLAUDE.md | sort -rn` shows ALL <40k chars
+
+**CONTENT STRUCTURE:**
 - [ ] 01-identity.md restructured with:
   - [ ] Section 1: 🚨 FORBIDDEN - Execution Tasks (~30 lines)
   - [ ] Section 2: 🚨 FORBIDDEN - Infrastructure Operations (~40 lines)
@@ -48,7 +56,7 @@ Current PS identity (01-identity.md):
   - [ ] Section 4: MANDATORY - Infrastructure Tools (~30 lines)
   - [ ] Section 5: Workflow Checklists (~40 lines)
   - [ ] Section 6: Your ONLY Responsibilities (~20 lines)
-- [ ] Total length ~180 lines (focused, directive)
+- [ ] Total length <150 lines (focused, directive)
 - [ ] All "why" content moved to /docs/guides/ps-role-guide.md
 - [ ] All examples moved to /docs/examples/
 - [ ] Directive tone throughout
