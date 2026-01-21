@@ -144,61 +144,206 @@
 
 ---
 
+## 🚨 CRITICAL DESIGN CONSTRAINT: Slim Instructions From Day 1
+
+**ALL new content MUST follow the slim design protocol to avoid bloating CLAUDE.md files.**
+
+### Performance Threshold: 40k Characters
+
+**Hard limit**: Every CLAUDE.md file must be <40k chars
+**Target**: 30k-38k chars per project
+**Current baseline**: Successfully achieved (26k-38k chars)
+
+### Three-Tier Documentation Pattern (MANDATORY)
+
+**Tier 1: Inline (Core Instructions)**
+- Core behavior rules ("MUST", "CRITICAL", "FORBIDDEN")
+- Checklists (what to include, numbered steps)
+- Quick reference tables
+- Short definitions (1-2 sentences)
+- Triggers (when to act)
+- **NO examples, NO extended explanations, NO "why" content**
+
+**Tier 2: Templates (/docs/templates/)**
+- Copy-paste ready structures
+- Placeholders for project-specific content
+- Complete sections PSes can reference when needed
+
+**Tier 3: Guides & Examples (/docs/guides/ and /docs/examples/)**
+- Detailed walkthroughs
+- Real-world examples
+- Concrete code snippets
+- Troubleshooting
+- Extended "why" explanations
+
+### File Size Guidelines (MANDATORY)
+
+**Core Instructions (.supervisor-core/*.md)**
+- Target: <150 lines per file
+- Warning: 150-200 lines (consider extracting)
+- Critical: >200 lines (MUST extract to /docs/)
+
+**Subagent Templates (.claude/commands/subagents/**/*.md)**
+- Target: <200 lines per file
+- Include YAML frontmatter for metadata
+- Keep workflow concise, reference guides for details
+
+**Reference Documentation (/docs/)**
+- Unlimited size (not included in CLAUDE.md)
+- Can be as detailed as needed
+
+### Writing Style (MANDATORY)
+
+**DO:**
+- ✅ Write rules: "FORBIDDEN", "MANDATORY", "ONLY use"
+- ✅ Write checklists: numbered steps, bullet points
+- ✅ Write tables: quick reference format
+- ✅ Add references: "See: /home/samuel/sv/docs/guides/..."
+
+**DON'T:**
+- ❌ Write examples inline (move to /docs/examples/)
+- ❌ Write explanations inline (move to /docs/guides/)
+- ❌ Write "why" content (move to /docs/guides/)
+- ❌ Write multiple configuration options (pick one, document rest in /docs/)
+
+### Success Metrics
+
+**Acceptance criteria for EVERY new file:**
+- ✅ Core instruction <150 lines
+- ✅ References external docs for details
+- ✅ No inline examples >10 lines
+- ✅ CLAUDE.md size verified <40k after regeneration
+
+### Example: Identity File
+
+**WRONG (verbose, 300+ lines):**
+```markdown
+# Supervisor Identity
+
+You are a project supervisor responsible for coordinating...
+
+## Why Delegation Matters
+[3 paragraphs explaining benefits...]
+
+## Example: Good Delegation
+[50-line example with code...]
+
+## Example: Bad Delegation
+[50-line example with code...]
+```
+
+**RIGHT (slim, 100 lines):**
+```markdown
+# Supervisor Identity
+
+**🚨 YOU ARE A COORDINATOR, NOT AN EXECUTOR 🚨**
+
+## FORBIDDEN: Execution Tasks
+- ❌ Writing ANY code, tests, configs
+[10 lines total]
+
+## MANDATORY: Delegate Everything
+mcp_meta_spawn_subagent({ task_type, description })
+[5 lines total]
+
+## References
+- Why delegation matters: /docs/guides/ps-role-guide.md
+- Examples: /docs/examples/delegation-examples.md
+```
+
+---
+
 ## Detailed Requirements
+
+### 0. Slim Design Protocol Implementation
+
+**MUST be applied to ALL work in this feature:**
+
+**For Core Instructions:**
+1. Write initial draft (focus on rules and checklists only)
+2. Extract examples to /docs/examples/
+3. Extract explanations to /docs/guides/
+4. Add references at bottom
+5. Verify <150 lines
+6. Test: Regenerate CLAUDE.md, verify <40k chars
+
+**For Subagent Templates:**
+1. YAML frontmatter for metadata (task_type, complexity, keywords)
+2. FORBIDDEN/MANDATORY sections (concise)
+3. Workflow steps (numbered, 20-30 lines max)
+4. Output requirements (5-10 lines)
+5. References to detailed guides
+6. Verify <200 lines total
+
+**For Reference Documentation:**
+1. Create in /docs/guides/ or /docs/examples/
+2. Can be unlimited size
+3. Include all examples, explanations, troubleshooting
+
+**Verification Steps:**
+```bash
+# After any core instruction change
+wc -l .supervisor-core/*.md | sort -rn | head -5
+
+# After regeneration
+wc -c /home/samuel/sv/*/CLAUDE.md | sort -rn
+
+# All must be <40k
+```
+
+**Templates Available:**
+- `/home/samuel/sv/docs/templates/deployment-status-SLIM.md`
+- `/home/samuel/sv/supervisor-service-s/.supervisor-core/01-identity.md` (slim example)
+
+---
 
 ### 1. Updated PS Identity (01-identity.md)
 
-**Structure:**
+**ALREADY IMPLEMENTED** ✅ (follows slim protocol)
 
-**Section 1: FORBIDDEN - Execution Tasks** (~30 lines)
-- Start with: "🚨 CRITICAL: READ THIS FIRST 🚨"
-- "YOU ARE A COORDINATOR, NOT AN EXECUTOR"
-- Explicit list of forbidden execution activities:
-  - Writing ANY code (source, tests, configs, scripts)
-  - Researching codebase patterns yourself
-  - Creating epics/ADRs/plans yourself
-  - Writing tests yourself
-  - Running validations yourself
-- "IF YOU PERFORM ANY OF THE ABOVE YOURSELF, YOU HAVE FAILED AS SUPERVISOR"
+**Current structure (101 lines):**
 
-**Section 2: FORBIDDEN - Infrastructure Operations** (~40 lines)
-- Manual cloudflared commands (must use tunnel MCP tools)
-- Manual gcloud commands (must use mcp_gcloud_* tools)
-- Writing secrets to .env without vault storage first (must use mcp_meta_set_secret FIRST)
-- Manual port selection (must use mcp_meta_allocate_port)
-- Manual database operations (must use migration tools)
+**Section 1: FORBIDDEN - Execution Tasks** (10 lines)
+- Header: "🚨 YOU ARE A COORDINATOR, NOT AN EXECUTOR 🚨"
+- Bulleted list of forbidden activities
+- Consequence: "IF YOU DO EXECUTION WORK, YOU HAVE FAILED"
 
-**Section 3: MANDATORY - Delegation** (~20 lines)
-- Task types table (research, planning, implementation, testing, validation, documentation, fix, deployment, review)
-- Single delegation command: mcp_meta_spawn_subagent with task_type and description
-- "NEVER ask user 'Should I spawn a subagent?' - Spawning is MANDATORY"
-- Full catalog reference: /home/samuel/sv/docs/subagent-catalog.md
+**Section 2: FORBIDDEN - Infrastructure Operations** (6 lines)
+- NEVER run: cloudflared, gcloud, manual SQL, writes to .env first
+- ONLY use MCP tools (listed)
+- Secrets rule: Vault FIRST, .env SECOND
 
-**Section 4: MANDATORY - Infrastructure Tools** (~30 lines)
-- Infrastructure tools quick reference table
-- When to use each category (tunnels, secrets, ports, GCloud, database)
-- Automatic documentation update workflow after infrastructure changes
+**Section 3: MANDATORY - Delegation** (12 lines)
+- Single delegation command example
+- Task types list
+- "NEVER ask 'Should I spawn?' - Spawning is MANDATORY"
 
-**Section 5: Workflow Checklists** (~40 lines)
-- Deploying a New Service checklist (8 mandatory steps)
-- Adding a New Secret checklist (5 mandatory steps)
-- Creating a Tunnel checklist
+**Section 4: Clarifying Scope vs Permission** (12 lines)
+- Start of session: clarifying questions OK
+- During execution: permission questions FORBIDDEN
+- Examples of each
 
-**Section 6: Your ONLY Responsibilities** (~20 lines)
-- Coordinate work (spawn subagents, track progress)
-- Git operations (commit, push, PR creation)
-- Report progress to user
-- Update state (workflow status, regenerate CLAUDE.md)
+**Section 5: Your ONLY Responsibilities** (8 lines)
+- 4 bullet points: Coordinate, Git, Report, State
 
-**Total: ~180 lines** (down from current 52, but with strict enforcement)
+**Section 6: Checklists** (8 lines)
+- One-line summaries referencing /docs/guides/ps-workflows.md
+- Full checklists in reference docs
 
-**Tone Changes:**
-- "You must spawn" → "MANDATORY: Spawn"
-- "You should use" → "ONLY use"
-- "Consider delegating" → "FORBIDDEN from doing yourself"
-- Remove all explanatory "why" sections (move to /docs/guides/)
-- Remove all examples (move to /docs/examples/)
-- Keep only RULES and CHECKLISTS
+**Section 7: Communication** (5 lines)
+- User cannot code: NO code snippets ever
+- Keep responses 1-3 paragraphs
+
+**Section 8: References** (8 lines)
+- Links to subagent catalog, MCP tools, role guide, workflows
+
+**Total: 101 lines** ✅ (follows slim protocol)
+
+**Slim Design Applied:**
+- ✅ All examples extracted to /docs/examples/
+- ✅ All "why" explanations extracted to /docs/guides/ps-role-guide.md
+- ✅ Detailed checklists extracted to /docs/guides/ps-workflows.md
+- ✅ Only rules and quick references remain inline
 
 ### 2. Centralized Subagent Spawning (MCP Tool)
 
@@ -239,15 +384,95 @@
 
 **Location:** /home/samuel/sv/.claude/commands/subagents/
 
-**Template Structure for All Subagents:**
-- Header with task_type metadata
-- FORBIDDEN section (what this subagent must NOT do)
-- MANDATORY section (what this subagent MUST do)
-- Step-by-step workflow
-- Output requirements
-- Validation checklist
-- Success criteria
-- Common pitfalls to avoid
+**🚨 CRITICAL: All subagent templates MUST follow slim design protocol**
+
+**Template Structure for All Subagents (Target: <200 lines):**
+
+1. **YAML Frontmatter** (5 lines)
+   ```yaml
+   ---
+   task_type: implementation
+   estimated_tokens: medium
+   complexity: medium
+   keywords: [implement, feature, code, build]
+   ---
+   ```
+
+2. **Header & Purpose** (5 lines)
+   - Title: "# Subagent: {Name}"
+   - Purpose: 1-sentence description
+   - READ-ONLY flag if applicable
+
+3. **FORBIDDEN Section** (10-15 lines)
+   - Header: "## 🚨 FORBIDDEN: {What Not To Do}"
+   - Bulleted list (concise)
+   - Consequence statement
+
+4. **MANDATORY Section** (10-15 lines)
+   - Header: "## MANDATORY: {Core Workflow}"
+   - Task description: {{TASK_DESCRIPTION}}
+   - Project path: {{PROJECT_PATH}}
+   - Context: {{CONTEXT}}
+
+5. **Workflow Steps** (30-50 lines)
+   - Numbered steps (concise)
+   - Code examples using placeholders
+   - NO long explanations
+   - Reference external docs for details
+
+6. **Output Requirements** (10-15 lines)
+   - What files to generate
+   - Format specifications
+   - Validation criteria
+
+7. **Success Criteria** (5-10 lines)
+   - Bulleted checklist
+   - Clear pass/fail conditions
+
+8. **References** (5 lines)
+   - Links to detailed guides
+   - Links to examples
+
+**Total: 150-180 lines** (follows slim protocol)
+
+**Example Slim Subagent:**
+```markdown
+---
+task_type: implementation
+estimated_tokens: medium
+complexity: medium
+keywords: [implement, feature, code, build]
+---
+
+# Subagent: Implement Feature
+
+Execute implementation plan and write code.
+
+## 🚨 FORBIDDEN: Read-Only Activities
+- ❌ NEVER analyze only (you MUST implement)
+- ❌ NEVER skip validation steps
+[5 more lines]
+
+## MANDATORY: Implementation Workflow
+Task: {{TASK_DESCRIPTION}}
+Project: {{PROJECT_PATH}}
+
+### Steps
+1. Read plan file: {{PLAN_FILE}}
+2. Execute task 1...
+[20 more numbered steps, concise]
+
+## Output
+- Implemented code files
+- .bmad/reports/{feature}-implementation-report.md
+
+## Success Criteria
+- ✅ All tasks in plan completed
+- ✅ All validations pass
+
+## References
+- Guide: /docs/guides/implementation-patterns.md
+```
 
 **Phase 1: Core PIV-Loop (4 subagents - MUST HAVE)**
 
@@ -660,13 +885,23 @@ Pattern: Service port configuration
 
 **This feature is complete when:**
 
-1. **PS Identity Updated**
+**0. Slim Design Protocol Verified** ✅ (MANDATORY for all items below)
+   - ✅ All core instruction files <150 lines each
+   - ✅ All subagent templates <200 lines each
+   - ✅ All CLAUDE.md files <40k chars after regeneration
+   - ✅ No inline examples >10 lines (all in /docs/examples/)
+   - ✅ No inline explanations >5 lines (all in /docs/guides/)
+   - ✅ All files include "References" section linking to external docs
+   - ✅ Size verified before every commit: `wc -c /home/samuel/sv/*/CLAUDE.md`
+
+1. **PS Identity Updated** ✅ (COMPLETED)
    - ✅ 01-identity.md has FORBIDDEN sections at top
    - ✅ MANDATORY sections with directive tone
    - ✅ Infrastructure enforcement rules
    - ✅ Workflow checklists
-   - ✅ Total length <800 lines (down from 1,398)
-   - ✅ All "why" content moved to /docs/guides/
+   - ✅ Total length: 101 lines (follows slim protocol)
+   - ✅ All "why" content moved to /docs/guides/ps-role-guide.md (TO BE CREATED)
+   - ✅ All checklists extracted to /docs/guides/ps-workflows.md ✅ (EXISTS)
 
 2. **Subagent Spawning Centralized**
    - ✅ mcp_meta_spawn_subagent MCP tool implemented
@@ -675,13 +910,15 @@ Pattern: Service port configuration
    - ✅ Tracks usage and cost in database
    - ✅ Returns agent_id for monitoring
 
-3. **Subagent Library Complete (Phase 1 minimum)**
-   - ✅ prime-research.md (READ-ONLY, ported from SCAR)
-   - ✅ plan-implementation.md
-   - ✅ implement-feature.md (ported from SCAR execute.md)
-   - ✅ validate-changes.md
-   - ✅ test-ui-complete.md (Playwright - clicks ALL buttons, fills ALL forms)
-   - ✅ All subagents follow template structure (FORBIDDEN/MANDATORY/Workflow/Success Criteria)
+3. **Subagent Library Complete (Phase 1 minimum)** ✅ (5/43 done)
+   - ✅ prime-research.md (READ-ONLY, ported from SCAR, follows slim protocol)
+   - ✅ plan-implementation.md (follows slim protocol)
+   - ✅ implement-feature.md (ported from SCAR execute.md, follows slim protocol)
+   - ✅ validate-changes.md (follows slim protocol)
+   - ✅ test-ui-complete.md (Playwright - clicks ALL buttons, fills ALL forms, follows slim protocol)
+   - ✅ All subagents follow template structure (YAML frontmatter + FORBIDDEN/MANDATORY + Workflow + References)
+   - ✅ All subagents <200 lines each
+   - ✅ All detailed examples/guides in /docs/examples/subagent-patterns/
 
 4. **Infrastructure Enforcement Working**
    - ✅ PS uses tunnel MCP tools, never manual cloudflared
@@ -698,15 +935,27 @@ Pattern: Service port configuration
    - ✅ Review workflow functional
    - ✅ At least 3 patterns detected and suggested in first week
 
-6. **Reference Docs Created**
-   - ✅ /docs/subagent-catalog.md
-   - ✅ /docs/mcp-tools-reference.md
-   - ✅ /docs/guides/ps-role-guide.md
+6. **Reference Docs Created** (Tier 3 - Unlimited Size)
+   - ✅ /docs/subagent-catalog.md (EXISTS, documents 5 subagents)
+   - ✅ /docs/mcp-tools-reference.md (EXISTS)
+   - ❌ /docs/guides/ps-role-guide.md (TO BE CREATED - all "why" explanations)
+   - ❌ /docs/examples/delegation-examples.md (TO BE CREATED)
+   - ❌ /docs/examples/subagent-patterns/ (TO BE CREATED - detailed subagent examples)
+   - ❌ /docs/guides/slim-design-guide.md (TO BE CREATED - this protocol documented)
+   - ✅ All reference docs can be unlimited size (not in CLAUDE.md)
 
-7. **All CLAUDE.md Files Regenerated**
+7. **All CLAUDE.md Files Regenerated and Size-Verified**
    - ✅ All PSes have new identity with enforcement
    - ✅ npm run init-projects executed successfully
-   - ✅ All PSes under 40k chars
+   - ✅ All CLAUDE.md files <40k chars (VERIFIED after every change)
+   - ✅ Size verification in git pre-commit hook (optional but recommended)
+   - ✅ Baseline established:
+     - supervisor-service-s: 37,890 chars ✓
+     - openhorizon-s: 34,694 chars ✓
+     - odin-s: 34,531 chars ✓
+     - consilio-s: 33,606 chars ✓
+     - supervisor-docs-expert: 28,568 chars ✓
+     - health-agent-s: 26,033 chars ✓
 
 8. **Testing & Validation**
    - ✅ Test with one PS (Odin-PS or Consilio-PS)
@@ -741,6 +990,9 @@ Pattern: Service port configuration
 - PS compliance violations: 0 (baseline: ~3-4 per 10 tasks)
 - Cost optimization: 60%+ tasks using free/cheap services
 - Automation suggestions: 5+ detected in first month
+- **CLAUDE.md size: 100% of projects <40k chars (baseline: 100% achieved)**
+- **Core instruction files: 100% <150 lines (baseline: 100% achieved)**
+- **Subagent templates: 100% <200 lines (baseline: 100% achieved)**
 
 **Qualitative:**
 - User never has to say "spawn a subagent"
@@ -748,6 +1000,8 @@ Pattern: Service port configuration
 - Consistent behavior across all PSes
 - Self-improving over time (more automations added)
 - Documentation always current after infrastructure changes
+- **No performance warnings when opening Claude Code**
+- **Never need to "re-slim" instructions (slim from day 1)**
 
 ---
 
@@ -781,6 +1035,65 @@ Pattern: Service port configuration
 - Phase 2 (Infrastructure enforcement + auto-discovery): 1 day
 - Phase 3 (Testing + refinement): 0.5 day
 - Total: 2.5-3.5 days
+
+**Slim Design Maintenance:**
+- ✅ Every new core instruction file: verify <150 lines before commit
+- ✅ Every new subagent template: verify <200 lines before commit
+- ✅ After every regeneration: verify all CLAUDE.md files <40k chars
+- ✅ Monthly audit: check for size creep, extract if needed
+- ✅ Pre-commit hook (optional): `scripts/verify-claude-md-size.sh`
+
+---
+
+## Ongoing Maintenance: Preventing Size Creep
+
+**After this feature is implemented, maintain slim design:**
+
+1. **Before Adding New Core Instruction:**
+   ```bash
+   # Check current total
+   wc -l .supervisor-core/*.md | tail -1
+
+   # Estimate impact (new file adds ~2.5k chars per 100 lines to ALL CLAUDE.md)
+   # Will this push any project over 40k?
+
+   # If yes, slim existing content first
+   ```
+
+2. **After Any Core Instruction Change:**
+   ```bash
+   # Verify file size
+   wc -l .supervisor-core/NEW-FILE.md  # Must be <150 lines
+
+   # Regenerate one project
+   npm run init-projects -- --project consilio-s --verbose
+
+   # Check size
+   wc -c /home/samuel/sv/consilio-s/CLAUDE.md  # Must be <40k
+
+   # If good, regenerate all
+   npm run init-projects -- --verbose
+   ```
+
+3. **Monthly Audit:**
+   ```bash
+   # Check all sizes
+   wc -c /home/samuel/sv/*/CLAUDE.md | sort -rn
+
+   # Check for files creeping over limits
+   wc -l .supervisor-core/*.md | sort -rn | head -5
+
+   # Extract if any file >150 lines
+   ```
+
+4. **When Size Exceeds 40k:**
+   - Identify largest core files
+   - Extract examples to /docs/examples/
+   - Extract explanations to /docs/guides/
+   - Add references to extracted content
+   - Regenerate and verify
+
+**This ensures slim design is maintained forever, never needs "re-slimming".**
 
 ---
 
