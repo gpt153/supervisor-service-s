@@ -577,6 +577,83 @@ Pattern: Service port configuration
 - Troubleshooting
 - All the "why" content removed from core instructions
 
+### 8. Deployment Status File Slimming
+
+**Problem:** Project-specific deployment-status.md files are 325-436 lines each, causing CLAUDE.md files to exceed 40k char performance threshold.
+
+**Solution:** Slim all deployment-status.md files to <80 lines using reference pattern.
+
+**What to Keep (Target: 60-80 lines):**
+
+**Section 1: Port Range** (5 lines)
+- Assigned range only
+- Critical warning
+- No explanations
+
+**Section 2: Live Deployments** (4 lines)
+- Production URL (if exists)
+- Development URL
+- Status only
+
+**Section 3: Service Ports** (10 lines)
+- Table: Service | Port | Status
+- Next available port
+- No architecture diagrams
+
+**Section 4: Quick Start** (8 lines)
+- One command to run locally
+- One URL to access
+- No detailed workflows
+
+**Section 5: Database** (3 lines)
+- Connection string only
+- No explanations
+
+**Section 6: Environment Variables** (8 lines)
+- Critical vars only
+- One-line description each
+- Reference to .env.example
+
+**Section 7: Reference** (3 lines)
+- "See README.md for architecture"
+- Last updated date
+
+**Total:** 65 lines (down from 250-436 lines)
+
+**What to Remove:**
+- ❌ Architecture diagrams → Move to README.md
+- ❌ Detailed explanations → Move to README.md
+- ❌ "WRONG ports" commentary → Delete (fix the ports, don't explain history)
+- ❌ Multiple configuration examples → Keep one, move rest to README
+- ❌ Known issues section → Move to GitHub issues or README
+- ❌ Features status section → Move to README
+- ❌ Deployment workflow section → Already in /docs/guides/ps-workflows.md
+- ❌ Verbose "why" explanations → Move to README
+
+**Template:** `/home/samuel/sv/docs/templates/deployment-status-SLIM.md`
+
+**Example Implementation:** health-agent-s (436 → 64 lines, 85% reduction)
+
+**Remaining Projects to Slim:**
+- odin-s: 325 lines → ~65 lines = ~6,500 chars saved
+- consilio-s: ~250 lines → ~65 lines = ~4,600 chars saved
+- openhorizon-s: ~250 lines → ~65 lines = ~4,600 chars saved
+- supervisor-service-s: ~300 lines → ~65 lines = ~5,900 chars saved
+
+**Expected Results:**
+- Total savings: ~30k chars across all projects
+- All CLAUDE.md files <40k chars
+- No performance degradation
+- Deployment info still accessible (moved to README.md)
+
+**Workflow for Each Project:**
+1. Backup current deployment-status.md
+2. Extract architecture/details to README.md
+3. Rewrite deployment-status.md using slim template
+4. Regenerate CLAUDE.md (npm run init-projects)
+5. Verify size <40k chars
+6. Commit with size reduction metrics
+
 ---
 
 ## Acceptance Criteria
@@ -644,6 +721,15 @@ Pattern: Service port configuration
    - ✅ Track MCP tool usage vs manual commands
    - ✅ Track cost savings from automation
    - ✅ Weekly report to user
+
+10. **Deployment Status Files Slimmed**
+   - ✅ All .supervisor-specific/02-deployment-status.md files <80 lines
+   - ✅ Architecture details moved to README.md or removed
+   - ✅ Template followed: /home/samuel/sv/docs/templates/deployment-status-SLIM.md
+   - ✅ All CLAUDE.md files <40k chars after regeneration
+   - ✅ Pattern verified with health-agent-s example (436 → 64 lines, 85% reduction)
+   - ✅ Remaining projects slimmed: odin-s, consilio-s, openhorizon-s, supervisor-service-s
+   - ✅ Total expected savings: ~30k chars across all projects
 
 ---
 
