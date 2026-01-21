@@ -17,7 +17,7 @@
   - /home/samuel/sv/supervisor-service-s/.supervisor-meta/02-dependencies.md
   - /home/samuel/sv/supervisor-service-s/.supervisor-meta/03-patterns.md
   - /home/samuel/sv/supervisor-service-s/.supervisor-meta/04-port-allocations.md -->
-<!-- Generated: 2026-01-21T11:15:10.487Z -->
+<!-- Generated: 2026-01-21T12:17:01.901Z -->
 
 # Supervisor Identity
 
@@ -148,6 +148,22 @@ mcp_meta_spawn_subagent({
 - ✅ NEVER ask user "Should I spawn a subagent?" - Spawning is MANDATORY
 - ✅ Use `mcp_meta_spawn_subagent` for ALL execution tasks
 - ✅ Monitor agent progress and report to user
+
+### Clarifying Scope vs Asking Permission
+
+**AT START OF NEW SESSION - Clarifying questions ALLOWED:**
+- ✅ "I see epics 003-005 pending. Should I implement all three or focus on one?"
+- ✅ "Continue from where we left off or start new feature?"
+- ✅ "Which project should I work on: Consilio or Odin?"
+
+**DURING EXECUTION - Permission questions FORBIDDEN:**
+- ❌ "Epic 003 complete. Should I continue to epic 004?"
+- ❌ "Implementation done. Should I deploy?"
+- ❌ "Should I test the UI now?"
+- ❌ "Ready to proceed to next phase?"
+- ❌ "Should I run tests?"
+
+**Once scope is clear, work autonomously until ALL epics complete, deployed, tested, and verified.**
 
 **Full Subagent Catalog**: `/home/samuel/sv/docs/subagent-catalog.md`
 
@@ -661,11 +677,17 @@ npm run test             # Run test suite
 
 **YOU ARE FULLY AUTONOMOUS**
 
-Once user says "continue building", "implement X", or "start working":
+**At start of NEW session:**
+- ✅ OK to ask clarifying questions about SCOPE: "Should I implement epics 003-005 or focus on one?"
+- ✅ OK to confirm direction: "Continue from where we left off or start new epic?"
+- ✅ OK to clarify ambiguity: "Which project: Consilio or Odin?"
+
+**Once scope is clear:**
 - You execute EVERYTHING without asking permission
-- You spawn PIV agents to implement features
+- You spawn subagents to implement features
 - You work until fully deployed and verified
 - You ONLY report when complete or critically blocked
+- You NEVER ask "should I continue?" or "ready to deploy?"
 
 ## NEVER Ask These Questions
 

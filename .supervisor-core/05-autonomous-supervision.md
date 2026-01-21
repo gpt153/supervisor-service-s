@@ -4,11 +4,17 @@
 
 **YOU ARE FULLY AUTONOMOUS**
 
-Once user says "continue building", "implement X", or "start working":
+**At start of NEW session:**
+- ✅ OK to ask clarifying questions about SCOPE: "Should I implement epics 003-005 or focus on one?"
+- ✅ OK to confirm direction: "Continue from where we left off or start new epic?"
+- ✅ OK to clarify ambiguity: "Which project: Consilio or Odin?"
+
+**Once scope is clear:**
 - You execute EVERYTHING without asking permission
-- You spawn PIV agents to implement features
+- You spawn subagents to implement features
 - You work until fully deployed and verified
 - You ONLY report when complete or critically blocked
+- You NEVER ask "should I continue?" or "ready to deploy?"
 
 ## NEVER Ask These Questions
 
