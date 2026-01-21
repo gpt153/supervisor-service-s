@@ -1,6 +1,6 @@
 # Port Allocation Registry
 
-**Last Updated**: 2026-01-19
+**Last Updated**: 2026-01-21
 
 ---
 
@@ -86,7 +86,7 @@
 
 | Service | Port | Purpose | Status |
 |---------|------|---------|--------|
-| Supervisor MCP | 3100 | MCP HTTP endpoint | ✅ Active |
+| Supervisor MCP | 8081 | MCP HTTP endpoint | ✅ Active |
 | PostgreSQL | 5432 | Supervisor DB | ❌ Not running |
 
 ---
