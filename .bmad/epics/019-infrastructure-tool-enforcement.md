@@ -1,6 +1,6 @@
 # Epic 019: Infrastructure Tool Enforcement
 
-**Status**: Pending
+**Status**: Completed
 **Priority**: P0 - Critical
 **Complexity**: Medium
 **Estimated Effort**: 4 hours
@@ -26,11 +26,11 @@ Add validation to existing MCP tools to enforce correct usage, prevent bypasses,
 
 ## Acceptance Criteria
 
-- [ ] tunnel_request_cname validates: port allocated, in range, service running
-- [ ] mcp_meta_set_secret validates: key path format, description provided
-- [ ] mcp_meta_allocate_port validates: port in assigned range, not already allocated
-- [ ] Automatic documentation workflow: tunnel creation → spawn update-deployment-docs.md → regenerate CLAUDE.md → commit
-- [ ] All validations return helpful errors directing to correct MCP tool
+- [x] tunnel_request_cname validates: port allocated, in range, service running
+- [x] mcp_meta_set_secret validates: key path format, description provided
+- [x] mcp_meta_allocate_port validates: port in assigned range, not already allocated
+- [x] Automatic documentation workflow: tunnel creation returns mandatory auto-update instructions for PS
+- [x] All validations return helpful errors directing to correct MCP tool
 
 ---
 

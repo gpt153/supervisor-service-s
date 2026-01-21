@@ -144,6 +144,20 @@ export const allocatePortTool: ToolDefinition = {
     try {
       const manager = getPortManager();
 
+      // Validate project has a port range assigned
+      try {
+        const summary = await manager.getProjectSummary(params.projectName);
+        console.log(`[Port Allocation] Project ${params.projectName} has range ${summary.rangeStart}-${summary.rangeEnd} (${summary.availablePorts} ports available)`);
+      } catch (rangeError) {
+        return {
+          success: false,
+          error: `No port range assigned to project ${params.projectName}`,
+          projectName: params.projectName,
+          serviceName: params.serviceName,
+          recommendation: 'Contact meta-supervisor to assign a port range for your project. Port ranges are defined in port_ranges table and typically span 100 ports per project.',
+        };
+      }
+
       const port = await manager.allocate(
         params.projectName,
         params.serviceName,
@@ -156,17 +170,46 @@ export const allocatePortTool: ToolDefinition = {
         }
       );
 
+      // Get updated summary to show utilization
+      const summary = await manager.getProjectSummary(params.projectName);
+
       return {
         success: true,
         port,
         projectName: params.projectName,
         serviceName: params.serviceName,
         message: `Port ${port} allocated to ${params.projectName}/${params.serviceName}`,
+        portRange: `${summary.rangeStart}-${summary.rangeEnd}`,
+        utilization: `${summary.allocatedPorts}/${summary.totalPorts} ports (${summary.utilization}%)`,
+        portsRemaining: summary.availablePorts,
       };
     } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+
+      // Enhance error messages
+      if (errorMessage.includes('no active port range')) {
+        return {
+          success: false,
+          error: `No port range assigned to project ${params.projectName}`,
+          projectName: params.projectName,
+          serviceName: params.serviceName,
+          recommendation: 'Contact meta-supervisor to assign a port range for your project.',
+        };
+      }
+
+      if (errorMessage.includes('No available ports')) {
+        return {
+          success: false,
+          error: `All ports in your assigned range are already allocated`,
+          projectName: params.projectName,
+          serviceName: params.serviceName,
+          recommendation: 'Release unused ports with release-port tool, or contact meta-supervisor to expand your port range.',
+        };
+      }
+
       return {
         success: false,
-        error: error instanceof Error ? error.message : 'Unknown error',
+        error: errorMessage,
         projectName: params.projectName,
         serviceName: params.serviceName,
       };

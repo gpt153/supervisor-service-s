@@ -141,21 +141,45 @@ export const requestCNAMETool: ToolDefinition = {
             target_type: result.target_type,
             container_name: result.container_name || null
           },
-          instructions_for_ps: [
-            '1. Update .supervisor-specific/QUICK-START.md: Add quick_start_entry to "Production (Docker)" section',
-            '2. Update .supervisor-specific/02-deployment-status.md: Update "Production Environment" with deployment_status_entry details',
-            '3. Regenerate CLAUDE.md: cd /home/samuel/sv/supervisor-service-s && npm run init-projects -- --project ' + projectName + ' --verbose',
-            '4. Commit: git add .supervisor-specific/ CLAUDE.md && git commit -m "docs: update deployment config with tunnel ' + result.url + '" && git push origin main'
-          ].join('\n')
+          auto_update_workflow: {
+            enabled: true,
+            instructions: [
+              '⚠️  MANDATORY AUTO-UPDATE WORKFLOW - NO PERMISSION NEEDED',
+              '',
+              'The PS MUST automatically execute these steps (do not ask user):',
+              '',
+              '1. Update .supervisor-specific/QUICK-START.md',
+              '   - Add production URL to "Production Environment" section',
+              '   - Include tunnel mapping: ' + result.url + ' → localhost:' + params.targetPort,
+              '',
+              '2. Update .supervisor-specific/02-deployment-status.md',
+              '   - Add tunnel configuration to "Production Deployments" section',
+              '   - Update "Access URLs" with new public URL',
+              '',
+              '3. Regenerate CLAUDE.md',
+              '   - Run: cd /home/samuel/sv/supervisor-service-s && npm run init-projects -- --project ' + projectName + ' --verbose',
+              '',
+              '4. Commit and push changes',
+              '   - git add .supervisor-specific/ CLAUDE.md',
+              '   - git commit -m "docs: add tunnel ' + result.url + ' for port ' + params.targetPort + '"',
+              '   - git push origin main',
+              '',
+              'These steps ensure next PS session has deployment info immediately.',
+            ].join('\n')
+          }
         };
+
+        console.log('✅ Tunnel created successfully');
+        console.log('📝 Auto-update workflow instructions included in response');
+        console.log('   PS will update deployment docs automatically');
 
         return {
           content: [{
             type: 'text',
             text: JSON.stringify({
               success: true,
-              cname: result.url.replace('https://', ''),
-              url: result.url,
+              cname: result.url!.replace('https://', ''),
+              url: result.url!,
               tunnel_name: `${params.subdomain}-153-se`,
               local_port: params.targetPort,
               target_type: result.target_type,

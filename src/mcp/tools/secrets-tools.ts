@@ -132,6 +132,27 @@ export const setSecretTool: ToolDefinition = {
   },
   handler: async (params: SetSecretParams & { expiresAt?: string }, context: ProjectContext) => {
     try {
+      // Validate key path format
+      const keyPathRegex = /^(meta|project|service)\/[a-z0-9-_]+\/[a-z0-9-_]+$/;
+      if (!keyPathRegex.test(params.keyPath)) {
+        return {
+          success: false,
+          error: 'Invalid key path format',
+          keyPath: params.keyPath,
+          recommendation: 'Key path must follow format: project/{project-name}/{secret-name-lowercase}\n\nExamples:\n  project/consilio/stripe_api_key\n  project/odin/anthropic_api_key\n  meta/cloudflare/api_token\n  service/auth/jwt_secret',
+        };
+      }
+
+      // Validate description provided and > 10 characters
+      if (!params.description || params.description.trim().length < 10) {
+        return {
+          success: false,
+          error: 'Description required (minimum 10 characters)',
+          keyPath: params.keyPath,
+          recommendation: 'Provide a clear description of what this secret is used for.\n\nExamples:\n  "Stripe API key for payment processing in production"\n  "Anthropic API key for Claude AI service"\n  "PostgreSQL database connection password"',
+        };
+      }
+
       const manager = getSecretsManager();
 
       // Convert expiresAt string to Date if provided
@@ -144,10 +165,15 @@ export const setSecretTool: ToolDefinition = {
 
       await manager.set(setParams);
 
+      // Extract secret name for .env variable name
+      const secretNameParts = params.keyPath.split('/');
+      const secretName = secretNameParts[secretNameParts.length - 1].toUpperCase();
+
       return {
         success: true,
         keyPath: params.keyPath,
         message: 'Secret stored successfully',
+        reminder: `⚠️  NEXT STEP: Add this secret to .env file:\n\n${secretName}=${params.value.substring(0, 10)}...\n\nVault is backup. .env is working copy.`,
       };
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Unknown error';

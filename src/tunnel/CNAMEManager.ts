@@ -48,16 +48,37 @@ export class CNAMEManager {
 
     try {
       // Step 1: Validate port allocation
-      // For now, skip port validation - PSs are trusted to use their allocated ports
-      // TODO: Add port validation by querying port_allocations table
-      // const portAllocated = await this.validatePortAllocation(request.targetPort, request.projectName);
-      // if (!portAllocated) {
-      //   return {
-      //     success: false,
-      //     error: `Port ${request.targetPort} is not allocated to project ${request.projectName}`,
-      //     recommendation: 'Allocate the port first using PortManager before creating a CNAME'
-      //   };
-      // }
+      const portAllocations = await this.portManager.listByProject(request.projectName);
+      const portAllocation = portAllocations.find(a => a.portNumber === request.targetPort && a.status !== 'released');
+
+      if (!portAllocation) {
+        return {
+          success: false,
+          error: `Port ${request.targetPort} not allocated to project ${request.projectName}`,
+          recommendation: `Use mcp_meta_allocate_port to allocate port ${request.targetPort} first.\n\nExample:\nmcp_meta_allocate_port({\n  projectName: "${request.projectName}",\n  serviceName: "your-service",\n  port: ${request.targetPort}\n})\n\nCheck your project's assigned port range in .supervisor-specific/02-deployment-status.md`
+        };
+      }
+
+      // Step 1b: Validate port is in assigned range
+      const summary = await this.portManager.getProjectSummary(request.projectName);
+
+      if (request.targetPort < summary.rangeStart || request.targetPort > summary.rangeEnd) {
+        return {
+          success: false,
+          error: `Port ${request.targetPort} outside assigned range (${summary.rangeStart}-${summary.rangeEnd})`,
+          recommendation: `Your project's assigned port range is ${summary.rangeStart}-${summary.rangeEnd}. Choose a port within this range.`
+        };
+      }
+
+      // Step 1c: Validate service is running on that port
+      const portInUse = await this.portManager.verifyPort(request.targetPort);
+      if (!portInUse) {
+        return {
+          success: false,
+          error: `Service not running on port ${request.targetPort}`,
+          recommendation: `Start your service first, then create tunnel.\n\nVerify service is running:\ncurl localhost:${request.targetPort}\n\nOr:\nlsof -i :${request.targetPort}`
+        };
+      }
 
       // Step 2: Check subdomain availability
       const available = this.database.isSubdomainAvailable(request.subdomain, domain);
