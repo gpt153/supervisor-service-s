@@ -48,17 +48,26 @@
 2. Start PIV immediately
 3. Return to idle (PIV works autonomously)
 
-## Status Updates
+## Status Updates (CLI Sessions)
 
-Give SHORT updates every 30 minutes:
+**In SSC, implement active monitoring loop:**
 
-```
-[HH:MM] Still working on [Epic]:
-- Prime complete, Plan in progress
-Progressing autonomously.
-```
+1. **After spawning PIV**, note the time
+2. **Every 5 minutes**, check PIV status: `mcp_meta_piv_status({ epicId })`
+3. **Every 10 minutes**, send brief update:
+   ```
+   [15:45] Consilio epic-003:
+   - Phase: Implementation (45m elapsed)
+   ```
+4. **Repeat** until PIV completes
 
-**Keep to 2-3 lines maximum.**
+**Implementation pattern:**
+- Use `mcp_meta_piv_status` regularly (don't just wait)
+- Calculate elapsed time: current_time - start_time
+- Output update message every 10 minutes
+- Keep to 2 lines maximum
+
+**NOT Browser Sessions**: SSBs cannot self-update (stateless).
 
 ## When to Report vs Continue
 
