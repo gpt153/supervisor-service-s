@@ -15,6 +15,7 @@ import type {
   PortAllocation,
   AllocatePortParams,
 } from '../types/database.js';
+import type { UIRequirement } from '../types/ui-001.js';
 
 // ============================================================================
 // Projects
@@ -381,4 +382,89 @@ export async function getProjectStatistics(project_id: string): Promise<{
 
   const result = await pool.query(query, [project_id]);
   return result.rows[0];
+}
+
+// ============================================================================
+// UI Requirements (Epic UI-001)
+// ============================================================================
+
+/**
+ * Create or update UI requirements for an epic
+ *
+ * @param requirement - UI requirement data (without id, created_at, updated_at)
+ * @returns Created or updated UI requirement
+ */
+export async function upsertUIRequirement(
+  requirement: Omit<UIRequirement, 'id' | 'created_at' | 'updated_at'>
+): Promise<UIRequirement> {
+  const query = `
+    INSERT INTO ui_requirements (
+      epic_id,
+      project_name,
+      acceptance_criteria,
+      user_stories,
+      data_requirements,
+      navigation_needs,
+      design_constraints
+    )
+    VALUES ($1, $2, $3, $4, $5, $6, $7)
+    ON CONFLICT (epic_id)
+    DO UPDATE SET
+      project_name = EXCLUDED.project_name,
+      acceptance_criteria = EXCLUDED.acceptance_criteria,
+      user_stories = EXCLUDED.user_stories,
+      data_requirements = EXCLUDED.data_requirements,
+      navigation_needs = EXCLUDED.navigation_needs,
+      design_constraints = EXCLUDED.design_constraints,
+      updated_at = NOW()
+    RETURNING *
+  `;
+
+  const result = await pool.query<UIRequirement>(query, [
+    requirement.epic_id,
+    requirement.project_name,
+    JSON.stringify(requirement.acceptance_criteria),
+    JSON.stringify(requirement.user_stories),
+    JSON.stringify(requirement.data_requirements),
+    JSON.stringify(requirement.navigation_needs),
+    requirement.design_constraints ? JSON.stringify(requirement.design_constraints) : null,
+  ]);
+
+  return result.rows[0];
+}
+
+/**
+ * Get UI requirements by epic ID
+ *
+ * @param epicId - Epic identifier
+ * @returns UI requirement or null if not found
+ */
+export async function getUIRequirementsByEpicId(epicId: string): Promise<UIRequirement | null> {
+  const query = 'SELECT * FROM ui_requirements WHERE epic_id = $1';
+  const result = await pool.query<UIRequirement>(query, [epicId]);
+  return result.rows[0] || null;
+}
+
+/**
+ * Get UI requirements by project name
+ *
+ * @param projectName - Project name
+ * @returns Array of UI requirements
+ */
+export async function getUIRequirementsByProject(projectName: string): Promise<UIRequirement[]> {
+  const query = 'SELECT * FROM ui_requirements WHERE project_name = $1 ORDER BY created_at DESC';
+  const result = await pool.query<UIRequirement>(query, [projectName]);
+  return result.rows;
+}
+
+/**
+ * Delete UI requirements by epic ID
+ *
+ * @param epicId - Epic identifier
+ * @returns True if deleted, false if not found
+ */
+export async function deleteUIRequirements(epicId: string): Promise<boolean> {
+  const query = 'DELETE FROM ui_requirements WHERE epic_id = $1 RETURNING id';
+  const result = await pool.query(query, [epicId]);
+  return result.rowCount !== null && result.rowCount > 0;
 }

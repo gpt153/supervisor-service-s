@@ -25,6 +25,8 @@
     "quota-check": "tsx src/scripts/hourly-quota-check.ts",
     "daily-optimization": "tsx src/scripts/daily-optimization.ts",
     "health-monitor": "tsx src/cli/run-health-monitor.ts",
+    "mcp:daemon": "tsx src/mcp/mcp-daemon.ts",
+    "mcp:install": "bash systemd/install-mcp.sh",
     "test": "tsx tests/prompt-generator.test.ts && tsx tests/ps-health-monitor.test.ts"
   },
   "keywords": [

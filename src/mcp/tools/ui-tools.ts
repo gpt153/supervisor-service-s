@@ -1,10 +1,15 @@
 /**
  * UI-First Development Workflow MCP Tools
+ * Epic: UI-001 - Requirements Analysis Engine
  * Epic: UI-002 - Design System Foundation
  */
 
 import { DesignSystemManager } from '../../ui/DesignSystemManager.js';
 import { StorybookDeployer } from '../../ui/StorybookDeployer.js';
+import { EpicParser } from '../../ui/EpicParser.js';
+import { RequirementsAnalyzer } from '../../ui/RequirementsAnalyzer.js';
+import { UISpecMapper } from '../../ui/UISpecMapper.js';
+import { upsertUIRequirement } from '../../db/queries.js';
 import type { ToolDefinition, ProjectContext } from '../../types/project.js';
 import type {
   CreateDesignSystemParams,
@@ -13,10 +18,89 @@ import type {
   DeleteDesignSystemParams,
   DeployStorybookParams,
 } from '../../types/design-system.js';
+import type { AnalyzeEpicParams, AnalyzeEpicResult } from '../../types/ui-001.js';
 
 // Service instances
 const designSystemManager = new DesignSystemManager();
 const storybookDeployer = new StorybookDeployer();
+const epicParser = new EpicParser();
+const requirementsAnalyzer = new RequirementsAnalyzer();
+const uiSpecMapper = new UISpecMapper();
+
+/**
+ * Analyze epic to extract UI requirements
+ * Epic: UI-001 - Requirements Analysis Engine
+ */
+export const uiAnalyzeEpic: ToolDefinition = {
+  name: 'ui_analyze_epic',
+  description: 'Parse epic markdown file to extract UI requirements (acceptance criteria, user stories, data needs, navigation)',
+  inputSchema: {
+    type: 'object',
+    properties: {
+      epicId: {
+        type: 'string',
+        description: 'Epic identifier (e.g., "epic-003-user-management" or "ui-001")',
+      },
+      projectName: {
+        type: 'string',
+        description: 'Project name (optional, will be extracted from epic if not provided)',
+      },
+      reanalyze: {
+        type: 'boolean',
+        description: 'Force re-analysis even if requirements already exist (default: false)',
+      },
+    },
+    required: ['epicId'],
+  },
+  handler: async (input: AnalyzeEpicParams, context: ProjectContext): Promise<AnalyzeEpicResult> => {
+    try {
+      const warnings: string[] = [];
+
+      // Parse epic markdown file
+      const parseResult = await epicParser.parseEpic(input.epicId);
+
+      if ('error' in parseResult) {
+        return {
+          success: false,
+          error: parseResult.error,
+        };
+      }
+
+      const parsedEpic = parseResult;
+
+      // Add validation warnings if any
+      const validation = epicParser.validateEpicFormat(JSON.stringify(parsedEpic));
+      if (validation.warnings.length > 0) {
+        warnings.push(...validation.warnings.map(w => w.message));
+      }
+
+      // Analyze requirements
+      const analysis = requirementsAnalyzer.analyze(parsedEpic.acceptanceCriteria);
+
+      // Map to UI specification
+      const uiSpec = uiSpecMapper.mapToUISpec(parsedEpic, analysis);
+
+      // Override project name if provided
+      if (input.projectName) {
+        uiSpec.project_name = input.projectName;
+      }
+
+      // Store in database (upsert)
+      const uiRequirement = await upsertUIRequirement(uiSpec);
+
+      return {
+        success: true,
+        uiRequirement,
+        warnings: warnings.length > 0 ? warnings : undefined,
+      };
+    } catch (error) {
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Unknown error analyzing epic',
+      };
+    }
+  },
+};
 
 /**
  * Create a design system
@@ -265,6 +349,7 @@ export const uiRestartStorybook: ToolDefinition = {
 
 // Export all tools
 export const uiTools: ToolDefinition[] = [
+  uiAnalyzeEpic,
   uiCreateDesignSystem,
   uiGetDesignSystem,
   uiUpdateDesignSystem,
