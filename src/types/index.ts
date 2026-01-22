@@ -73,3 +73,6 @@ export enum ErrorCode {
   TOOL_NOT_FOUND = -32001,
   TOOL_EXECUTION_ERROR = -32002,
 }
+
+// Re-export design system types only (avoid duplicates)
+export * from './design-system.js';

@@ -1,0 +1,82 @@
+# {{PROJECT_NAME}} Design System
+
+This is the design system for {{PROJECT_NAME}}, built with Storybook.
+
+## Getting Started
+
+Install dependencies:
+```bash
+npm install
+```
+
+Start Storybook:
+```bash
+npm run storybook
+```
+
+Build Storybook:
+```bash
+npm run build-storybook
+```
+
+## Design Tokens
+
+Design tokens are automatically loaded from the database and applied as CSS variables:
+
+### Colors
+- `--color-primary`
+- `--color-secondary`
+- `--color-background`
+- `--color-surface`
+- `--color-text-primary`
+- `--color-text-secondary`
+
+### Spacing
+- `--spacing-xs`
+- `--spacing-sm`
+- `--spacing-md`
+- `--spacing-lg`
+- `--spacing-xl`
+
+### Typography
+- `--font-body`
+- `--font-heading`
+- `--font-size-base`
+- `--font-weight-normal`
+- `--line-height-normal`
+
+## Components
+
+Add your components in the `src/` directory. Each component should have a corresponding `.stories.tsx` file.
+
+Example:
+```tsx
+// src/Button/Button.tsx
+export const Button = ({ label }: { label: string }) => (
+  <button>{label}</button>
+);
+
+// src/Button/Button.stories.tsx
+import type { Meta, StoryObj } from '@storybook/react';
+import { Button } from './Button';
+
+const meta: Meta<typeof Button> = {
+  component: Button,
+};
+
+export default meta;
+type Story = StoryObj<typeof Button>;
+
+export const Primary: Story = {
+  args: {
+    label: 'Click me',
+  },
+};
+```
+
+## Deployment
+
+This Storybook instance is automatically deployed at:
+{{STORYBOOK_URL}}
+
+Port: {{PORT}}
