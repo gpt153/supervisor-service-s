@@ -12,6 +12,7 @@ import { ToolDefinition, ProjectContext } from '../../types/project.js';
 import * as fs from 'fs/promises';
 import * as path from 'path';
 import { pool } from '../../db/client.js';
+import { MultiAgentExecutor } from '../../agents/multi/MultiAgentExecutor.js';
 
 // Task type definitions
 type TaskType =
@@ -311,16 +312,24 @@ async function loadAndSubstituteTemplate(
 }
 
 /**
- * Spawn agent
+ * Spawn agent and execute task
  *
- * TODO: Integrate with Claude Agent SDK when available
- * Current: Saves instructions file, logs spawn details (MVP)
+ * Uses MultiAgentExecutor to route and execute via CLI adapters
  */
 async function spawnAgent(
   instructions: string,
   recommendation: OdinRecommendation,
-  subagentName: string
-): Promise<{ agent_id: string; instructions_preview: string; instructions_path: string }> {
+  subagentName: string,
+  projectPath: string
+): Promise<{
+  agent_id: string;
+  instructions_preview: string;
+  instructions_path: string;
+  output: string | null;
+  success: boolean;
+  error?: string;
+  duration_ms: number;
+}> {
   // Generate agent ID
   const agent_id = `agent-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
 
@@ -328,7 +337,7 @@ async function spawnAgent(
   const instructionsPath = `/tmp/${agent_id}-instructions.md`;
   await fs.writeFile(instructionsPath, instructions, 'utf-8');
 
-  console.log(`[Subagent Spawner] ✅ Agent spawned successfully`);
+  console.log(`[Subagent Spawner] ✅ Instructions prepared`);
   console.log(`[Subagent Spawner]    Agent ID: ${agent_id}`);
   console.log(`[Subagent Spawner]    Subagent: ${subagentName}`);
   console.log(`[Subagent Spawner]    Service: ${recommendation.service}`);
@@ -336,20 +345,68 @@ async function spawnAgent(
   console.log(`[Subagent Spawner]    Instructions: ${instructionsPath}`);
   console.log(`[Subagent Spawner]    Estimated cost: ${recommendation.estimated_cost}`);
 
-  // TODO: When Claude Agent SDK or bash spawning is ready:
-  // import { spawnClaudeAgent } from '../agents/spawn.js';
-  // await spawnClaudeAgent({
-  //   agentId: agent_id,
-  //   instructions: instructions,
-  //   model: recommendation.model,
-  //   service: recommendation.service
-  // });
+  // Execute agent using MultiAgentExecutor
+  console.log(`[Subagent Spawner] 🚀 Executing agent...`);
+  const startTime = Date.now();
 
-  return {
-    agent_id,
-    instructions_preview: instructions.substring(0, 200) + '...',
-    instructions_path: instructionsPath
-  };
+  try {
+    const executor = new MultiAgentExecutor();
+
+    // Map Odin service to AgentType
+    let agentType: 'gemini' | 'claude' | 'codex';
+    if (recommendation.service === 'claude' || recommendation.service === 'claude-max') {
+      agentType = 'claude';
+    } else if (recommendation.service === 'gemini') {
+      agentType = 'gemini';
+    } else {
+      agentType = 'codex';
+    }
+
+    // Execute the task
+    const result = await executor.executeWithAgent(
+      {
+        prompt: instructions,
+        cwd: projectPath,
+        timeout: 600000, // 10 minutes
+        outputFormat: 'text',
+      },
+      agentType
+    );
+
+    const duration = Date.now() - startTime;
+
+    console.log(`[Subagent Spawner] ${result.success ? '✅' : '❌'} Execution ${result.success ? 'completed' : 'failed'}`);
+    console.log(`[Subagent Spawner]    Duration: ${duration}ms`);
+    if (result.error) {
+      console.log(`[Subagent Spawner]    Error: ${result.error}`);
+    }
+
+    return {
+      agent_id,
+      instructions_preview: instructions.substring(0, 200) + '...',
+      instructions_path: instructionsPath,
+      output: result.output,
+      success: result.success,
+      error: result.error,
+      duration_ms: duration,
+    };
+  } catch (error) {
+    const duration = Date.now() - startTime;
+    const errorMessage = error instanceof Error ? error.message : 'Unknown execution error';
+
+    console.log(`[Subagent Spawner] ❌ Execution threw exception`);
+    console.log(`[Subagent Spawner]    Error: ${errorMessage}`);
+
+    return {
+      agent_id,
+      instructions_preview: instructions.substring(0, 200) + '...',
+      instructions_path: instructionsPath,
+      output: null,
+      success: false,
+      error: errorMessage,
+      duration_ms: duration,
+    };
+  }
 }
 
 /**
@@ -363,7 +420,10 @@ async function trackUsage(
   subagentName: string,
   recommendation: OdinRecommendation,
   projectName: string,
-  complexity: 'simple' | 'medium' | 'complex'
+  complexity: 'simple' | 'medium' | 'complex',
+  executionSuccess: boolean,
+  durationMs: number,
+  errorMessage?: string
 ): Promise<void> {
   try {
     // Parse cost string to decimal (e.g., "$0.0030" -> 0.0030)
@@ -378,10 +438,10 @@ async function trackUsage(
         recommendation.service,      // agent_type (gemini, claude, etc.)
         taskType,                     // task_type (implementation, research, etc.)
         complexity,                   // complexity (simple, medium, complex)
-        true,                         // success (initially true, actual agent may update)
-        0,                            // duration_ms (0 for spawn, agent updates on completion)
+        executionSuccess,             // success (actual execution result)
+        durationMs,                   // duration_ms (actual execution time)
         costValue,                    // cost (estimated cost in USD)
-        null                          // error_message (null for successful spawn)
+        errorMessage || null          // error_message (null if successful)
       ]
     );
 
@@ -392,6 +452,8 @@ async function trackUsage(
     console.log(`[Usage Tracking]    Service: ${recommendation.service}`);
     console.log(`[Usage Tracking]    Project: ${projectName}`);
     console.log(`[Usage Tracking]    Complexity: ${complexity}`);
+    console.log(`[Usage Tracking]    Success: ${executionSuccess}`);
+    console.log(`[Usage Tracking]    Duration: ${durationMs}ms`);
     console.log(`[Usage Tracking]    Estimated Cost: ${recommendation.estimated_cost}`);
   } catch (error) {
     // Don't fail the spawn if tracking fails
@@ -551,34 +613,55 @@ export const spawnSubagentTool: ToolDefinition = {
       const instructions = await loadAndSubstituteTemplate(selected, typedParams, projectPath);
       console.log(`✅ Instructions generated (${instructions.length} characters)`);
 
-      // Step 4: Spawn agent
-      console.log(`\n[Step 4/5] Spawning agent...`);
-      const { agent_id, instructions_preview, instructions_path } = await spawnAgent(instructions, recommendation, selected.file_name);
-      console.log(`✅ Agent spawned: ${agent_id}`);
+      // Step 4: Spawn and execute agent
+      console.log(`\n[Step 4/5] Spawning and executing agent...`);
+      const executionResult = await spawnAgent(
+        instructions,
+        recommendation,
+        selected.file_name,
+        projectPath
+      );
+      console.log(`${executionResult.success ? '✅' : '❌'} Agent execution ${executionResult.success ? 'completed' : 'failed'}: ${executionResult.agent_id}`);
 
       // Step 5: Track usage
       console.log(`\n[Step 5/5] Tracking usage...`);
-      await trackUsage(agent_id, typedParams.task_type, selected.file_name, recommendation, projectName, complexity);
+      await trackUsage(
+        executionResult.agent_id,
+        typedParams.task_type,
+        selected.file_name,
+        recommendation,
+        projectName,
+        complexity,
+        executionResult.success,
+        executionResult.duration_ms,
+        executionResult.error
+      );
       console.log(`✅ Usage tracked`);
 
-      console.log(`\n=== Subagent Spawned Successfully ===\n`);
+      console.log(`\n=== Subagent Execution ${executionResult.success ? 'Completed' : 'Failed'} ===\n`);
 
       return {
         content: [{
           type: 'text',
           text: JSON.stringify({
-            success: true,
-            agent_id,
+            success: executionResult.success,
+            agent_id: executionResult.agent_id,
             subagent_selected: selected.file_name,
             service_used: recommendation.service,
             model_used: recommendation.model,
             estimated_cost: recommendation.estimated_cost,
             complexity,
-            instructions_preview,
-            instructions_path,
-            message: `✅ Subagent spawned successfully. Monitor progress with agent ID: ${agent_id}`
+            duration_ms: executionResult.duration_ms,
+            instructions_preview: executionResult.instructions_preview,
+            instructions_path: executionResult.instructions_path,
+            output: executionResult.output,
+            error: executionResult.error,
+            message: executionResult.success
+              ? `✅ Subagent executed successfully. Agent ID: ${executionResult.agent_id}`
+              : `❌ Subagent execution failed. Error: ${executionResult.error}`
           }, null, 2)
-        }]
+        }],
+        isError: !executionResult.success
       };
     } catch (error) {
       return {
