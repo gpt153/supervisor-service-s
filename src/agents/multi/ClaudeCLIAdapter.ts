@@ -33,35 +33,18 @@ export class ClaudeCLIAdapter extends CLIAdapter {
   }
 
   /**
-   * Initialize (check for API key in environment)
+   * Initialize (Claude Code uses user's logged-in token, no API key needed)
    */
   async initialize(): Promise<void> {
-    if (process.env.ANTHROPIC_API_KEY) {
-      console.log(`[ClaudeCLIAdapter] ✅ Claude API key found in environment`);
-    } else {
-      console.log(`[ClaudeCLIAdapter] ⚠️  No Claude API key in environment`);
-    }
+    console.log(`[ClaudeCLIAdapter] ✅ Claude Code CLI ready (uses user token)`);
   }
 
   /**
-   * Execute using API key from environment variables
+   * Execute using Claude Code CLI (uses user's logged-in session token)
    */
   async execute(request: AgentRequest): Promise<AgentResult> {
-    // Check if API key is available in environment
-    if (!process.env.ANTHROPIC_API_KEY) {
-      return {
-        success: false,
-        agent: this.agentType,
-        output: null,
-        error: 'No Claude API key found in environment (set ANTHROPIC_API_KEY)',
-        duration: 0,
-        tokensUsed: 0,
-        cost: 0,
-        timestamp: new Date(),
-      };
-    }
-
-    // Execute with environment API key
+    // Claude Code CLI uses the user's authentication token from ~/.claude/
+    // No API key needed - just execute
     return await super.execute(request);
   }
 
