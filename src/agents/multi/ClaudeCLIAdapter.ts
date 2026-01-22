@@ -8,8 +8,7 @@
 import { CLIAdapter } from './CLIAdapter.js';
 import type { AgentRequest, AdapterConfig, AgentResult } from './types.js';
 import { ClaudeKeyManager } from './ClaudeKeyManager.js';
-import * as fs from 'fs/promises';
-import * as path from 'path';
+import { writeFileSync } from 'fs';
 
 /**
  * Default configuration for Claude CLI
@@ -65,7 +64,7 @@ export class ClaudeCLIAdapter extends CLIAdapter {
     if (promptTooLarge) {
       // Write prompt to temp file synchronously (buildCommand is sync)
       const tempFile = `/tmp/claude-prompt-${Date.now()}.md`;
-      require('fs').writeFileSync(tempFile, request.prompt, 'utf-8');
+      writeFileSync(tempFile, request.prompt, 'utf-8');
       parts.push('--file', this.escapeShellArg(tempFile));
 
       // Store temp file path for cleanup later (optional)
