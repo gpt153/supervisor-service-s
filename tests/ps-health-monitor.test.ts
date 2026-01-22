@@ -89,10 +89,18 @@ function assertTrue(value: boolean, message?: string): void {
  * Test utilities
  */
 async function cleanupTestData(): Promise<void> {
-  // Clean up test data from database
+  // Clean up test data from database in correct order (respecting foreign keys)
   await pool.query(`DELETE FROM health_checks WHERE project LIKE 'test-%'`);
   await pool.query(`DELETE FROM active_spawns WHERE project LIKE 'test-%'`);
   await pool.query(`DELETE FROM ps_sessions WHERE project LIKE 'test-%'`);
+
+  // Also clean up any test tmux sessions
+  try {
+    const { execSync } = await import('child_process');
+    execSync('tmux list-sessions 2>/dev/null | grep "test-" | cut -d: -f1 | xargs -r -I {} tmux kill-session -t {}', { stdio: 'ignore' });
+  } catch (error) {
+    // Ignore errors if no test sessions exist
+  }
 }
 
 async function createTestSession(
@@ -128,12 +136,20 @@ async function updateSpawnOutputTime(
   taskId: string,
   minutesAgo: number
 ): Promise<void> {
-  await pool.query(
-    `UPDATE active_spawns
-     SET last_output_change = NOW() - INTERVAL '${minutesAgo} minutes'
-     WHERE project = $1 AND task_id = $2`,
+  // First get the output file path from the database
+  const result = await pool.query(
+    `SELECT output_file FROM active_spawns WHERE project = $1 AND task_id = $2`,
     [project, taskId]
   );
+
+  if (result.rows.length > 0 && result.rows[0].output_file) {
+    const outputFile = result.rows[0].output_file;
+    // Use touch -d to set file timestamp to X minutes ago
+    const { execSync } = await import('child_process');
+    const date = new Date(Date.now() - minutesAgo * 60 * 1000);
+    const dateStr = date.toISOString().replace('T', ' ').split('.')[0];
+    execSync(`touch -d "${dateStr}" "${outputFile}"`, { stdio: 'ignore' });
+  }
 }
 
 async function createTestOutputFile(
@@ -149,6 +165,19 @@ async function getHealthChecks(project: string): Promise<any[]> {
     [project]
   );
   return result.rows;
+}
+
+async function createTestTmuxSession(project: string): Promise<void> {
+  const { execSync } = await import('child_process');
+  const sessionName = `${project}-ps`;
+
+  try {
+    // Check if session already exists
+    execSync(`tmux has-session -t "${sessionName}" 2>/dev/null`, { stdio: 'ignore' });
+  } catch (error) {
+    // Session doesn't exist, create it
+    execSync(`tmux new-session -d -s "${sessionName}"`, { stdio: 'ignore' });
+  }
 }
 
 // Test suite
@@ -185,7 +214,10 @@ runner.test('getActiveProjects returns empty when no sessions', async () => {
   // @ts-ignore - accessing private method for testing
   const projects = await monitor.getActiveProjects();
 
-  assertEquals(projects.length, 0);
+  // Filter out any non-test projects (e.g., 'meta' or other real projects in DB)
+  const testProjects = projects.filter(p => p.startsWith('test-'));
+
+  assertEquals(testProjects.length, 0);
 });
 
 runner.test('getActiveProjects returns projects with active sessions', async () => {
@@ -411,6 +443,7 @@ runner.test('checkProject completes without errors', async () => {
   await cleanupTestData();
   await createTestSession('test-full-check', 0.4);
   await createTestSpawn('test-full-check', 'task-1', 'running');
+  await createTestTmuxSession('test-full-check');
 
   const monitor = new PSHealthMonitor();
   // @ts-ignore - Should not throw

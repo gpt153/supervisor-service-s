@@ -177,6 +177,7 @@ export class PSHealthMonitor {
     const result = await pool.query<{ project: string }>(`
       SELECT DISTINCT project
       FROM active_monitoring_targets
+      WHERE project IS NOT NULL
       ORDER BY project
     `);
 

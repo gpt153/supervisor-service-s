@@ -12,7 +12,7 @@ Environment="NODE_ENV=production"
 EnvironmentFile=/home/samuel/sv/supervisor-service-s/.env
 
 # Command to run the health monitor
-ExecStart=/usr/bin/node --loader tsx /home/samuel/sv/supervisor-service-s/src/monitoring/ps-health-monitor-daemon.ts
+ExecStart=/usr/bin/node --import tsx/esm /home/samuel/sv/supervisor-service-s/src/monitoring/ps-health-monitor-daemon.ts
 
 # Restart configuration
 Restart=on-failure
