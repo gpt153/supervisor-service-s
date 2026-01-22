@@ -133,11 +133,20 @@ export class GeminiCLIAdapter extends CLIAdapter {
       }
     }
 
+    // Disable gcloud Application Default Credentials
+    // Gemini CLI checks gcloud first, we want it to use API key instead
+    delete env.GOOGLE_APPLICATION_CREDENTIALS;
+    delete env.CLOUDSDK_CONFIG;
+    // Disable gcloud auth by pointing to non-existent config
+    env.CLOUDSDK_ACTIVE_CONFIG_NAME = 'nonexistent-to-disable-gcloud';
+
     // Get current key if available
     if (this.currentKeyId) {
       const keys = await this.keyManager.getAllKeys();
       const currentKey = keys.find(k => k.id === this.currentKeyId);
       if (currentKey) {
+        // Set both env vars - gemini CLI checks GOOGLE_API_KEY first
+        env.GOOGLE_API_KEY = currentKey.apiKey;
         env.GEMINI_API_KEY = currentKey.apiKey;
       }
     }
