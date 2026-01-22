@@ -1,5 +1,5 @@
 /**
- * Usage Monitoring MCP Tools
+ * AI Router MCP Tools
  * Tools for tracking AI service usage and costs
  */
 

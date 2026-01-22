@@ -19,7 +19,7 @@ Test complete PS delegation enforcement system with real PS, validate metrics, r
 
 1. Test with one PS (Consilio or Odin)
 2. Validate delegation rate >90%
-3. Validate automatic load balancer integration
+3. Validate automatic AI Router integration
 4. Regenerate all CLAUDE.md files
 5. Document complete system
 

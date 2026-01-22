@@ -1,8 +1,8 @@
 /**
- * MCP tool for centralized subagent spawning with automatic load balancing
+ * MCP tool for centralized subagent spawning with AI Router
  *
  * Provides single-call subagent spawning that:
- * - Queries Odin for optimal AI service selection
+ * - Queries Odin's AI Router for optimal AI service selection
  * - Selects appropriate subagent template from library
  * - Spawns agent with best service/model
  * - Tracks usage and cost automatically
@@ -57,9 +57,9 @@ interface OdinRecommendation {
 }
 
 /**
- * Query Odin load balancer for service recommendation
+ * Query Odin AI Router for service recommendation
  *
- * Calls the Odin AI service router via subprocess to get optimal service recommendation
+ * Calls the Odin AI Router via subprocess to get optimal service recommendation
  */
 async function queryOdin(
   taskType: TaskType,
@@ -67,13 +67,13 @@ async function queryOdin(
   complexity: 'simple' | 'medium' | 'complex'
 ): Promise<OdinRecommendation> {
   try {
-    // Call Odin load balancer via Python subprocess
+    // Call Odin AI Router via Python subprocess
     const { execFile } = await import('child_process');
     const { promisify } = await import('util');
     const execFileAsync = promisify(execFile);
 
     const odinPython = '/home/samuel/sv/odin-s/venv/bin/python';
-    const queryScript = '/home/samuel/sv/odin-s/scripts/ai/query_load_balancer.py';
+    const queryScript = '/home/samuel/sv/odin-s/scripts/ai/query_ai_router.py';
 
     const { stdout } = await execFileAsync(odinPython, [
       queryScript,
@@ -520,7 +520,7 @@ export const spawnSubagentTool: ToolDefinition = {
       const estimatedTokens = estimateTokens(typedParams.description);
       const complexity = inferComplexity(typedParams.description, typedParams.task_type);
 
-      console.log(`\n[Step 1/5] Querying Odin load balancer...`);
+      console.log(`\n[Step 1/5] Querying Odin AI Router...`);
       const recommendation = await queryOdin(typedParams.task_type, estimatedTokens, complexity);
       console.log(`✅ Recommended: ${recommendation.service} (${recommendation.model})`);
       console.log(`   Estimated cost: ${recommendation.estimated_cost}`);

@@ -40,7 +40,7 @@ Create single MCP tool (mcp_meta_spawn_subagent) that automatically queries Odin
   - [x] Track usage in database (agent_executions table)
   - [x] Return agent_id
 - [x] Smart selection logic working (task_type + keywords score candidates)
-- [x] Integration with Odin load balancer functional (with fallback)
+- [x] Integration with Odin AI Router functional (with fallback)
 - [x] Usage tracking captures: service, task_type, complexity, cost
 
 ---
@@ -53,7 +53,7 @@ Create single MCP tool (mcp_meta_spawn_subagent) that automatically queries Odin
 - [ ] Define input schema (task_type, description, context)
 - [ ] Define output schema (agent_id, service_used, estimated_cost, subagent_selected)
 
-### Task 2: Integrate with Odin Load Balancer
+### Task 2: Integrate with Odin AI Router
 - [ ] Import Odin MCP client
 - [ ] Query mcp__odin__recommend_ai_service with:
   - task_type (from input)

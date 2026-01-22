@@ -15,7 +15,7 @@
 - Monitor VM health (CPU, RAM, disk)
 - Manage Cloud Storage buckets
 - Deploy Cloud Run services
-- Manage networking (VPCs, subnets, load balancers)
+- Manage networking (VPCs, subnets, infrastructure load balancers)
 - Full billing and quota access
 
 **GCloud Accounts:**

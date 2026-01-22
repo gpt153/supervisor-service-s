@@ -70,7 +70,7 @@ Successfully implemented complete PS Delegation Enforcement & Subagent Library s
 **Delivered**: Single MCP tool for ALL subagent spawning
 
 **Implementation Details**:
-- **Odin Integration**: Real subprocess call to Odin load balancer at `/home/samuel/sv/odin-s/scripts/ai/query_load_balancer.py`
+- **Odin Integration**: Real subprocess call to Odin AI Router at `/home/samuel/sv/odin-s/scripts/ai/query_load_balancer.py`
 - **Smart Selection**: Task type filtering + keyword scoring algorithm
 - **Variable Substitution**: TASK_DESCRIPTION, PROJECT_PATH, CONTEXT, EPIC_ID, PLAN_FILE, VALIDATION_COMMANDS
 - **Usage Tracking**: Database writes to agent_executions table
@@ -279,7 +279,7 @@ mcp_meta_spawn_subagent({
 c34545d docs: mark Epic 020 complete (Reference Documentation)
 ec5025c feat: implement Epic 019 - Infrastructure Tool Enforcement
 b1f4435 feat: complete Epic 017 - Centralized Subagent Spawning
-949b437 feat: integrate Odin load balancer into spawn tool
+949b437 feat: integrate Odin AI Router into spawn tool
 0a45591 feat: implement slim design protocol for subagent library
 624caf3 feat: add slim design protocol to PS delegation feature request
 ```

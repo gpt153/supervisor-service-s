@@ -24,8 +24,12 @@ import type {
   ImplementationPlan,
 } from '../../types/piv.js';
 import { PIVStorage } from '../../utils/storage.js';
+import axios from 'axios';
 
 const execAsync = promisify(exec);
+
+// Meta-supervisor MCP endpoint for spawning subagents
+const META_MCP_ENDPOINT = 'http://localhost:8081/mcp/meta';
 
 export interface ExecuteOptions {
   baseBranch?: string;
@@ -76,8 +80,12 @@ export class ExecutePhase {
     console.log(`[ExecutePhase] Starting execution for ${epic.id}...`);
 
     const startTime = Date.now();
+
+    // Auto-detect default branch if not specified
+    const defaultBranch = options.baseBranch || await this.getDefaultBranch();
+
     const {
-      baseBranch = 'main',
+      baseBranch = defaultBranch,
       createBranch = true,
       createPR = true,
       maxRetries = 1,
@@ -184,13 +192,16 @@ export class ExecutePhase {
 
     while (retries <= maxRetries) {
       try {
-        // NOTE: In production, this would spawn a Claude agent (Haiku)
-        // with the prescriptive instructions to perform actual implementation.
-        // For now, this is a placeholder that returns a simulated result.
-
         console.log(`[ExecutePhase] Attempt ${retries + 1}/${maxRetries + 1} for task ${task.id}`);
 
-        // Simulate implementation (in production, call AI agent here)
+        // Spawn subagent via AI Router to implement this task
+        console.log(`[ExecutePhase] Spawning subagent for task: ${task.title}`);
+        const spawnResult = await this.spawnSubagentForTask(task, plan);
+
+        if (!spawnResult.success) {
+          throw new Error(spawnResult.error || 'Subagent spawn failed');
+        }
+
         const filesChanged = task.files;
 
         // Run validations
@@ -354,6 +365,108 @@ export class ExecutePhase {
     } catch (error) {
       console.error('[ExecutePhase] Failed to get current branch:', error);
       return 'unknown';
+    }
+  }
+
+  /**
+   * Get default branch name (main, master, or current)
+   */
+  private async getDefaultBranch(): Promise<string> {
+    try {
+      // Try to get remote's default branch
+      const { stdout } = await execAsync('git symbolic-ref refs/remotes/origin/HEAD', {
+        cwd: this.workingDirectory,
+      });
+      const match = stdout.trim().match(/refs\/remotes\/origin\/(.+)/);
+      if (match) {
+        return match[1];
+      }
+    } catch (error) {
+      // If that fails, check common branch names
+      try {
+        const { stdout } = await execAsync('git branch -a', {
+          cwd: this.workingDirectory,
+        });
+
+        if (stdout.includes('main')) {
+          return 'main';
+        } else if (stdout.includes('master')) {
+          return 'master';
+        }
+      } catch (branchError) {
+        console.error('[ExecutePhase] Failed to detect default branch:', branchError);
+      }
+    }
+
+    // Fallback to current branch
+    return await this.getCurrentBranch();
+  }
+
+  /**
+   * Spawn subagent via AI Router to implement a task
+   */
+  private async spawnSubagentForTask(
+    task: any,
+    plan: ImplementationPlan
+  ): Promise<{ success: boolean; error?: string; agent_id?: string }> {
+    try {
+      // Call meta-supervisor's spawn_subagent tool via MCP
+      const response = await axios.post(META_MCP_ENDPOINT, {
+        jsonrpc: '2.0',
+        id: Date.now(),
+        method: 'tools/call',
+        params: {
+          name: 'mcp_meta_spawn_subagent',
+          arguments: {
+            task_type: 'implementation',
+            description: task.title,
+            complexity: this.inferComplexity(task),
+            context: {
+              task_id: task.id,
+              files: task.files,
+              prescriptive_instructions: task.prescriptiveInstructions,
+              validations: task.validations,
+              estimated_minutes: task.estimatedMinutes,
+              working_directory: this.workingDirectory,
+            },
+          },
+        },
+      });
+
+      const result = response.data?.result?.content?.[0]?.text;
+      if (!result) {
+        return { success: false, error: 'Invalid MCP response' };
+      }
+
+      const parsedResult = typeof result === 'string' ? JSON.parse(result) : result;
+
+      if (parsedResult.success) {
+        console.log(`[ExecutePhase] Subagent spawned: ${parsedResult.agent_id}`);
+        console.log(`[ExecutePhase] Using service: ${parsedResult.service_used}`);
+        return { success: true, agent_id: parsedResult.agent_id };
+      } else {
+        return { success: false, error: parsedResult.error };
+      }
+    } catch (error) {
+      const errorMsg = error instanceof Error ? error.message : String(error);
+      console.error('[ExecutePhase] Failed to spawn subagent:', errorMsg);
+      return { success: false, error: errorMsg };
+    }
+  }
+
+  /**
+   * Infer task complexity based on estimated time and file count
+   */
+  private inferComplexity(task: any): 'simple' | 'medium' | 'complex' {
+    const minutes = task.estimatedMinutes || 30;
+    const fileCount = task.files?.length || 1;
+
+    if (minutes <= 15 && fileCount <= 1) {
+      return 'simple';
+    } else if (minutes <= 60 && fileCount <= 3) {
+      return 'medium';
+    } else {
+      return 'complex';
     }
   }
 

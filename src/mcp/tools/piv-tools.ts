@@ -10,6 +10,51 @@ import type { Epic, PIVConfig } from '../../types/piv.js';
 import { writeFile, readFile, mkdir } from 'fs/promises';
 import { join } from 'path';
 import { existsSync } from 'fs';
+import { exec } from 'child_process';
+import { promisify } from 'util';
+
+const execAsync = promisify(exec);
+
+/**
+ * Detect the default branch for a git repository
+ */
+async function detectDefaultBranch(workingDirectory: string): Promise<string> {
+  try {
+    // Try to get remote's default branch
+    const { stdout } = await execAsync('git symbolic-ref refs/remotes/origin/HEAD', {
+      cwd: workingDirectory,
+    });
+    const match = stdout.trim().match(/refs\/remotes\/origin\/(.+)/);
+    if (match) {
+      return match[1];
+    }
+  } catch (error) {
+    // If that fails, check common branch names
+    try {
+      const { stdout } = await execAsync('git branch -a', {
+        cwd: workingDirectory,
+      });
+
+      if (stdout.includes('main')) {
+        return 'main';
+      } else if (stdout.includes('master')) {
+        return 'master';
+      }
+    } catch (branchError) {
+      console.error('[PIV] Failed to detect default branch:', branchError);
+    }
+  }
+
+  // Fallback to current branch
+  try {
+    const { stdout } = await execAsync('git branch --show-current', {
+      cwd: workingDirectory,
+    });
+    return stdout.trim();
+  } catch (error) {
+    return 'main'; // Last resort fallback
+  }
+}
 
 // Track active PIV loops
 const activePIVLoops = new Map<
@@ -94,7 +139,7 @@ export const startPIVLoopTool: ToolDefinition = {
       epicDescription,
       acceptanceCriteria,
       tasks,
-      baseBranch = 'main',
+      baseBranch,
       createPR = true,
     } = params;
 
@@ -107,6 +152,12 @@ export const startPIVLoopTool: ToolDefinition = {
           error: `PIV loop already running for ${epicId}`,
           hint: `Use mcp__meta__piv_status to check progress`,
         };
+      }
+
+      // Auto-detect default branch if not specified
+      let detectedBaseBranch = baseBranch;
+      if (!detectedBaseBranch) {
+        detectedBaseBranch = await detectDefaultBranch(projectPath);
       }
 
       // Create epic object
@@ -127,7 +178,7 @@ export const startPIVLoopTool: ToolDefinition = {
         epic,
         workingDirectory: projectPath,
         git: {
-          baseBranch,
+          baseBranch: detectedBaseBranch,
           createBranch: true,
           createPR,
         },

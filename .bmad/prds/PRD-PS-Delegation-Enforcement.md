@@ -31,7 +31,7 @@ Transform Project-Supervisors (PS) from mixed executors into pure coordinators b
 - PS frequently implements code, researches, tests, documents directly
 - User must repeatedly remind PS to delegate
 
-**Manual Load Balancer Workflow:**
+**Manual AI Router Workflow:**
 - PS must manually query Odin for service recommendation
 - Multi-step process (query → select → spawn → track)
 - High friction leads to "just do it myself" behavior
@@ -173,7 +173,7 @@ Five-component system:
 - context (optional): epic_id, plan_file, files_to_review, validation_commands
 
 **Workflow:**
-1. Query Odin load balancer with task_type, estimated_tokens (from description length), complexity (inferred from keywords)
+1. Query Odin AI Router with task_type, estimated_tokens (from description length), complexity (inferred from keywords)
 2. Select subagent template from library using task_type + keyword scoring
 3. Load template, substitute variables (TASK_DESCRIPTION, PROJECT_PATH, CONTEXT)
 4. Spawn agent using Claude Agent SDK with recommended model
@@ -426,7 +426,7 @@ Each MCP tool validates prerequisites:
            │                     │
            ▼                     ▼
 ┌──────────────────────┐ ┌──────────────────────────────┐
-│   Odin Load Balancer │ │   Subagent Library (43)      │
+│   Odin AI Router │ │   Subagent Library (43)      │
 │  - Service selection │ │  - prime-research.md         │
 │  - Model selection   │ │  - plan-implementation.md    │
 │  - Quota tracking    │ │  - implement-feature.md      │
@@ -558,7 +558,7 @@ ALTER TABLE ai_service_usage ADD COLUMN spawned_by TEXT;  -- Which PS spawned
 
 **Epic 3: Centralized Subagent Spawning**
 - Create mcp_meta_spawn_subagent MCP tool
-- Integrate with Odin load balancer
+- Integrate with Odin AI Router
 - Implement smart selection logic (task_type + keywords)
 - Add usage tracking
 
@@ -586,7 +586,7 @@ ALTER TABLE ai_service_usage ADD COLUMN spawned_by TEXT;  -- Which PS spawned
 - Regenerate all CLAUDE.md files
 - Test with one PS (Odin or Consilio)
 - Validate delegation rate >90%
-- Validate automatic load balancer integration
+- Validate automatic AI Router integration
 - Validate cost tracking
 
 ---
@@ -644,7 +644,7 @@ ALTER TABLE ai_service_usage ADD COLUMN spawned_by TEXT;  -- Which PS spawned
 ## Dependencies
 
 **Required (Already Exist):**
-- ✅ Odin load balancer (operational)
+- ✅ Odin AI Router (operational)
 - ✅ Meta-Supervisor MCP service
 - ✅ Claude Agent SDK
 - ✅ Tunnel manager MCP tools
@@ -820,7 +820,7 @@ Week of 2026-01-21:
 - Feature Request: .bmad/feature-requests/ps-delegation-enforcement-subagent-library.md
 - Current Identity: .supervisor-core/01-identity.md
 - Current Tools: .supervisor-core/04-tools.md
-- Odin Load Balancer: ../odin-s/README.md
+- Odin AI Router: ../odin-s/README.md
 
 ### References
 

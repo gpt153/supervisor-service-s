@@ -152,7 +152,7 @@ Failed: 1/6 (17% - expected gap)
 
 ## Component Verification
 
-### ✅ Odin Load Balancer Integration
+### ✅ Odin AI Router Integration
 **Status**: Fallback working correctly
 
 - **Script Path**: `/home/samuel/sv/odin-s/scripts/ai/query_load_balancer.py`
@@ -223,7 +223,7 @@ Failed: 1/6 (17% - expected gap)
 
 ## Known Limitations
 
-### 1. Odin Load Balancer Requires Setup
+### 1. Odin AI Router Requires Setup
 **Issue**: Odin requires async PostgreSQL driver (asyncpg)
 **Current Behavior**: Falls back to heuristics (working correctly)
 **Impact**: None (fallback heuristics are excellent)

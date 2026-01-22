@@ -442,7 +442,7 @@ try {
 
 ## References
 
-- Odin Load Balancer: /home/samuel/sv/odin-s/
+- Odin AI Router: /home/samuel/sv/odin-s/
 - Claude Agent SDK: (documentation link)
 - Current Manual Workflow: .supervisor-core/04-tools.md (AI Service Selection section)
 

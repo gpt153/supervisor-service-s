@@ -27,7 +27,7 @@ Successfully completed implementation of centralized subagent spawning tool (mcp
 
 **Previous**: Mock heuristics only
 **Implemented**:
-- Real Odin load balancer integration via Python subprocess
+- Real Odin AI Router integration via Python subprocess
 - Calls `/home/samuel/sv/odin-s/scripts/ai/query_load_balancer.py`
 - Graceful fallback to heuristics on failure
 - Error handling with warnings
@@ -36,7 +36,7 @@ Successfully completed implementation of centralized subagent spawning tool (mcp
 ```typescript
 async function queryOdin() {
   try {
-    // Call Odin load balancer via Python subprocess
+    // Call Odin AI Router via Python subprocess
     const { execFile } = await import('child_process');
     const { promisify } = await import('util');
     const execFileAsync = promisify(execFile);
@@ -203,7 +203,7 @@ From Epic 017:
   - [x] Track usage in database (agent_executions table)
   - [x] Return agent_id, service, model, cost
 - [x] Smart selection logic working (task_type + keywords score candidates)
-- [x] Integration with Odin load balancer functional
+- [x] Integration with Odin AI Router functional
 - [x] Usage tracking captures: service, task_type, complexity, cost
 
 ---
