@@ -199,3 +199,66 @@ export interface GeminiUsageResponse {
   requests: number;
   timestamp: Date;
 }
+
+// ============================================================================
+// PS Health Monitoring Types
+// ============================================================================
+
+export interface PSSession {
+  id: number;
+  project: string;
+  session_type: 'cli' | 'sdk';
+  session_id: string | null; // tmux session name: {project}-ps
+  started_at: Date;
+  last_activity: Date;
+  last_context_check: Date | null;
+  context_usage: number | null; // 0.0 to 1.0
+  estimated_tokens_used: number | null;
+}
+
+export interface ActiveSpawn {
+  id: number;
+  project: string;
+  task_id: string;
+  task_type: string | null;
+  description: string | null;
+  spawn_time: Date;
+  last_output_change: Date | null;
+  output_file: string | null;
+  status: 'running' | 'completed' | 'failed' | 'stalled';
+}
+
+export interface HealthCheck {
+  id: number;
+  project: string;
+  check_time: Date;
+  check_type: 'spawn' | 'context' | 'handoff' | 'orphaned_work';
+  status: 'ok' | 'warning' | 'critical';
+  details: Record<string, any>;
+  action_taken: string | null;
+}
+
+export type PromptType =
+  | 'spawn_update'
+  | 'spawn_stalled'
+  | 'spawn_failed'
+  | 'context_check'
+  | 'context_warning'
+  | 'context_critical'
+  | 'handoff_trigger';
+
+export interface PromptContext {
+  project: string;
+  task_id?: string;
+  task_description?: string;
+  context_percentage?: number;
+  stall_duration_minutes?: number;
+  error_message?: string;
+}
+
+export interface GeneratedPrompt {
+  type: PromptType;
+  prompt: string;
+  context: PromptContext;
+  priority: 'normal' | 'high' | 'critical';
+}

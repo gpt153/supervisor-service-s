@@ -1,0 +1,20 @@
+[Unit]
+Description=PS Health Monitor Timer (runs every 10 minutes)
+Documentation=https://github.com/yourusername/supervisor-service
+Requires=ps-health-monitor.service
+
+[Timer]
+# Run every 10 minutes
+OnCalendar=*:0/10
+
+# Start timer 1 minute after boot
+OnBootSec=1min
+
+# If system was off when timer should have run, run it on next boot
+Persistent=true
+
+# Randomize start time by up to 30 seconds to avoid thundering herd
+RandomizedDelaySec=30s
+
+[Install]
+WantedBy=timers.target

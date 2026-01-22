@@ -1,0 +1,36 @@
+[Unit]
+Description=PS Health Monitor Service
+Documentation=https://github.com/yourusername/supervisor-service
+After=network.target postgresql.service
+
+[Service]
+Type=simple
+User=samuel
+Group=samuel
+WorkingDirectory=/home/samuel/sv/supervisor-service-s
+Environment="NODE_ENV=production"
+EnvironmentFile=/home/samuel/sv/supervisor-service-s/.env
+
+# Command to run the health monitor
+ExecStart=/usr/bin/node --loader tsx /home/samuel/sv/supervisor-service-s/src/monitoring/ps-health-monitor-daemon.ts
+
+# Restart configuration
+Restart=on-failure
+RestartSec=10s
+StartLimitBurst=5
+StartLimitInterval=60s
+
+# Logging
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=ps-health-monitor
+
+# Security hardening
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=read-only
+ReadWritePaths=/home/samuel/sv
+
+[Install]
+WantedBy=multi-user.target

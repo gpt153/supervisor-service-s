@@ -24,7 +24,8 @@
     "collect-snapshots": "tsx src/scripts/collect-daily-snapshots.ts",
     "quota-check": "tsx src/scripts/hourly-quota-check.ts",
     "daily-optimization": "tsx src/scripts/daily-optimization.ts",
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "health-monitor": "tsx src/cli/run-health-monitor.ts",
+    "test": "tsx tests/prompt-generator.test.ts && tsx tests/ps-health-monitor.test.ts"
   },
   "keywords": [
     "supervisor",

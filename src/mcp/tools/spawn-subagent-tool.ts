@@ -320,7 +320,10 @@ async function spawnAgent(
   instructions: string,
   recommendation: OdinRecommendation,
   subagentName: string,
-  projectPath: string
+  projectPath: string,
+  projectName: string,
+  taskType: TaskType,
+  description: string
 ): Promise<{
   agent_id: string;
   instructions_preview: string;
@@ -329,6 +332,7 @@ async function spawnAgent(
   success: boolean;
   error?: string;
   duration_ms: number;
+  output_file: string;
 }> {
   // Generate agent ID
   const agent_id = `agent-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
@@ -337,13 +341,38 @@ async function spawnAgent(
   const instructionsPath = `/tmp/${agent_id}-instructions.md`;
   await fs.writeFile(instructionsPath, instructions, 'utf-8');
 
+  // Create output file path for health monitoring
+  const outputFile = `/tmp/${agent_id}-output.log`;
+
   console.log(`[Subagent Spawner] ✅ Instructions prepared`);
   console.log(`[Subagent Spawner]    Agent ID: ${agent_id}`);
   console.log(`[Subagent Spawner]    Subagent: ${subagentName}`);
   console.log(`[Subagent Spawner]    Service: ${recommendation.service}`);
   console.log(`[Subagent Spawner]    Model: ${recommendation.model}`);
   console.log(`[Subagent Spawner]    Instructions: ${instructionsPath}`);
+  console.log(`[Subagent Spawner]    Output file: ${outputFile}`);
   console.log(`[Subagent Spawner]    Estimated cost: ${recommendation.estimated_cost}`);
+
+  // Record spawn in database for health monitoring
+  try {
+    await pool.query(
+      `INSERT INTO active_spawns
+       (project, task_id, task_type, description, output_file, status)
+       VALUES ($1, $2, $3, $4, $5, $6)
+       ON CONFLICT (project, task_id) DO UPDATE
+       SET task_type = EXCLUDED.task_type,
+           description = EXCLUDED.description,
+           output_file = EXCLUDED.output_file,
+           status = EXCLUDED.status,
+           spawn_time = NOW(),
+           updated_at = NOW()`,
+      [projectName, agent_id, taskType, description, outputFile, 'running']
+    );
+    console.log(`[Subagent Spawner] ✅ Spawn recorded in database for health monitoring`);
+  } catch (error) {
+    // Don't fail spawn if database recording fails
+    console.warn(`[Subagent Spawner] ⚠️  Failed to record spawn in database:`, error);
+  }
 
   // Execute agent using MultiAgentExecutor
   console.log(`[Subagent Spawner] 🚀 Executing agent...`);
@@ -384,6 +413,36 @@ async function spawnAgent(
       console.log(`[Subagent Spawner]    Error: ${result.error}`);
     }
 
+    // Update spawn status in database
+    try {
+      await pool.query(
+        `UPDATE active_spawns
+         SET status = $1,
+             exit_code = $2,
+             error_message = $3,
+             completed_at = NOW(),
+             updated_at = NOW()
+         WHERE task_id = $4`,
+        [
+          result.success ? 'completed' : 'failed',
+          result.success ? 0 : 1,
+          result.error || null,
+          agent_id
+        ]
+      );
+      console.log(`[Subagent Spawner] ✅ Spawn status updated in database`);
+    } catch (error) {
+      console.warn(`[Subagent Spawner] ⚠️  Failed to update spawn status:`, error);
+    }
+
+    // Write output to file for health monitoring
+    try {
+      await fs.writeFile(outputFile, result.output || '', 'utf-8');
+      console.log(`[Subagent Spawner] ✅ Output written to ${outputFile}`);
+    } catch (error) {
+      console.warn(`[Subagent Spawner] ⚠️  Failed to write output file:`, error);
+    }
+
     return {
       agent_id,
       instructions_preview: instructions.substring(0, 200) + '...',
@@ -392,6 +451,7 @@ async function spawnAgent(
       success: result.success,
       error: result.error,
       duration_ms: duration,
+      output_file: outputFile,
     };
   } catch (error) {
     const duration = Date.now() - startTime;
@@ -399,6 +459,21 @@ async function spawnAgent(
 
     console.log(`[Subagent Spawner] ❌ Execution threw exception`);
     console.log(`[Subagent Spawner]    Error: ${errorMessage}`);
+
+    // Update spawn status to failed
+    try {
+      await pool.query(
+        `UPDATE active_spawns
+         SET status = $1,
+             error_message = $2,
+             completed_at = NOW(),
+             updated_at = NOW()
+         WHERE task_id = $3`,
+        ['failed', errorMessage, agent_id]
+      );
+    } catch (dbError) {
+      console.warn(`[Subagent Spawner] ⚠️  Failed to update spawn status:`, dbError);
+    }
 
     return {
       agent_id,
@@ -408,6 +483,7 @@ async function spawnAgent(
       success: false,
       error: errorMessage,
       duration_ms: duration,
+      output_file: outputFile,
     };
   }
 }
@@ -622,7 +698,10 @@ export const spawnSubagentTool: ToolDefinition = {
         instructions,
         recommendation,
         selected.file_name,
-        projectPath
+        projectPath,
+        projectName,
+        typedParams.task_type,
+        typedParams.description
       );
       console.log(`${executionResult.success ? '✅' : '❌'} Agent execution ${executionResult.success ? 'completed' : 'failed'}: ${executionResult.agent_id}`);
 
@@ -657,6 +736,7 @@ export const spawnSubagentTool: ToolDefinition = {
             duration_ms: executionResult.duration_ms,
             instructions_preview: executionResult.instructions_preview,
             instructions_path: executionResult.instructions_path,
+            output_file: executionResult.output_file,
             output: executionResult.output,
             error: executionResult.error,
             message: executionResult.success
