@@ -15,7 +15,7 @@ import { ClaudeKeyManager } from './ClaudeKeyManager.js';
 const DEFAULT_CONFIG: AdapterConfig = {
   enabled: true,
   cliCommand: 'claude',
-  defaultTimeout: 60000, // 60 seconds (Claude should respond quickly)
+  defaultTimeout: 120000, // 120 seconds (Claude agents take 60-90s typically)
   quotaLimit: 1000, // Conservative estimate (Claude Pro subscription)
   quotaResetHours: 24,
 };
@@ -77,7 +77,7 @@ export class ClaudeCLIAdapter extends CLIAdapter {
       const timeout = request.timeout ?? this.config.defaultTimeout;
 
       // Build command without -p flag (will use stdin)
-      const command = `echo ${this.escapeShellArg(request.prompt)} | ${this.config.cliCommand}`;
+      const command = `echo ${this.escapeShellArg(request.prompt)} | ${this.config.cliCommand} --dangerously-skip-permissions`;
 
       const { stdout, stderr } = await this.executeCommand(command, {
         cwd: request.cwd,
@@ -112,6 +112,9 @@ export class ClaudeCLIAdapter extends CLIAdapter {
    */
   protected buildCommand(request: AgentRequest): string {
     const parts = [this.config.cliCommand];
+
+    // Add dangerously-skip-permissions for automated execution
+    parts.push('--dangerously-skip-permissions');
 
     // Add prompt (only for small prompts - large ones use stdin)
     parts.push('-p', this.escapeShellArg(request.prompt));
