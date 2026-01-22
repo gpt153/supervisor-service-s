@@ -8,7 +8,6 @@
 import { CLIAdapter } from './CLIAdapter.js';
 import type { AgentRequest, AdapterConfig, AgentResult } from './types.js';
 import { ClaudeKeyManager } from './ClaudeKeyManager.js';
-import { writeFileSync } from 'fs';
 
 /**
  * Default configuration for Claude CLI
@@ -50,29 +49,72 @@ export class ClaudeCLIAdapter extends CLIAdapter {
   }
 
   /**
-   * Build Claude CLI command
-   *
-   * For large prompts (>2KB), writes to temp file to avoid command line length limits
+   * Execute Claude CLI - override to use stdin for large prompts
+   */
+  async execute(request: AgentRequest): Promise<AgentResult> {
+    // Check if API key is available in environment
+    if (!process.env.ANTHROPIC_API_KEY && request.prompt.length > 10000) {
+      // Only warn for very large prompts that might fail
+      console.warn('[ClaudeCLIAdapter] Large prompt without API key - may hit CLI limits');
+    }
+
+    // For large prompts, use stdin instead of -p to avoid command line limits
+    if (request.prompt.length > 2048) {
+      return this.executeWithStdin(request);
+    }
+
+    // Small prompts - use parent's execute
+    return await super.execute(request);
+  }
+
+  /**
+   * Execute Claude CLI with stdin for large prompts
+   */
+  private async executeWithStdin(request: AgentRequest): Promise<AgentResult> {
+    const startTime = Date.now();
+
+    try {
+      const timeout = request.timeout ?? this.config.defaultTimeout;
+
+      // Build command without -p flag (will use stdin)
+      const command = `echo ${this.escapeShellArg(request.prompt)} | ${this.config.cliCommand}`;
+
+      const { stdout, stderr } = await this.executeCommand(command, {
+        cwd: request.cwd,
+        timeout,
+      });
+
+      const duration = Date.now() - startTime;
+      const output = this.parseOutput(stdout, request.outputFormat ?? 'json');
+
+      if (stderr && this.isErrorOutput(stderr)) {
+        return this.createErrorResult(stderr, duration);
+      }
+
+      return {
+        success: true,
+        agent: this.agentType,
+        output,
+        rawOutput: stdout,
+        duration,
+        cost: this.estimateCost(request, duration),
+        timestamp: new Date(),
+      };
+    } catch (error) {
+      const duration = Date.now() - startTime;
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      return this.createErrorResult(errorMessage, duration);
+    }
+  }
+
+  /**
+   * Build Claude CLI command (for small prompts only)
    */
   protected buildCommand(request: AgentRequest): string {
     const parts = [this.config.cliCommand];
 
-    // If prompt is large (>2KB), write to temp file instead of using -p
-    // This avoids command line length limits and makes Claude CLI more reliable
-    const promptTooLarge = request.prompt.length > 2048;
-
-    if (promptTooLarge) {
-      // Write prompt to temp file synchronously (buildCommand is sync)
-      const tempFile = `/tmp/claude-prompt-${Date.now()}.md`;
-      writeFileSync(tempFile, request.prompt, 'utf-8');
-      parts.push('--file', this.escapeShellArg(tempFile));
-
-      // Store temp file path for cleanup later (optional)
-      (this as any).__tempPromptFile = tempFile;
-    } else {
-      // Small prompt - use -p directly
-      parts.push('-p', this.escapeShellArg(request.prompt));
-    }
+    // Add prompt (only for small prompts - large ones use stdin)
+    parts.push('-p', this.escapeShellArg(request.prompt));
 
     // Add output format if JSON requested
     if (request.outputFormat === 'json') {

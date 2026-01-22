@@ -1,0 +1,269 @@
+{
+  "supervisor-service-s:040": {
+    "epicId": "040",
+    "epicTitle": "PS Health Monitoring System",
+    "status": "complete",
+    "startTime": "2026-01-22T13:31:28.680Z",
+    "completeTime": "2026-01-22T13:31:50.233Z",
+    "result": {
+      "prime": {
+        "contextPath": "/home/samuel/sv/supervisor-service-s/home/samuel/sv/supervisor-service-s/.agents/context/context-040.json",
+        "techStack": [
+          "TypeScript"
+        ],
+        "conventions": {
+          "fileNaming": "PascalCase",
+          "classNaming": "PascalCase",
+          "functionNaming": "camelCase",
+          "constantNaming": "SCREAMING_SNAKE_CASE"
+        },
+        "dependencies": [
+          {
+            "name": "@fastify/cors",
+            "version": "^11.2.0",
+            "type": "dependency"
+          },
+          {
+            "name": "@modelcontextprotocol/sdk",
+            "version": "^1.25.2",
+            "type": "dependency"
+          },
+          {
+            "name": "axios",
+            "version": "^1.13.2",
+            "type": "dependency",
+            "purpose": "HTTP client"
+          },
+          {
+            "name": "better-sqlite3",
+            "version": "^12.6.2",
+            "type": "dependency"
+          },
+          {
+            "name": "dockerode",
+            "version": "^4.0.9",
+            "type": "dependency"
+          },
+          {
+            "name": "dotenv",
+            "version": "^16.3.1",
+            "type": "dependency",
+            "purpose": "Environment configuration"
+          },
+          {
+            "name": "fastify",
+            "version": "^5.7.1",
+            "type": "dependency"
+          },
+          {
+            "name": "google-auth-library",
+            "version": "^10.5.0",
+            "type": "dependency"
+          },
+          {
+            "name": "googleapis",
+            "version": "^170.1.0",
+            "type": "dependency"
+          },
+          {
+            "name": "js-yaml",
+            "version": "^4.1.1",
+            "type": "dependency"
+          },
+          {
+            "name": "pg",
+            "version": "^8.11.3",
+            "type": "dependency",
+            "purpose": "PostgreSQL client"
+          },
+          {
+            "name": "pino",
+            "version": "^10.2.0",
+            "type": "dependency"
+          },
+          {
+            "name": "pino-pretty",
+            "version": "^13.1.3",
+            "type": "dependency"
+          },
+          {
+            "name": "uuid",
+            "version": "^13.0.0",
+            "type": "dependency"
+          },
+          {
+            "name": "zod",
+            "version": "^4.3.5",
+            "type": "dependency"
+          },
+          {
+            "name": "@types/better-sqlite3",
+            "version": "^7.6.13",
+            "type": "devDependency"
+          },
+          {
+            "name": "@types/dockerode",
+            "version": "^4.0.0",
+            "type": "devDependency"
+          },
+          {
+            "name": "@types/js-yaml",
+            "version": "^4.0.9",
+            "type": "devDependency"
+          },
+          {
+            "name": "@types/node",
+            "version": "^20.19.30",
+            "type": "devDependency"
+          },
+          {
+            "name": "@types/pg",
+            "version": "^8.10.9",
+            "type": "devDependency"
+          },
+          {
+            "name": "@types/uuid",
+            "version": "^10.0.0",
+            "type": "devDependency"
+          },
+          {
+            "name": "node-pg-migrate",
+            "version": "^7.0.2",
+            "type": "devDependency"
+          },
+          {
+            "name": "tsx",
+            "version": "^4.21.0",
+            "type": "devDependency"
+          },
+          {
+            "name": "typescript",
+            "version": "^5.9.3",
+            "type": "devDependency",
+            "purpose": "Type-safe JavaScript"
+          }
+        ],
+        "integrationPoints": [
+          {
+            "name": "API Endpoints",
+            "type": "api",
+            "description": "REST API endpoints for external communication",
+            "files": [
+              "/home/samuel/sv/supervisor-service-s/src/__tests__/AutoSecretDetector.test.ts",
+              "/home/samuel/sv/supervisor-service-s/src/__tests__/PIVAgent.test.ts",
+              "/home/samuel/sv/supervisor-service-s/src/__tests__/auto-secret-integration.test.ts",
+              "/home/samuel/sv/supervisor-service-s/src/__tests__/timing.test.ts",
+              "/home/samuel/sv/supervisor-service-s/src/agents/PIVAgent.ts"
+            ]
+          },
+          {
+            "name": "Service Layer",
+            "type": "service",
+            "description": "Business logic and service integrations",
+            "files": [
+              "/home/samuel/sv/supervisor-service-s/src/__tests__/AutoSecretDetector.test.ts",
+              "/home/samuel/sv/supervisor-service-s/src/__tests__/PIVAgent.test.ts",
+              "/home/samuel/sv/supervisor-service-s/src/__tests__/auto-secret-integration.test.ts",
+              "/home/samuel/sv/supervisor-service-s/src/__tests__/timing.test.ts",
+              "/home/samuel/sv/supervisor-service-s/src/agents/PIVAgent.ts"
+            ]
+          }
+        ],
+        "ragInsights": [],
+        "readyForPlan": true
+      },
+      "plan": {
+        "planPath": "/home/samuel/sv/supervisor-service-s/home/samuel/sv/supervisor-service-s/.agents/plans/040-implementation.json",
+        "phases": [
+          {
+            "name": "Setup",
+            "description": "Create necessary types and structure",
+            "tasks": [
+              {
+                "id": "040-setup-1",
+                "title": "Define TypeScript interfaces and types",
+                "description": "Create type definitions for new features",
+                "files": [
+                  "src/types/040.ts"
+                ],
+                "prescriptiveInstructions": "Create TypeScript type definitions for PS Health Monitoring System.\n\nFollow these conventions:\n- Use PascalCase for interface names\n- Use SCREAMING_SNAKE_CASE for type constants\n- Export all public types\n\nStructure:\n1. Define main interfaces\n2. Define supporting types\n3. Export all types\n\nExample structure:\n```typescript\nexport interface MainType {\n  // Properties based on epic requirements\n}\n\nexport type SupportingType = string | number;\n\nexport const CONSTANT_VALUE = 'value' as const;\n```",
+                "validations": [
+                  {
+                    "description": "TypeScript compilation succeeds",
+                    "command": "npm run build",
+                    "expectedOutput": "no errors",
+                    "failureAction": "retry"
+                  }
+                ],
+                "estimatedMinutes": 15
+              }
+            ],
+            "dependencies": []
+          },
+          {
+            "name": "Core Implementation",
+            "description": "Implement main feature functionality",
+            "tasks": [
+              {
+                "id": "040-core-1",
+                "title": "Implement core functionality",
+                "description": "External health monitoring service that forces PS to report status every 10 minutes via tmux prompting. Tracks spawned subagents, detects stalls, monitors context usage, and triggers automated handoffs when context exceeds 85%. Enables truly autonomous long-running supervision sessions by preventing context exhaustion and spawn stalls.",
+                "files": [
+                  "src/040.ts"
+                ],
+                "prescriptiveInstructions": "Implement PS Health Monitoring System.\n\nRequirements:\nExternal health monitoring service that forces PS to report status every 10 minutes via tmux prompting. Tracks spawned subagents, detects stalls, monitors context usage, and triggers automated handoffs when context exceeds 85%. Enables truly autonomous long-running supervision sessions by preventing context exhaustion and spawn stalls.\n\nFollow these conventions:\n- File naming: PascalCase\n- Function naming: camelCase\n- Class naming: PascalCase\n\nIntegration points:\n- API Endpoints (api)\n- Service Layer (service)\n\nImplementation steps:\n1. Import required dependencies\n2. Define class/function structure\n3. Implement core logic\n4. Handle error cases\n5. Add JSDoc comments\n\nEnsure:\n- Type safety with TypeScript\n- Error handling\n- Clear function documentation",
+                "validations": [
+                  {
+                    "description": "Code compiles without errors",
+                    "command": "npm run lint",
+                    "expectedOutput": "no errors",
+                    "failureAction": "retry"
+                  }
+                ],
+                "estimatedMinutes": 60
+              }
+            ],
+            "dependencies": [
+              "Setup"
+            ]
+          }
+        ],
+        "totalTasks": 2,
+        "estimatedHours": 2,
+        "validationStrategy": "2 validation checks: Full build succeeds, Linting passes",
+        "readyForExecute": true
+      },
+      "execute": {
+        "success": false,
+        "branch": "feature/040",
+        "commit": "2ce529271ce1c1c661f65f42db47a165b823e4dc",
+        "taskResults": [
+          {
+            "taskId": "040-setup-1",
+            "success": false,
+            "filesChanged": [],
+            "validationResults": [],
+            "retries": 2,
+            "error": "Subagent spawn failed",
+            "duration": 2992
+          },
+          {
+            "taskId": "040-core-1",
+            "success": false,
+            "filesChanged": [],
+            "validationResults": [],
+            "retries": 2,
+            "error": "Subagent spawn failed",
+            "duration": 2840
+          }
+        ],
+        "totalDuration": 21514,
+        "filesChanged": [],
+        "testsPass": false,
+        "buildSuccess": false
+      },
+      "totalDuration": 21551,
+      "success": false
+    }
+  }
+}
