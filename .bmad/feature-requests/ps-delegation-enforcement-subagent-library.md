@@ -22,8 +22,8 @@
    - User must repeatedly remind PS to spawn subagents ("I still need to tell it to spawn subagent")
    - PS asks permission before delegating ("Should I spawn a subagent?")
 
-2. **Manual Load Balancer Queries**
-   - PS must manually query Odin load balancer before spawning subagents
+2. **Manual AI Router Queries**
+   - PS must manually query Odin AI Router before spawning subagents
    - Multi-step process creates friction
    - Easy to skip and "just do it myself"
    - Not cost-optimized due to manual overhead
@@ -67,9 +67,9 @@
    - PS NEVER asks "should I spawn a subagent?" - it's mandatory
    - Zero user reminders needed
 
-2. **Automatic Load Balancer Integration**
+2. **Automatic AI Router Integration**
    - PS spawns subagents with single MCP tool call
-   - Odin load balancer queried automatically
+   - Odin AI Router queried automatically
    - Optimal service/model selected automatically
    - Cost tracking automatic
    - 60%+ tasks use free/cheap services (Gemini/Codex)
@@ -140,7 +140,7 @@
 - Adopt pre-written command library pattern
 
 **Existing Infrastructure:**
-- Odin load balancer already operational (MCP server)
+- Odin AI Router already operational (MCP server)
 - Meta-Supervisor MCP service already exists
 - Tunnel manager, secrets manager, port manager already implemented as MCP tools
 - Just need enforcement and better integration
@@ -360,7 +360,7 @@ wc -c /home/samuel/sv/*/CLAUDE.md | sort -rn
 - context (optional): Additional context like epic_id, plan_file, files_to_review, validation_commands
 
 **What It Does Automatically:**
-1. Queries Odin load balancer for optimal service based on task_type, estimated_tokens, complexity
+1. Queries Odin AI Router for optimal service based on task_type, estimated_tokens, complexity
 2. Selects appropriate subagent command template from library based on task_type + keyword matching
 3. Loads .md template and substitutes variables (TASK_DESCRIPTION, PROJECT_PATH, CONTEXT)
 4. Spawns agent using Claude Agent SDK with recommended model
@@ -908,7 +908,7 @@ Pattern: Service port configuration
 
 2. **Subagent Spawning Centralized**
    - ✅ mcp_meta_spawn_subagent MCP tool implemented
-   - ✅ Integrates with Odin load balancer automatically
+   - ✅ Integrates with Odin AI Router automatically
    - ✅ Smart selection logic based on task_type + keywords
    - ✅ Tracks usage and cost in database
    - ✅ Returns agent_id for monitoring
@@ -965,7 +965,7 @@ Pattern: Service port configuration
    - ✅ Delegation rate >90% in test
    - ✅ PS never implements code directly
    - ✅ PS never asks "should I spawn?"
-   - ✅ Automatic load balancer integration working
+   - ✅ Automatic AI Router integration working
    - ✅ Cost tracking shows 60%+ using cheap services
 
 9. **Metrics Dashboard**
@@ -1011,7 +1011,7 @@ Pattern: Service port configuration
 ## Technical Notes
 
 **Dependencies:**
-- Odin load balancer (already operational)
+- Odin AI Router (already operational)
 - Meta-Supervisor MCP service (already exists)
 - Claude Agent SDK (for spawning subagents)
 - Tunnel manager MCP tools (already implemented)

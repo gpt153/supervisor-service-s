@@ -170,6 +170,52 @@ This leads to:
 - Cloudflare tunnel: CNAME creation via existing tunnel manager
 - Auto-restart on code changes (hot reload)
 
+**CNAME Requirements (For Remote Access):**
+
+Since user cannot use localhost, all preview/testing tools MUST be accessible via HTTPS CNAMEs:
+
+**Per-Project Storybook (Design System):**
+- Pattern: `[project]-storybook.153.se` or `storybook.[project].153.se`
+- Target: `localhost:PORT` (from project's allocated range)
+- Purpose: View and test component library
+- Lifecycle: Permanent (shared across all features)
+
+**Per-Project Dev Environment (Feature Mockup):**
+- Pattern: `[project]-dev.153.se` or `dev.[project].153.se`
+- Target: `localhost:PORT+1` (from project's allocated range)
+- Purpose: Test full-app mockup with mock data
+- Lifecycle: Ephemeral (per epic/feature, can be destroyed)
+
+**Examples:**
+- Consilio Storybook: `consilio-storybook.153.se` → `localhost:5050`
+- Consilio Dev: `consilio-dev.153.se` → `localhost:5051`
+- Odin Storybook: `odin-storybook.153.se` → `localhost:5350`
+- Odin Dev: `odin-dev.153.se` → `localhost:5351`
+
+**Mobile Projects (React Native/Flutter):**
+- Storybook: NOT needed (components tested in Expo Snack via QR code)
+- Dev mockup: Expo Snack (cloud-based, accessible via `https://snack.expo.dev`)
+- QR code: User scans with Expo Go app to test on real phone
+- No CNAMEs required for mobile mockups
+
+**CNAME Creation Workflow:**
+1. PS allocates port from project range: `mcp_meta_allocate_port`
+2. PS starts Storybook/dev server on allocated port
+3. PS creates CNAME: `tunnel_request_cname({ subdomain: "[project]-storybook", targetPort: PORT })`
+4. Tunnel manager validates port ownership and creates CNAME
+5. PS returns URL to user: `https://[project]-storybook.153.se`
+6. User accesses via browser (HTTPS, no localhost needed)
+
+**Port Usage Per Project:**
+- Port X: Storybook (permanent)
+- Port X+1: Dev environment (ephemeral, can reuse)
+- Total: 2 ports per project from allocated range
+
+**CNAME Lifecycle:**
+- Storybook CNAME: Created once, kept permanently
+- Dev CNAME: Created per feature/epic, can be reused or deleted
+- Cleanup: `tunnel_delete_cname` when feature complete or project archived
+
 **Frame0 Integration:**
 - Use existing Frame0 MCP tools
 - Generate design from text description

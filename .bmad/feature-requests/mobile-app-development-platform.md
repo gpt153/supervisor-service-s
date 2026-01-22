@@ -10,7 +10,7 @@
 
 ## One-Sentence Summary
 
-A comprehensive mobile app development platform integrated into the SV supervisor system that enables project supervisors to build, test, and deploy iOS and Android applications using PIV loops, Firebase Test Lab for serverless device testing, and GitHub Actions CI/CD - all coordinated through MCP tools with zero manual intervention.
+A comprehensive mobile app development platform integrated into the SV supervisor system that enables project supervisors to build, test, and deploy iOS and Android applications - starting with UI-first workflow for UX design and mockups, followed by PIV loops for backend implementation, then Firebase Test Lab for serverless device testing, and GitHub Actions CI/CD for automated builds - all coordinated through MCP tools with zero manual intervention.
 
 ---
 
@@ -62,6 +62,11 @@ This blocks PSs from building mobile applications and limits the types of projec
 **Timeline:** Medium priority - enables new product categories
 
 **Dependencies:**
+- **UI-First Development Workflow** (CRITICAL - must be implemented first)
+  - Mobile UI/UX designed and validated with mockups BEFORE backend
+  - Frame0/Figma generates React Native components
+  - Expo Snack for interactive testing on real devices
+  - User approves UX before building backend
 - Existing PIV loop infrastructure (subagent spawning)
 - GitHub integration (already used for code hosting)
 - MacBook Intel 2019 (for iOS builds)
@@ -69,6 +74,7 @@ This blocks PSs from building mobile applications and limits the types of projec
 - Google Cloud / Firebase account
 - Apple Developer Program ($99/year)
 - Google Play Console ($25 one-time)
+- Cloudflare tunnel for CNAME creation (preview URLs)
 
 ---
 
@@ -108,10 +114,24 @@ This blocks PSs from building mobile applications and limits the types of projec
 - Automatic test sharding for faster runs
 - JUnit XML result parsing
 
-**PIV Loop Integration:**
-- PIV spawns implementation subagent with mobile context
-- Subagent writes React Native/Flutter code
-- Subagent writes Espresso (Android) and XCUITest (iOS) tests
+**UI-First Workflow Integration (Prerequisite):**
+- **BEFORE backend implementation**, PS uses UI-first workflow:
+  1. Read epic from `.bmad/epics/epic-XXX.md`
+  2. Generate mobile UI design (Frame0 or Figma)
+  3. Create React Native components with mock data
+  4. Deploy to Expo Snack (cloud-based, accessible via QR code)
+  5. User tests on real phone via Expo Go app
+  6. Iterate on UX until approved
+- **ONLY after UI approved**, proceed to backend implementation
+
+**PIV Loop Integration (After UI Approved):**
+- PIV spawns implementation subagent with:
+  - Approved React Native/Flutter components (from UI-first workflow)
+  - Epic requirements
+  - Mock data structure (to be replaced with real API)
+- Subagent builds backend (database, API, business logic)
+- Subagent writes Espresso (Android) and XCUITest (iOS) integration tests
+- Subagent connects UI components to real backend (replaces mock data)
 - Subagent commits code to GitHub
 - GitHub Actions triggers automatically
 - PS monitors test results from Firebase Test Lab
@@ -144,6 +164,34 @@ This blocks PSs from building mobile applications and limits the types of projec
 - Android lane: `beta` - Deploy to Play Store Internal Testing
 - Automatic build number incrementing
 - Certificate/provisioning profile management
+
+**CNAME Requirements (For Remote Access):**
+
+Since user cannot use localhost, all preview/testing tools must be accessible via HTTPS CNAMEs:
+
+**Not needed for mobile (cloud-based):**
+- ✅ Expo Snack - Already cloud-based at `https://snack.expo.dev`
+- ✅ Firebase Test Lab - Cloud-based, results downloaded via gcloud CLI
+- ✅ TestFlight/Play Store - Cloud-based, user tests on device
+
+**But if backend has web interface (API dashboard, admin panel):**
+- CNAME: `[project]-api.153.se` → localhost:PORT (project's backend API)
+- CNAME: `[project]-admin.153.se` → localhost:PORT+1 (optional admin dashboard)
+
+**Example for Consilio mobile app:**
+- UI mockup: Expo Snack QR code (no CNAME needed)
+- Backend API: `consilio-api.153.se` → localhost:5000
+- Admin panel: `consilio-admin.153.se` → localhost:5001 (if needed)
+
+**CNAME creation:**
+- Automated via `tunnel_request_cname` (from tunnel manager feature)
+- Uses project's allocated port range
+- PS creates CNAMEs automatically during deployment
+
+**Note:** Mobile mockups don't need CNAMEs because:
+- Expo Snack runs in cloud (accessible via QR code on phone)
+- No web browser needed for mobile UI testing
+- User tests directly on real device via Expo Go app
 
 ### SHOULD HAVE (v1.1)
 
@@ -251,22 +299,45 @@ This blocks PSs from building mobile applications and limits the types of projec
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
-│                     SV SUPERVISOR SYSTEM                     │
-│              /home/samuel/sv/[mobile-project]/               │
+│              PHASE 1: UI-FIRST WORKFLOW                      │
+│              (PREREQUISITE - Must complete first)            │
+├─────────────────────────────────────────────────────────────┤
+│  Epic → UI Requirements Analysis → Design (Frame0/Figma)    │
 │                                                              │
+│  Generate React Native Components + Mock Data               │
+│         ↓                                                    │
+│  Deploy to Expo Snack (cloud-based)                         │
+│         ↓                                                    │
+│  User scans QR code → Tests on real phone via Expo Go       │
+│         ↓                                                    │
+│  Iterate on UX until APPROVED                               │
+│                                                              │
+│  Output: Approved UI components with mock data              │
+└─────────────────────────────────────────────────────────────┘
+                           ↓
+                  UI APPROVED - Build Backend
+                           ↓
+┌─────────────────────────────────────────────────────────────┐
+│            PHASE 2: BACKEND IMPLEMENTATION (PIV)             │
+│              /home/samuel/sv/[mobile-project]/               │
+├─────────────────────────────────────────────────────────────┤
 │  ┌────────────┐  ┌────────────┐  ┌────────────┐           │
 │  │   BMAD     │  │   Epics    │  │   PIV      │           │
 │  │  Planning  │  │ (Database) │  │   Loops    │           │
 │  └────────────┘  └────────────┘  └────────────┘           │
 │                                                              │
-│  PS spawns PIV → PIV spawns subagent → Subagent writes:    │
-│  - React Native/Flutter code                                │
-│  - UI tests (Espresso/XCUITest)                            │
-│  - Unit tests                                               │
+│  PS spawns PIV → PIV spawns subagent → Subagent:           │
+│  - Takes approved UI components                             │
+│  - Builds backend (database, API, business logic)           │
+│  - Connects UI to real backend (replaces mock data)         │
+│  - Writes integration tests (Espresso/XCUITest)            │
 │  - Commits to GitHub                                        │
 └─────────────────────────────────────────────────────────────┘
                            ↓
                     Push to GitHub
+                           ↓
+┌─────────────────────────────────────────────────────────────┐
+│           PHASE 3: BUILD & TEST (GitHub Actions)             │
                            ↓
 ┌─────────────────────────────────────────────────────────────┐
 │                      GITHUB ACTIONS                          │
@@ -493,6 +564,16 @@ This blocks PSs from building mobile applications and limits the types of projec
 ## Implementation Phases
 
 ### Phase 0: Prerequisites (Manual - 1 day)
+
+**CRITICAL: UI-First Workflow Must Be Implemented First**
+- This mobile platform DEPENDS on UI-first workflow being complete
+- Cannot build mobile apps without UI design and mockup capability
+- Refer to feature request: `ui-first-development-workflow.md`
+- UI-first workflow provides:
+  - Frame0/Figma integration for mobile UI design
+  - React Native component generation
+  - Expo Snack deployment for mobile mockups
+  - Mock data for UX testing before backend
 
 **Apple Setup:**
 - Enroll in Apple Developer Program ($99/year)
