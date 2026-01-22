@@ -105,6 +105,9 @@ export class GeminiCLIAdapter extends CLIAdapter {
     // Add prompt
     parts.push('-p', this.escapeShellArg(request.prompt));
 
+    // Add model (use gemini-2.5-flash - has quota on paid accounts)
+    parts.push('--model', 'gemini-2.5-flash');
+
     // Add output format if JSON requested
     if (request.outputFormat === 'json') {
       parts.push('--output-format', 'json');
