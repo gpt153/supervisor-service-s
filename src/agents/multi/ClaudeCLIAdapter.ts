@@ -33,11 +33,11 @@ export class ClaudeCLIAdapter extends CLIAdapter {
   }
 
   /**
-   * Initialize by loading keys from environment
+   * Initialize by loading keys from secrets vault
    */
   async initialize(): Promise<void> {
-    const loadedCount = await this.keyManager.loadKeysFromEnv();
-    console.log(`Loaded ${loadedCount} Claude API keys from environment`);
+    const loadedCount = await this.keyManager.loadKeysFromSecrets();
+    console.log(`[ClaudeCLIAdapter] Loaded ${loadedCount} Claude API keys from secrets vault`);
   }
 
   /**

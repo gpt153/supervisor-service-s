@@ -42,6 +42,25 @@ export class MultiAgentExecutor {
   }
 
   /**
+   * Initialize all adapters (load API keys from vault)
+   * Call this after construction to load keys
+   */
+  async initialize(): Promise<void> {
+    console.log('[MultiAgentExecutor] Initializing CLI adapters...');
+
+    for (const [agentType, adapter] of this.adapters) {
+      try {
+        await adapter.initialize();
+        console.log(`[MultiAgentExecutor] ✅ ${agentType} adapter initialized`);
+      } catch (error) {
+        console.error(`[MultiAgentExecutor] ⚠️  Failed to initialize ${agentType} adapter:`, error);
+      }
+    }
+
+    console.log('[MultiAgentExecutor] All adapters initialized');
+  }
+
+  /**
    * Execute a task with automatic agent routing
    */
   async execute(request: AgentRequest & TaskInfo): Promise<{

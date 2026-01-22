@@ -352,6 +352,9 @@ async function spawnAgent(
   try {
     const executor = new MultiAgentExecutor();
 
+    // Initialize adapters (load API keys from vault)
+    await executor.initialize();
+
     // Map Odin service to AgentType
     let agentType: 'gemini' | 'claude' | 'codex';
     if (recommendation.service === 'claude' || recommendation.service === 'claude-max') {
