@@ -247,7 +247,8 @@ runner.test('getTmuxCommand generates correct command', () => {
 
   assertContains(command, 'tmux send-keys');
   assertContains(command, '-t "consilio-ps"');
-  assertContains(command, 'Enter');
+  assertContains(command, 'C-m'); // Uses C-m for better Claude Code compatibility
+  assertContains(command, 'sleep 0.2'); // Includes delay for text to appear
 });
 
 runner.test('getTmuxCommand uses correct session name for different projects', () => {

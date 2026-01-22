@@ -272,6 +272,12 @@ export class PromptGenerator {
    * Get tmux send-keys command for a prompt
    * Generates the full bash command to execute
    *
+   * Strategy for Claude Code compatibility:
+   * 1. Send text to input field
+   * 2. Wait briefly for text to appear
+   * 3. Send C-m (Control-m) which is more reliable than Enter
+   * 4. Fallback: send Enter as well for other terminal emulators
+   *
    * @param generatedPrompt - Generated prompt object
    * @returns Full tmux send-keys command
    */
@@ -279,6 +285,8 @@ export class PromptGenerator {
     const sessionName = `${generatedPrompt.context.project}-ps`;
     const formattedPrompt = this.formatForTmux(generatedPrompt);
 
-    return `tmux send-keys -t "${sessionName}" ${formattedPrompt} Enter`;
+    // Strategy: Send text, wait 200ms, send C-m (more reliable than Enter in Claude Code)
+    // Using semicolons to chain commands: send text; sleep; send C-m
+    return `tmux send-keys -t "${sessionName}" ${formattedPrompt} && sleep 0.2 && tmux send-keys -t "${sessionName}" C-m`;
   }
 }

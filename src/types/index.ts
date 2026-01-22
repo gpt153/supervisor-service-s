@@ -76,3 +76,6 @@ export enum ErrorCode {
 
 // Re-export design system types only (avoid duplicates)
 export * from './design-system.js';
+
+// Re-export UI-001 Requirements Analysis Engine types
+export * from './ui-001.js';
