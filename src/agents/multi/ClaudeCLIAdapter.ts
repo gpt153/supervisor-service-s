@@ -8,6 +8,8 @@
 import { CLIAdapter } from './CLIAdapter.js';
 import type { AgentRequest, AdapterConfig, AgentResult } from './types.js';
 import { ClaudeKeyManager } from './ClaudeKeyManager.js';
+import * as fs from 'fs/promises';
+import * as path from 'path';
 
 /**
  * Default configuration for Claude CLI
@@ -15,7 +17,7 @@ import { ClaudeKeyManager } from './ClaudeKeyManager.js';
 const DEFAULT_CONFIG: AdapterConfig = {
   enabled: true,
   cliCommand: 'claude',
-  defaultTimeout: 300000, // 5 minutes
+  defaultTimeout: 60000, // 60 seconds (Claude should respond quickly)
   quotaLimit: 1000, // Conservative estimate (Claude Pro subscription)
   quotaResetHours: 24,
 };
@@ -51,13 +53,27 @@ export class ClaudeCLIAdapter extends CLIAdapter {
   /**
    * Build Claude CLI command
    *
-   * Format: claude -p "<prompt>" --output-format json
+   * For large prompts (>2KB), writes to temp file to avoid command line length limits
    */
   protected buildCommand(request: AgentRequest): string {
     const parts = [this.config.cliCommand];
 
-    // Add prompt
-    parts.push('-p', this.escapeShellArg(request.prompt));
+    // If prompt is large (>2KB), write to temp file instead of using -p
+    // This avoids command line length limits and makes Claude CLI more reliable
+    const promptTooLarge = request.prompt.length > 2048;
+
+    if (promptTooLarge) {
+      // Write prompt to temp file synchronously (buildCommand is sync)
+      const tempFile = `/tmp/claude-prompt-${Date.now()}.md`;
+      require('fs').writeFileSync(tempFile, request.prompt, 'utf-8');
+      parts.push('--file', this.escapeShellArg(tempFile));
+
+      // Store temp file path for cleanup later (optional)
+      (this as any).__tempPromptFile = tempFile;
+    } else {
+      // Small prompt - use -p directly
+      parts.push('-p', this.escapeShellArg(request.prompt));
+    }
 
     // Add output format if JSON requested
     if (request.outputFormat === 'json') {
