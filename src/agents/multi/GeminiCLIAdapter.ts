@@ -33,26 +33,27 @@ export class GeminiCLIAdapter extends CLIAdapter {
   }
 
   /**
-   * Initialize by loading keys from secrets vault
+   * Initialize (check for API key in environment)
    */
   async initialize(): Promise<void> {
-    const loadedCount = await this.keyManager.loadKeysFromSecrets();
-    console.log(`[GeminiCLIAdapter] Loaded ${loadedCount} Gemini API keys from secrets vault`);
+    if (process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY) {
+      console.log(`[GeminiCLIAdapter] ✅ Gemini API key found in environment`);
+    } else {
+      console.log(`[GeminiCLIAdapter] ⚠️  No Gemini API key in environment`);
+    }
   }
 
   /**
-   * Execute with automatic key rotation
+   * Execute using API key from environment variables
    */
   async execute(request: AgentRequest): Promise<AgentResult> {
-    // Get next available API key
-    const keyInfo = await this.keyManager.getNextAvailableKey();
-
-    if (!keyInfo) {
+    // Check if API key is available in environment
+    if (!process.env.GEMINI_API_KEY && !process.env.GOOGLE_API_KEY) {
       return {
         success: false,
         agent: this.agentType,
         output: null,
-        error: 'No Gemini API keys available (all exhausted quota)',
+        error: 'No Gemini API key found in environment (set GEMINI_API_KEY or GOOGLE_API_KEY)',
         duration: 0,
         tokensUsed: 0,
         cost: 0,
@@ -60,38 +61,8 @@ export class GeminiCLIAdapter extends CLIAdapter {
       };
     }
 
-    this.currentKeyId = keyInfo.id;
-    const startTime = Date.now();
-    let tokensUsed = 0;
-    let success = false;
-    let errorMessage: string | undefined;
-
-    try {
-      // Execute with the selected key
-      const result = await super.execute(request);
-      success = result.success;
-      tokensUsed = result.tokensUsed || this.estimateTokens(request);
-
-      if (!result.success) {
-        errorMessage = result.error;
-      }
-
-      return result;
-    } catch (error) {
-      success = false;
-      errorMessage = error instanceof Error ? error.message : 'Unknown error';
-      throw error;
-    } finally {
-      // Record usage regardless of success/failure
-      if (this.currentKeyId) {
-        await this.keyManager.recordUsage(
-          this.currentKeyId,
-          tokensUsed,
-          success,
-          errorMessage
-        );
-      }
-    }
+    // Execute with environment API key
+    return await super.execute(request);
   }
 
   /**
@@ -142,17 +113,6 @@ export class GeminiCLIAdapter extends CLIAdapter {
     delete env.CLOUDSDK_CONFIG;
     // Disable gcloud auth by pointing to non-existent config
     env.CLOUDSDK_ACTIVE_CONFIG_NAME = 'nonexistent-to-disable-gcloud';
-
-    // Get current key if available
-    if (this.currentKeyId) {
-      const keys = await this.keyManager.getAllKeys();
-      const currentKey = keys.find(k => k.id === this.currentKeyId);
-      if (currentKey) {
-        // Set both env vars - gemini CLI checks GOOGLE_API_KEY first
-        env.GOOGLE_API_KEY = currentKey.apiKey;
-        env.GEMINI_API_KEY = currentKey.apiKey;
-      }
-    }
 
     return env;
   }
