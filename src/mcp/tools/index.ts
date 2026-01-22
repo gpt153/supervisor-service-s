@@ -22,6 +22,7 @@ import { getUsageMonitoringTools } from './usage-monitoring-tools.js';
 import { getSubscriptionOptimizationTools } from './subscription-optimization-tools.js';
 import { getAPIKeyAutomationTools } from './api-key-automation-tools.js';
 import { spawnSubagentTool } from './spawn-subagent-tool.js';
+import { uiTools } from './ui-tools.js';
 
 const execAsync = promisify(exec);
 
@@ -392,6 +393,9 @@ export function getAllTools(): ToolDefinition[] {
 
     // Subagent spawning tool
     spawnSubagentTool,
+
+    // UI-First Development Workflow tools
+    ...uiTools,
   ];
 }
 

@@ -1,0 +1,59 @@
+import type { Preview } from '@storybook/react';
+
+// Import design tokens
+const designTokens = {{STYLE_CONFIG}};
+
+// Apply design tokens to CSS variables
+const withDesignTokens = (Story: any) => {
+  // Apply color tokens
+  Object.entries(designTokens.colors).forEach(([key, value]) => {
+    if (typeof value === 'string') {
+      document.documentElement.style.setProperty(`--color-${key}`, value);
+    } else if (typeof value === 'object') {
+      Object.entries(value).forEach(([subKey, subValue]) => {
+        document.documentElement.style.setProperty(`--color-${key}-${subKey}`, subValue as string);
+      });
+    }
+  });
+
+  // Apply spacing tokens
+  Object.entries(designTokens.spacing).forEach(([key, value]) => {
+    document.documentElement.style.setProperty(`--spacing-${key}`, value as string);
+  });
+
+  // Apply typography tokens
+  const { fontFamily, fontSize, fontWeight, lineHeight } = designTokens.typography;
+
+  Object.entries(fontFamily).forEach(([key, value]) => {
+    document.documentElement.style.setProperty(`--font-${key}`, value as string);
+  });
+
+  Object.entries(fontSize).forEach(([key, value]) => {
+    document.documentElement.style.setProperty(`--font-size-${key}`, value as string);
+  });
+
+  Object.entries(fontWeight).forEach(([key, value]) => {
+    document.documentElement.style.setProperty(`--font-weight-${key}`, String(value));
+  });
+
+  Object.entries(lineHeight).forEach(([key, value]) => {
+    document.documentElement.style.setProperty(`--line-height-${key}`, value as string);
+  });
+
+  return Story();
+};
+
+const preview: Preview = {
+  parameters: {
+    actions: { argTypesRegex: '^on[A-Z].*' },
+    controls: {
+      matchers: {
+        color: /(background|color)$/i,
+        date: /Date$/i,
+      },
+    },
+  },
+  decorators: [withDesignTokens],
+};
+
+export default preview;
