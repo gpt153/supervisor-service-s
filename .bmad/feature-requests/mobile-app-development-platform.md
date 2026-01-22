@@ -62,11 +62,12 @@ This blocks PSs from building mobile applications and limits the types of projec
 **Timeline:** Medium priority - enables new product categories
 
 **Dependencies:**
-- **UI-First Development Workflow** (CRITICAL - must be implemented first)
-  - Mobile UI/UX designed and validated with mockups BEFORE backend
+- **UI-First Development Workflow** (optional, but recommended)
+  - WHEN AVAILABLE: Mobile UI/UX can be designed and validated with mockups
   - Frame0/Figma generates React Native components
   - Expo Snack for interactive testing on real devices
-  - User approves UX before building backend
+  - FLEXIBLE: Can be used during planning, parallel with backend, or after
+  - NOT REQUIRED: Can build mobile apps without UI workflow (but less efficient)
 - Existing PIV loop infrastructure (subagent spawning)
 - GitHub integration (already used for code hosting)
 - MacBook Intel 2019 (for iOS builds)
@@ -74,7 +75,7 @@ This blocks PSs from building mobile applications and limits the types of projec
 - Google Cloud / Firebase account
 - Apple Developer Program ($99/year)
 - Google Play Console ($25 one-time)
-- Cloudflare tunnel for CNAME creation (preview URLs)
+- Cloudflare tunnel for CNAME creation (backend APIs, if needed)
 
 ---
 
@@ -114,24 +115,28 @@ This blocks PSs from building mobile applications and limits the types of projec
 - Automatic test sharding for faster runs
 - JUnit XML result parsing
 
-**UI-First Workflow Integration (Prerequisite):**
-- **BEFORE backend implementation**, PS uses UI-first workflow:
+**UI-First Workflow Integration (OPTIONAL):**
+- **IF user chooses UI-first approach**, PS can use UI workflow:
   1. Read epic from `.bmad/epics/epic-XXX.md`
   2. Generate mobile UI design (Frame0 or Figma)
   3. Create React Native components with mock data
   4. Deploy to Expo Snack (cloud-based, accessible via QR code)
   5. User tests on real phone via Expo Go app
   6. Iterate on UX until approved
-- **ONLY after UI approved**, proceed to backend implementation
+- **User decides**: UI-first, backend-first, or parallel
+- **Flexibility**: Can design UI during planning, alongside backend, or after
 
-**PIV Loop Integration (After UI Approved):**
-- PIV spawns implementation subagent with:
-  - Approved React Native/Flutter components (from UI-first workflow)
-  - Epic requirements
-  - Mock data structure (to be replaced with real API)
-- Subagent builds backend (database, API, business logic)
+**PIV Loop Integration (Works With or Without UI Workflow):**
+- PIV spawns implementation subagent with epic requirements
+- **IF UI components exist** (from UI workflow):
+  - Subagent uses approved React Native/Flutter components
+  - Builds backend to match UI expectations
+  - Connects UI to real backend (replaces mock data)
+- **IF no UI components** (backend-first approach):
+  - Subagent builds backend first
+  - Generates basic UI components from epic requirements
+  - User can redesign UI later using UI workflow
 - Subagent writes Espresso (Android) and XCUITest (iOS) integration tests
-- Subagent connects UI components to real backend (replaces mock data)
 - Subagent commits code to GitHub
 - GitHub Actions triggers automatically
 - PS monitors test results from Firebase Test Lab
@@ -295,30 +300,49 @@ Since user cannot use localhost, all preview/testing tools must be accessible vi
 - Flutter DevTools: 9100 → Remap to project range
 - Local backend: Use project's allocated port
 
-### Architecture
+### Architecture (Flexible Workflow)
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
-│              PHASE 1: UI-FIRST WORKFLOW                      │
-│              (PREREQUISITE - Must complete first)            │
+│                  EPIC IN .bmad/epics/                        │
+│                                                              │
+│  User chooses approach:                                     │
+│  A) UI-first → B) Backend-first → C) Parallel               │
+└─────────────────────────────────────────────────────────────┘
+           ↓              ↓              ↓
+    ┌──────────┐   ┌──────────┐   ┌─────────────────┐
+    │          │   │          │   │                 │
+    ↓          │   ↓          │   ↓                 ↓
+┌──────────┐   │ ┌──────────┐ │ ┌──────────┐ ┌──────────┐
+│ OPTIONAL │   │ │  START   │ │ │ OPTIONAL │ │  START   │
+│ UI-FIRST │   │ │  BACKEND │ │ │ UI-FIRST │ │  BACKEND │
+│ WORKFLOW │   │ │   (PIV)  │ │ │ WORKFLOW │ │   (PIV)  │
+└──────────┘   │ └──────────┘ │ └──────────┘ └──────────┘
+    ↓          │       ↓      │       ↓             ↓
+    ↓          │       ↓      │       └──── Run ────┘
+    ↓          │       ↓      │         simultaneously
+    ↓          │       ↓      │              ↓
+ Approved      │    Backend   │          Both done
+    UI         │     done     │              ↓
+    ↓          │       ↓      │           Connect
+    ↓          │       ↓      │              ↓
+    └─────────────────┴──────────────────────┘
+                      ↓
+         All approaches converge here
+                      ↓
+┌─────────────────────────────────────────────────────────────┐
+│      OPTIONAL: UI-FIRST WORKFLOW (When User Chooses)        │
 ├─────────────────────────────────────────────────────────────┤
 │  Epic → UI Requirements Analysis → Design (Frame0/Figma)    │
-│                                                              │
 │  Generate React Native Components + Mock Data               │
-│         ↓                                                    │
-│  Deploy to Expo Snack (cloud-based)                         │
-│         ↓                                                    │
-│  User scans QR code → Tests on real phone via Expo Go       │
-│         ↓                                                    │
-│  Iterate on UX until APPROVED                               │
+│  Deploy to Expo Snack → User tests on phone → Approve       │
 │                                                              │
 │  Output: Approved UI components with mock data              │
+│  (Can happen during planning, parallel, or after backend)   │
 └─────────────────────────────────────────────────────────────┘
                            ↓
-                  UI APPROVED - Build Backend
-                           ↓
 ┌─────────────────────────────────────────────────────────────┐
-│            PHASE 2: BACKEND IMPLEMENTATION (PIV)             │
+│         BACKEND IMPLEMENTATION (PIV - Always Happens)        │
 │              /home/samuel/sv/[mobile-project]/               │
 ├─────────────────────────────────────────────────────────────┤
 │  ┌────────────┐  ┌────────────┐  ┌────────────┐           │
@@ -327,9 +351,10 @@ Since user cannot use localhost, all preview/testing tools must be accessible vi
 │  └────────────┘  └────────────┘  └────────────┘           │
 │                                                              │
 │  PS spawns PIV → PIV spawns subagent → Subagent:           │
-│  - Takes approved UI components                             │
+│  - IF UI exists: Uses approved components                   │
+│  - IF no UI: Generates basic UI from epic                   │
 │  - Builds backend (database, API, business logic)           │
-│  - Connects UI to real backend (replaces mock data)         │
+│  - Connects UI to real backend                              │
 │  - Writes integration tests (Espresso/XCUITest)            │
 │  - Commits to GitHub                                        │
 └─────────────────────────────────────────────────────────────┘
@@ -337,7 +362,7 @@ Since user cannot use localhost, all preview/testing tools must be accessible vi
                     Push to GitHub
                            ↓
 ┌─────────────────────────────────────────────────────────────┐
-│           PHASE 3: BUILD & TEST (GitHub Actions)             │
+│           BUILD & TEST PLATFORM (GitHub Actions)             │
                            ↓
 ┌─────────────────────────────────────────────────────────────┐
 │                      GITHUB ACTIONS                          │
@@ -565,15 +590,17 @@ Since user cannot use localhost, all preview/testing tools must be accessible vi
 
 ### Phase 0: Prerequisites (Manual - 1 day)
 
-**CRITICAL: UI-First Workflow Must Be Implemented First**
-- This mobile platform DEPENDS on UI-first workflow being complete
-- Cannot build mobile apps without UI design and mockup capability
+**RECOMMENDED: Implement UI-First Workflow for Best Experience**
+- UI-first workflow is OPTIONAL but highly recommended
+- Provides better UX validation and faster iteration
+- Can be implemented before or after mobile platform
 - Refer to feature request: `ui-first-development-workflow.md`
-- UI-first workflow provides:
+- When available, UI-first workflow provides:
   - Frame0/Figma integration for mobile UI design
   - React Native component generation
   - Expo Snack deployment for mobile mockups
   - Mock data for UX testing before backend
+- **Mobile platform works WITHOUT UI-first workflow** (just less efficient)
 
 **Apple Setup:**
 - Enroll in Apple Developer Program ($99/year)

@@ -10,7 +10,7 @@
 
 ## One-Sentence Summary
 
-A requirements-driven UI-first development workflow that enables PSs to design, build, and test interactive UI mockups with mock data before backend implementation, using Frame0/Figma MCP for design generation, Storybook for component libraries, and dev environment deployments for full-app testing - ensuring UI serves product requirements and UX is validated before backend investment.
+A flexible, requirements-driven UI design workflow that enables PSs to design, build, and test interactive UI mockups with mock data at any point in the development cycle (planning, parallel with backend, or after backend) - using Frame0/Figma MCP for design generation, Storybook for component libraries, and dev environment deployments for full-app testing via a single shared CNAME (`ui.153.se`).
 
 ---
 
@@ -73,6 +73,44 @@ This leads to:
 - Existing Figma MCP tools (already available)
 - Port allocation system (already available)
 - Cloudflare tunnel for dev environment access (already available)
+- nginx reverse proxy (for shared CNAME path-based routing)
+
+---
+
+## When to Use This Workflow (FLEXIBLE!)
+
+**CRITICAL: UI design is OPTIONAL and can happen at ANY point:**
+
+### Option 1: UI-First (Design Before Backend)
+```
+Planning → Design UI → Validate UX → Build backend → Connect
+Best for: Customer-facing products, complex UX, when design is critical
+```
+
+### Option 2: Backend-First (Design After Backend)
+```
+Planning → Build backend → Later: Design UI → Redesign frontend
+Best for: Internal tools, API-first products, when UX less critical
+```
+
+### Option 3: Parallel (Design While Backend Builds)
+```
+Planning → Spawn PIV (builds backend)
+        ↘ Simultaneously: Design UI
+        → Both complete → Connect
+Best for: Large features, when you want to save time
+```
+
+### Option 4: Planning Phase (Design During BMAD)
+```
+BMAD Planning → Design UI mockups → Approve in planning
+             → Later: Build approved design
+Best for: Exploring ideas, stakeholder approval before commitment
+```
+
+**You choose when to design UI based on project needs!**
+
+**This workflow is a TOOL, not a mandatory gate.**
 
 ---
 
@@ -172,49 +210,88 @@ This leads to:
 
 **CNAME Requirements (For Remote Access):**
 
-Since user cannot use localhost, all preview/testing tools MUST be accessible via HTTPS CNAMEs:
+Since user cannot use localhost, all preview/testing tools MUST be accessible via HTTPS CNAMEs.
 
-**Per-Project Storybook (Design System):**
-- Pattern: `[project]-storybook.153.se` or `storybook.[project].153.se`
-- Target: `localhost:PORT` (from project's allocated range)
-- Purpose: View and test component library
-- Lifecycle: Permanent (shared across all features)
+**Shared CNAME with Path-Based Routing (RECOMMENDED):**
 
-**Per-Project Dev Environment (Feature Mockup):**
-- Pattern: `[project]-dev.153.se` or `dev.[project].153.se`
-- Target: `localhost:PORT+1` (from project's allocated range)
-- Purpose: Test full-app mockup with mock data
-- Lifecycle: Ephemeral (per epic/feature, can be destroyed)
+**Single CNAME for ALL UI tooling:**
+- CNAME: `ui.153.se` → nginx reverse proxy on port 8080
+- nginx routes based on URL path to backend services
+
+**URL Structure:**
+```
+ui.153.se/[project]/storybook  → Project's component library
+ui.153.se/[project]/dev        → Project's feature mockup
+```
 
 **Examples:**
-- Consilio Storybook: `consilio-storybook.153.se` → `localhost:5050`
-- Consilio Dev: `consilio-dev.153.se` → `localhost:5051`
-- Odin Storybook: `odin-storybook.153.se` → `localhost:5350`
-- Odin Dev: `odin-dev.153.se` → `localhost:5351`
+```
+ui.153.se/consilio/storybook → nginx → localhost:5050 (Consilio design system)
+ui.153.se/consilio/dev       → nginx → localhost:5051 (Consilio feature mockup)
+ui.153.se/odin/storybook     → nginx → localhost:5350 (Odin design system)
+ui.153.se/odin/dev           → nginx → localhost:5351 (Odin feature mockup)
+ui.153.se/health-agent/storybook → nginx → localhost:5150
+ui.153.se/health-agent/dev   → nginx → localhost:5151
+```
+
+**Benefits:**
+- ✅ Only 1 CNAME needed (never changes)
+- ✅ Add projects without DNS changes
+- ✅ Clean URL structure
+- ✅ Easy to remember pattern
+
+**nginx Configuration (Auto-Generated):**
+```nginx
+server {
+    listen 8080;
+    server_name localhost;
+
+    # Consilio
+    location /consilio/storybook/ {
+        proxy_pass http://localhost:5050/;
+    }
+    location /consilio/dev/ {
+        proxy_pass http://localhost:5051/;
+    }
+
+    # Odin
+    location /odin/storybook/ {
+        proxy_pass http://localhost:5350/;
+    }
+    location /odin/dev/ {
+        proxy_pass http://localhost:5351/;
+    }
+
+    # ... auto-generated for each project
+}
+```
+
+**Setup Workflow:**
+1. PS starts Storybook/dev server on allocated port
+2. PS updates nginx config with new location block
+3. PS reloads nginx: `nginx -s reload`
+4. User accesses: `https://ui.153.se/[project]/storybook`
+
+**One-Time CNAME Creation:**
+- Create once: `tunnel_request_cname({ subdomain: "ui", targetPort: 8080 })`
+- Points to nginx reverse proxy
+- Never needs to change
 
 **Mobile Projects (React Native/Flutter):**
-- Storybook: NOT needed (components tested in Expo Snack via QR code)
-- Dev mockup: Expo Snack (cloud-based, accessible via `https://snack.expo.dev`)
-- QR code: User scans with Expo Go app to test on real phone
-- No CNAMEs required for mobile mockups
+- UI mockups: Expo Snack (cloud-based, accessible via `https://snack.expo.dev`)
+- User scans QR code with Expo Go app to test on real phone
+- No path needed in `ui.153.se` (Expo handles it)
 
-**CNAME Creation Workflow:**
-1. PS allocates port from project range: `mcp_meta_allocate_port`
-2. PS starts Storybook/dev server on allocated port
-3. PS creates CNAME: `tunnel_request_cname({ subdomain: "[project]-storybook", targetPort: PORT })`
-4. Tunnel manager validates port ownership and creates CNAME
-5. PS returns URL to user: `https://[project]-storybook.153.se`
-6. User accesses via browser (HTTPS, no localhost needed)
-
-**Port Usage Per Project:**
+**Port Allocation Per Project:**
 - Port X: Storybook (permanent)
 - Port X+1: Dev environment (ephemeral, can reuse)
 - Total: 2 ports per project from allocated range
 
-**CNAME Lifecycle:**
-- Storybook CNAME: Created once, kept permanently
-- Dev CNAME: Created per feature/epic, can be reused or deleted
-- Cleanup: `tunnel_delete_cname` when feature complete or project archived
+**nginx Management:**
+- Config file: `/etc/nginx/sites-available/ui-proxy`
+- Auto-update when project added/removed
+- Validate config before reload: `nginx -t`
+- Graceful reload: `nginx -s reload` (no downtime)
 
 **Frame0 Integration:**
 - Use existing Frame0 MCP tools
