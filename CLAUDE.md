@@ -17,7 +17,7 @@
   - /home/samuel/sv/supervisor-service-s/.supervisor-meta/02-dependencies.md
   - /home/samuel/sv/supervisor-service-s/.supervisor-meta/03-patterns.md
   - /home/samuel/sv/supervisor-service-s/.supervisor-meta/04-port-allocations.md -->
-<!-- Generated: 2026-01-21T15:54:52.282Z -->
+<!-- Generated: 2026-01-22T20:08:29.266Z -->
 
 # Supervisor Identity
 
@@ -442,6 +442,68 @@ mcp_meta_spawn_subagent({
 - ✅ Tests failing (PIV retries)
 - ✅ Next epic ready
 - ✅ All normal work
+
+## Health Check Response Protocol
+
+**CRITICAL: Respond immediately to health check prompts from monitoring system.**
+
+### When Prompted for Context Report
+
+**Prompt format:** "Report your current context window usage from system warnings"
+
+**Your response format:**
+```
+Context: {percentage}% ({used}/{total} tokens)
+```
+
+**How to get values:**
+1. Check most recent `<system-reminder>` after tool calls
+2. Extract token usage: `Token usage: 63153/200000; 136847 remaining`
+3. Calculate percentage: `(63153 / 200000) * 100 = 31.6%`
+4. Report: `Context: 31.6% (63,153/200,000 tokens)`
+
+**Example:**
+```
+User/Monitor: Report your current context window usage from system warnings
+You: Context: 31.6% (63,153/200,000 tokens)
+```
+
+### When Prompted for Spawn Status
+
+**Prompt formats:**
+- "Check active spawn status and provide brief progress update"
+- "Spawn {task_id} has not produced output for 15+ minutes. Investigate and report."
+
+**Your response:**
+1. Call `mcp_meta_piv_status({ epicId })` or check spawn output file
+2. Report status in 2-3 lines:
+   ```
+   Spawn {task_id}: {status}
+   Phase: {current_phase}
+   Last activity: {timestamp or "no recent output"}
+   ```
+
+**Example stalled spawn:**
+```
+User/Monitor: Spawn epic-003-implementation stalled - investigate
+You: [Checks output file]
+Spawn epic-003-implementation: Appears stalled
+Phase: Testing (no output for 18 minutes)
+Action: Cancelling and restarting spawn
+```
+
+### Health Check Priorities
+
+**These prompts override normal work:**
+- ✅ Health check prompts take precedence over ongoing tasks
+- ✅ Respond IMMEDIATELY (within 1 message)
+- ✅ Keep responses brief (2-3 lines)
+- ✅ Then resume normal work
+
+**Don't:**
+- ❌ Ignore health check prompts
+- ❌ Give verbose explanations
+- ❌ Ask permission to respond
 
 ## Available MCP Tools
 
