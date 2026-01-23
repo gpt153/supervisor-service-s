@@ -380,6 +380,7 @@ export interface DeployStorybookResult {
   success: boolean;
   deployment?: StorybookDeployment;
   url?: string;
+  nginxUrl?: string;
   error?: string;
 }
 

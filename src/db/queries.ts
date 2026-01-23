@@ -16,6 +16,7 @@ import type {
   AllocatePortParams,
 } from '../types/database.js';
 import type { UIRequirement } from '../types/ui-001.js';
+import type { UIMockup, DesignMethod, MockupStatus, DesignData, ComponentMapping } from '../types/ui-003.js';
 
 // ============================================================================
 // Projects
@@ -465,6 +466,150 @@ export async function getUIRequirementsByProject(projectName: string): Promise<U
  */
 export async function deleteUIRequirements(epicId: string): Promise<boolean> {
   const query = 'DELETE FROM ui_requirements WHERE epic_id = $1 RETURNING id';
+  const result = await pool.query(query, [epicId]);
+  return result.rowCount !== null && result.rowCount > 0;
+}
+
+// ============================================================================
+// UI Mockups (Epic UI-003)
+// ============================================================================
+
+/**
+ * Create or update a UI mockup
+ *
+ * @param mockup - UI mockup data
+ * @returns Created/updated mockup
+ */
+export async function upsertUIMockup(mockup: {
+  epic_id: string;
+  project_name: string;
+  design_method: DesignMethod;
+  design_url?: string | null;
+  design_data?: DesignData | null;
+  dev_port?: number | null;
+  dev_url?: string | null;
+  status?: MockupStatus;
+  frame0_page_id?: string | null;
+  frame0_design_export?: string | null;
+  component_mapping?: ComponentMapping | null;
+}): Promise<UIMockup> {
+  const query = `
+    INSERT INTO ui_mockups (
+      epic_id,
+      project_name,
+      design_method,
+      design_url,
+      design_data,
+      dev_port,
+      dev_url,
+      status,
+      frame0_page_id,
+      frame0_design_export,
+      component_mapping
+    )
+    VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+    ON CONFLICT (epic_id)
+    DO UPDATE SET
+      project_name = EXCLUDED.project_name,
+      design_method = EXCLUDED.design_method,
+      design_url = EXCLUDED.design_url,
+      design_data = EXCLUDED.design_data,
+      dev_port = EXCLUDED.dev_port,
+      dev_url = EXCLUDED.dev_url,
+      status = EXCLUDED.status,
+      frame0_page_id = EXCLUDED.frame0_page_id,
+      frame0_design_export = EXCLUDED.frame0_design_export,
+      component_mapping = EXCLUDED.component_mapping,
+      updated_at = NOW()
+    RETURNING *
+  `;
+
+  const result = await pool.query<UIMockup>(query, [
+    mockup.epic_id,
+    mockup.project_name,
+    mockup.design_method,
+    mockup.design_url || null,
+    mockup.design_data ? JSON.stringify(mockup.design_data) : null,
+    mockup.dev_port || null,
+    mockup.dev_url || null,
+    mockup.status || 'draft',
+    mockup.frame0_page_id || null,
+    mockup.frame0_design_export || null,
+    mockup.component_mapping ? JSON.stringify(mockup.component_mapping) : null,
+  ]);
+
+  return result.rows[0];
+}
+
+/**
+ * Get UI mockup by epic ID
+ *
+ * @param epicId - Epic identifier
+ * @returns UI mockup or null if not found
+ */
+export async function getUIMockupByEpicId(epicId: string): Promise<UIMockup | null> {
+  const query = 'SELECT * FROM ui_mockups WHERE epic_id = $1';
+  const result = await pool.query<UIMockup>(query, [epicId]);
+  return result.rows[0] || null;
+}
+
+/**
+ * Get UI mockups by project name
+ *
+ * @param projectName - Project name
+ * @returns Array of UI mockups
+ */
+export async function getUIMockupsByProject(projectName: string): Promise<UIMockup[]> {
+  const query = 'SELECT * FROM ui_mockups WHERE project_name = $1 ORDER BY created_at DESC';
+  const result = await pool.query<UIMockup>(query, [projectName]);
+  return result.rows;
+}
+
+/**
+ * Get UI mockups by design method
+ *
+ * @param designMethod - Design method ('frame0' or 'figma')
+ * @returns Array of UI mockups
+ */
+export async function getUIMockupsByMethod(designMethod: DesignMethod): Promise<UIMockup[]> {
+  const query = 'SELECT * FROM ui_mockups WHERE design_method = $1 ORDER BY created_at DESC';
+  const result = await pool.query<UIMockup>(query, [designMethod]);
+  return result.rows;
+}
+
+/**
+ * Get UI mockups by status
+ *
+ * @param status - Mockup status
+ * @returns Array of UI mockups
+ */
+export async function getUIMockupsByStatus(status: MockupStatus): Promise<UIMockup[]> {
+  const query = 'SELECT * FROM ui_mockups WHERE status = $1 ORDER BY created_at DESC';
+  const result = await pool.query<UIMockup>(query, [status]);
+  return result.rows;
+}
+
+/**
+ * Update UI mockup status
+ *
+ * @param epicId - Epic identifier
+ * @param status - New status
+ * @returns Updated mockup or null if not found
+ */
+export async function updateUIMockupStatus(epicId: string, status: MockupStatus): Promise<UIMockup | null> {
+  const query = 'UPDATE ui_mockups SET status = $1, updated_at = NOW() WHERE epic_id = $2 RETURNING *';
+  const result = await pool.query<UIMockup>(query, [status, epicId]);
+  return result.rows[0] || null;
+}
+
+/**
+ * Delete UI mockup by epic ID
+ *
+ * @param epicId - Epic identifier
+ * @returns True if deleted, false if not found
+ */
+export async function deleteUIMockup(epicId: string): Promise<boolean> {
+  const query = 'DELETE FROM ui_mockups WHERE epic_id = $1 RETURNING id';
   const result = await pool.query(query, [epicId]);
   return result.rowCount !== null && result.rowCount > 0;
 }

@@ -333,11 +333,14 @@ export class ClaudeKeyManager {
 
     try {
       // List all secrets in meta/claude path
-      const secrets = await secretsManager.list('meta/claude');
+      const secrets = await secretsManager.list({ scope: 'meta' });
 
       for (const secret of secrets) {
         try {
-          const value = await secretsManager.get(secret.key_path);
+          // Only process claude secrets
+          if (!secret.keyPath.startsWith('meta/claude/')) continue;
+
+          const value = await secretsManager.get({ keyPath: secret.keyPath });
           if (!value) continue;
 
           // Check if key already exists
@@ -347,7 +350,7 @@ export class ClaudeKeyManager {
           );
 
           if (existing.rows.length === 0) {
-            const keyName = secret.key_path.split('/').pop() || `secret_key_${count}`;
+            const keyName = secret.keyPath.split('/').pop() || `secret_key_${count}`;
             await this.addKey({
               keyName,
               apiKey: value,
@@ -356,7 +359,7 @@ export class ClaudeKeyManager {
             count++;
           }
         } catch (error) {
-          console.error(`Failed to load secret ${secret.key_path}:`, error);
+          console.error(`Failed to load secret ${secret.keyPath}:`, error);
         }
       }
     } catch (error) {

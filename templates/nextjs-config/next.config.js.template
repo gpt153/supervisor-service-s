@@ -1,0 +1,17 @@
+/** @type {import('next').NextConfig} */
+const nextConfig = {
+  basePath: '{{BASE_PATH}}',
+  assetPrefix: '{{BASE_PATH}}',
+  reactStrictMode: true,
+  swcMinify: true,
+  async rewrites() {
+    return [
+      {
+        source: '{{BASE_PATH}}/api/:path*',
+        destination: '{{PROXY_TARGET}}/api/:path*',
+      },
+    ]
+  },
+}
+
+module.exports = nextConfig

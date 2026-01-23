@@ -529,7 +529,6 @@ const getGeminiKeyStatsTool: ToolDefinition = {
         totalRequests: stats.totalRequests,
         totalTokens: stats.totalTokens,
         successRate: Math.round(stats.successRate * 100) / 100,
-        keyStats: stats.keyStats,
         period: since ? `Since ${since.toISOString()}` : 'All time',
       };
     } catch (error) {
@@ -790,7 +789,6 @@ const getClaudeKeyStatsTool: ToolDefinition = {
         totalRequests: stats.totalRequests,
         totalTokens: stats.totalTokens,
         successRate: Math.round(stats.successRate * 100) / 100,
-        keyStats: stats.keyStats,
         period: since ? `Since ${since.toISOString()}` : 'All time',
       };
     } catch (error) {

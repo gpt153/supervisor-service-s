@@ -37,6 +37,7 @@
   "author": "",
   "license": "ISC",
   "dependencies": {
+    "@faker-js/faker": "^10.2.0",
     "@fastify/cors": "^11.2.0",
     "@modelcontextprotocol/sdk": "^1.25.2",
     "axios": "^1.13.2",

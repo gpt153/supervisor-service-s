@@ -41,15 +41,7 @@ export class ClaudeCLIAdapter extends CLIAdapter {
 
   /**
    * Execute using Claude Code CLI (uses user's logged-in session token)
-   */
-  async execute(request: AgentRequest): Promise<AgentResult> {
-    // Claude Code CLI uses the user's authentication token from ~/.claude/
-    // No API key needed - just execute
-    return await super.execute(request);
-  }
-
-  /**
-   * Execute Claude CLI - override to use stdin for large prompts
+   * For large prompts, uses stdin to avoid command line limits
    */
   async execute(request: AgentRequest): Promise<AgentResult> {
     // Check if API key is available in environment
