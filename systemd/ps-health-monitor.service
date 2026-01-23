@@ -27,7 +27,7 @@ SyslogIdentifier=ps-health-monitor
 
 # Security hardening
 NoNewPrivileges=true
-PrivateTmp=true
+PrivateTmp=false
 ProtectSystem=strict
 ProtectHome=read-only
 ReadWritePaths=/home/samuel/sv
