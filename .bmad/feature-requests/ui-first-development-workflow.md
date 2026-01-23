@@ -898,5 +898,799 @@ ui_requirements:
 
 ---
 
+## Technical Specifications
+
+### Database Schema
+
+**design_systems table:**
+```sql
+CREATE TABLE design_systems (
+  id SERIAL PRIMARY KEY,
+  project_name VARCHAR(100) NOT NULL,
+  name VARCHAR(100) NOT NULL, -- "default", "admin-theme", etc.
+  description TEXT,
+  style_config JSONB NOT NULL, -- colors, typography, spacing
+  component_library JSONB, -- button, input, card definitions
+  storybook_port INTEGER,
+  storybook_url TEXT,
+  created_at TIMESTAMP DEFAULT NOW(),
+  updated_at TIMESTAMP DEFAULT NOW(),
+  UNIQUE(project_name, name)
+);
+```
+
+**ui_mockups table:**
+```sql
+CREATE TABLE ui_mockups (
+  id SERIAL PRIMARY KEY,
+  epic_id VARCHAR(100) NOT NULL, -- "epic-003-user-management"
+  project_name VARCHAR(100) NOT NULL,
+  design_method VARCHAR(50) NOT NULL, -- "frame0" or "figma"
+  design_url TEXT, -- Figma URL or Frame0 export URL
+  dev_port INTEGER,
+  dev_url TEXT, -- https://ui.153.se/consilio/dev
+  status VARCHAR(50) NOT NULL, -- "draft", "approved", "connected", "archived"
+  created_at TIMESTAMP DEFAULT NOW(),
+  updated_at TIMESTAMP DEFAULT NOW(),
+  UNIQUE(epic_id)
+);
+```
+
+**ui_requirements table:**
+```sql
+CREATE TABLE ui_requirements (
+  id SERIAL PRIMARY KEY,
+  mockup_id INTEGER REFERENCES ui_mockups(id) ON DELETE CASCADE,
+  acceptance_criteria_id VARCHAR(100), -- "AC-1", "AC-2", etc.
+  acceptance_criteria_text TEXT NOT NULL,
+  ui_elements JSONB NOT NULL, -- [{ component, props, location }]
+  user_flow JSONB, -- [{ step, action }]
+  validation_status VARCHAR(50) DEFAULT 'pending', -- "pending", "satisfied", "failed"
+  created_at TIMESTAMP DEFAULT NOW()
+);
+```
+
+**ui_deployments table:**
+```sql
+CREATE TABLE ui_deployments (
+  id SERIAL PRIMARY KEY,
+  project_name VARCHAR(100) NOT NULL,
+  deployment_type VARCHAR(50) NOT NULL, -- "storybook" or "dev_environment"
+  port INTEGER NOT NULL,
+  url TEXT NOT NULL, -- https://ui.153.se/consilio/storybook
+  status VARCHAR(50) NOT NULL, -- "running", "stopped", "error"
+  process_id INTEGER, -- PM2 or process PID
+  last_health_check TIMESTAMP,
+  created_at TIMESTAMP DEFAULT NOW(),
+  UNIQUE(project_name, deployment_type)
+);
+```
+
+---
+
+### MCP Tool API Specifications
+
+**Tool 1: ui_create_design_system**
+```typescript
+interface CreateDesignSystemParams {
+  projectName: string;
+  name: string; // "default", "admin-theme"
+  description?: string;
+  styleConfig: {
+    colors: {
+      primary: string;
+      secondary: string;
+      success: string;
+      warning: string;
+      error: string;
+      background: string;
+      text: string;
+    };
+    typography: {
+      fontFamily: string;
+      fontSize: { xs: string; sm: string; md: string; lg: string; xl: string };
+      fontWeight: { light: number; normal: number; bold: number };
+    };
+    spacing: { xs: string; sm: string; md: string; lg: string; xl: string };
+    borderRadius: { sm: string; md: string; lg: string };
+    shadows: { sm: string; md: string; lg: string };
+  };
+  componentLibrary?: {
+    Button: ComponentSpec;
+    Input: ComponentSpec;
+    Card: ComponentSpec;
+    // ... more components
+  };
+}
+
+interface ComponentSpec {
+  variants: string[]; // ["primary", "secondary", "outline"]
+  sizes: string[]; // ["sm", "md", "lg"]
+  defaultProps: Record<string, any>;
+}
+
+interface CreateDesignSystemResponse {
+  designSystemId: number;
+  storybookUrl: string; // https://ui.153.se/consilio/storybook
+  storybookPort: number;
+  message: string;
+}
+```
+
+**Tool 2: ui_analyze_epic**
+```typescript
+interface AnalyzeEpicParams {
+  epicId: string; // "epic-003-user-management"
+  projectName?: string; // Auto-detected from epic if omitted
+  reanalyze?: boolean; // Force re-analysis even if exists
+}
+
+interface AnalyzeEpicResponse {
+  epicId: string;
+  projectName: string;
+  uiRequirements: {
+    acceptanceCriteria: Array<{
+      id: string; // "AC-1"
+      text: string;
+      requiredUIElements: string[]; // ["SearchBar", "UserList", "BanButton"]
+      userFlow: Array<{ step: string; action: string }>;
+    }>;
+    dataNeeds: Array<{
+      entity: string; // "User"
+      fields: Array<{ name: string; type: string }>;
+      operations: string[]; // ["list", "search", "update"]
+    }>;
+    navigation: Array<{
+      from: string; // "Dashboard"
+      to: string; // "UserDetail"
+      trigger: string; // "Click user row"
+    }>;
+    designConstraints?: {
+      accessibility?: string[]; // ["WCAG AA", "keyboard-navigation"]
+      branding?: string[]; // ["Use company colors", "Professional tone"]
+    };
+  };
+  mockDataSpec: {
+    entities: Record<string, {
+      count: number;
+      fields: Array<{ name: string; type: string; generator: string }>;
+    }>;
+  };
+}
+```
+
+**Tool 3: ui_generate_design**
+```typescript
+interface GenerateDesignParams {
+  epicId: string;
+  method: "frame0" | "figma";
+  designSystemId?: number; // Use existing design system
+  figmaUrl?: string; // Required if method="figma"
+  iterations?: number; // Number of design iterations (default: 1)
+}
+
+interface GenerateDesignResponse {
+  mockupId: number;
+  designMethod: string;
+  previewImageUrl: string; // Frame0 export or Figma screenshot
+  designUrl: string; // Frame0 page URL or Figma URL
+  componentsGenerated: string[]; // ["SearchBar", "UserList", "BanButton"]
+  requirementsCoverage: {
+    total: number;
+    satisfied: number;
+    missing: string[]; // AC IDs not covered
+  };
+  nextSteps: string; // "Review design, then call ui_deploy_mockup"
+}
+```
+
+**Tool 4: ui_deploy_mockup**
+```typescript
+interface DeployMockupParams {
+  epicId: string;
+  mockupId?: number; // Auto-detected from epicId if omitted
+  hotReload?: boolean; // Enable hot reload (default: true)
+}
+
+interface DeployMockupResponse {
+  deploymentId: number;
+  devUrl: string; // https://ui.153.se/consilio/dev
+  devPort: number;
+  localUrl: string; // http://localhost:5051
+  status: "running" | "error";
+  mockDataSummary: {
+    entities: Record<string, number>; // { users: 20, roles: 5 }
+  };
+  testableFlows: string[]; // ["Search users", "Ban user", "View user detail"]
+  nginxConfigUpdated: boolean;
+  message: string;
+}
+```
+
+**Tool 5: ui_validate_requirements**
+```typescript
+interface ValidateRequirementsParams {
+  epicId: string;
+}
+
+interface ValidateRequirementsResponse {
+  epicId: string;
+  validationStatus: "passed" | "failed" | "partial";
+  totalRequirements: number;
+  satisfiedRequirements: number;
+  unsatisfiedRequirements: Array<{
+    id: string; // "AC-3"
+    text: string;
+    reason: string; // "Missing BanButton component"
+  }>;
+  coveragePercentage: number; // 0-100
+  recommendations: string[];
+}
+```
+
+**Tool 6: ui_connect_backend**
+```typescript
+interface ConnectBackendParams {
+  epicId: string;
+  backendUrl: string; // https://consilio.153.se/api
+  apiEndpoints: Record<string, string>; // { getUsers: "/users", banUser: "/users/:id/ban" }
+  authToken?: string; // For authenticated requests
+}
+
+interface ConnectBackendResponse {
+  mockupId: number;
+  filesModified: string[]; // ["UserList.tsx", "BanButton.tsx"]
+  mockDataRemoved: string[]; // ["mockUsers.ts"]
+  apiCallsAdded: number;
+  deploymentUrl: string; // Production URL after connection
+  status: "connected" | "error";
+  message: string;
+}
+```
+
+**Tool 7: ui_get_preview_urls**
+```typescript
+interface GetPreviewUrlsParams {
+  projectName: string;
+  epicId?: string; // Omit to get all URLs for project
+}
+
+interface GetPreviewUrlsResponse {
+  projectName: string;
+  designSystemUrl?: string; // https://ui.153.se/consilio/storybook
+  mockups: Array<{
+    epicId: string;
+    devUrl: string; // https://ui.153.se/consilio/dev
+    status: "running" | "stopped";
+  }>;
+}
+```
+
+---
+
+### nginx Configuration Management
+
+**File:** `/etc/nginx/sites-available/ui-proxy`
+
+**Auto-generated configuration:**
+```nginx
+# UI Proxy - Auto-generated by supervisor-service
+# DO NOT EDIT MANUALLY - Managed by ui_deploy_mockup tool
+
+server {
+    listen 8080;
+    server_name localhost;
+
+    # Health check endpoint
+    location /health {
+        return 200 "OK";
+        add_header Content-Type text/plain;
+    }
+
+    # Consilio
+    location /consilio/storybook/ {
+        proxy_pass http://localhost:5050/;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection "upgrade";
+    }
+
+    location /consilio/dev/ {
+        proxy_pass http://localhost:5051/;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection "upgrade";
+    }
+
+    # Odin
+    location /odin/storybook/ {
+        proxy_pass http://localhost:5350/;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection "upgrade";
+    }
+
+    location /odin/dev/ {
+        proxy_pass http://localhost:5351/;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection "upgrade";
+    }
+
+    # Health-Agent
+    location /health-agent/storybook/ {
+        proxy_pass http://localhost:5150/;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection "upgrade";
+    }
+
+    location /health-agent/dev/ {
+        proxy_pass http://localhost:5151/;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection "upgrade";
+    }
+
+    # OpenHorizon
+    location /openhorizon/storybook/ {
+        proxy_pass http://localhost:5250/;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection "upgrade";
+    }
+
+    location /openhorizon/dev/ {
+        proxy_pass http://localhost:5251/;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection "upgrade";
+    }
+}
+```
+
+**Management Functions:**
+```typescript
+// Add project to nginx config
+async function addProjectToNginx(projectName: string, storybookPort: number, devPort: number): Promise<void> {
+  const config = await fs.readFile('/etc/nginx/sites-available/ui-proxy', 'utf-8');
+
+  const projectBlock = `
+    # ${projectName}
+    location /${projectName}/storybook/ {
+        proxy_pass http://localhost:${storybookPort}/;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection "upgrade";
+    }
+
+    location /${projectName}/dev/ {
+        proxy_pass http://localhost:${devPort}/;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection "upgrade";
+    }
+`;
+
+  const updatedConfig = config.replace(/}$/, projectBlock + '}');
+  await fs.writeFile('/etc/nginx/sites-available/ui-proxy', updatedConfig);
+
+  // Test config
+  await exec('nginx -t');
+
+  // Reload nginx
+  await exec('nginx -s reload');
+}
+```
+
+---
+
+### Mock Data Generation Examples
+
+**Hardcoded Template (Simple):**
+```typescript
+// mockUsers.ts
+export const mockUsers = [
+  { id: 1, email: "admin@test.com", role: "admin", status: "active" },
+  { id: 2, email: "john@test.com", role: "user", status: "active" },
+  { id: 3, email: "jane@test.com", role: "user", status: "banned" },
+];
+```
+
+**Faker.js Template (Realistic):**
+```typescript
+// mockDataGenerator.ts
+import { faker } from '@faker-js/faker';
+
+export function generateMockUsers(count: number = 20) {
+  return Array.from({ length: count }, (_, i) => ({
+    id: i + 1,
+    email: faker.internet.email(),
+    name: faker.person.fullName(),
+    role: faker.helpers.arrayElement(['admin', 'user', 'guest']),
+    status: faker.helpers.arrayElement(['active', 'banned', 'pending']),
+    createdAt: faker.date.past().toISOString(),
+    avatar: faker.image.avatar(),
+  }));
+}
+```
+
+**Mock Service Worker (API Interception):**
+```typescript
+// mocks/handlers.ts
+import { http, HttpResponse } from 'msw';
+
+export const handlers = [
+  http.get('/api/users', ({ request }) => {
+    const url = new URL(request.url);
+    const search = url.searchParams.get('search');
+
+    let users = generateMockUsers(50);
+
+    if (search) {
+      users = users.filter(u => u.email.includes(search));
+    }
+
+    return HttpResponse.json({ users });
+  }),
+
+  http.post('/api/users/:id/ban', ({ params }) => {
+    return HttpResponse.json({ success: true, userId: params.id });
+  }),
+];
+```
+
+---
+
+### Component Generation Templates
+
+**React Component Template:**
+```typescript
+// UserList.tsx (Auto-generated from Frame0 design)
+import React from 'react';
+import { SearchBar } from './SearchBar';
+import { RoleBadge } from './RoleBadge';
+import { BanButton } from './BanButton';
+import { mockUsers } from '../mockData';
+
+export function UserList() {
+  const [users, setUsers] = React.useState(mockUsers);
+  const [searchQuery, setSearchQuery] = React.useState('');
+
+  const filteredUsers = users.filter(user =>
+    user.email.toLowerCase().includes(searchQuery.toLowerCase())
+  );
+
+  const handleBan = (userId: number) => {
+    setUsers(users.map(u =>
+      u.id === userId ? { ...u, status: 'banned' } : u
+    ));
+  };
+
+  return (
+    <div className="user-management-dashboard">
+      <SearchBar
+        placeholder="Search by email"
+        value={searchQuery}
+        onChange={setSearchQuery}
+      />
+
+      <table className="user-table">
+        <thead>
+          <tr>
+            <th>Email</th>
+            <th>Role</th>
+            <th>Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          {filteredUsers.map(user => (
+            <tr key={user.id}>
+              <td>{user.email}</td>
+              <td><RoleBadge role={user.role} /></td>
+              <td>
+                <BanButton
+                  userId={user.id}
+                  disabled={user.status === 'banned'}
+                  onBan={handleBan}
+                />
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+```
+
+---
+
+### Port Allocation Strategy
+
+**Reserved Ports Per Project:**
+
+| Project | Storybook | Dev Env | Status |
+|---------|-----------|---------|--------|
+| Consilio | 5050 | 5051 | ✅ Reserved |
+| Health-Agent | 5150 | 5151 | ✅ Reserved |
+| OpenHorizon | 5250 | 5251 | ✅ Reserved |
+| Odin | 5350 | 5351 | ✅ Reserved |
+
+**Port Selection Logic:**
+```typescript
+function allocateUIPort(projectName: string, type: 'storybook' | 'dev'): number {
+  const ranges = {
+    'consilio': { storybook: 5050, dev: 5051 },
+    'health-agent': { storybook: 5150, dev: 5151 },
+    'openhorizon': { storybook: 5250, dev: 5251 },
+    'odin': { storybook: 5350, dev: 5351 },
+  };
+
+  return ranges[projectName][type];
+}
+```
+
+---
+
+### Storybook Configuration Template
+
+**File:** `{project}/.storybook/main.ts`
+```typescript
+import type { StorybookConfig } from '@storybook/react-vite';
+
+const config: StorybookConfig = {
+  stories: ['../src/**/*.stories.@(js|jsx|ts|tsx)'],
+  addons: [
+    '@storybook/addon-links',
+    '@storybook/addon-essentials',
+    '@storybook/addon-interactions',
+  ],
+  framework: {
+    name: '@storybook/react-vite',
+    options: {},
+  },
+  viteFinal: (config) => {
+    // Ensure Storybook works with ui.153.se/[project]/storybook/ path
+    config.base = `/${projectName}/storybook/`;
+    return config;
+  },
+};
+
+export default config;
+```
+
+**Start Script:**
+```bash
+# Start Storybook on allocated port
+storybook dev -p 5050 --ci --quiet
+```
+
+---
+
+### Dev Environment Configuration
+
+**Vite Config (React):**
+```typescript
+// vite.config.ts
+import { defineConfig } from 'vite';
+import react from '@vitejs/plugin-react';
+
+export default defineConfig({
+  plugins: [react()],
+  base: '/consilio/dev/', // Path-based routing
+  server: {
+    port: 5051,
+    strictPort: true,
+    host: true, // Allow external access
+    hmr: {
+      protocol: 'wss', // WebSocket for hot reload over HTTPS
+      host: 'ui.153.se',
+      clientPort: 443,
+    },
+  },
+});
+```
+
+**Next.js Config (if needed):**
+```typescript
+// next.config.js
+module.exports = {
+  basePath: '/consilio/dev',
+  assetPrefix: '/consilio/dev',
+
+  async rewrites() {
+    return [
+      {
+        source: '/consilio/dev/:path*',
+        destination: '/:path*',
+      },
+    ];
+  },
+};
+```
+
+---
+
+### Requirements Traceability Report Template
+
+**Auto-generated after ui_analyze_epic:**
+```markdown
+# UI Requirements Traceability Report
+**Epic:** epic-003-user-management
+**Project:** consilio
+**Generated:** 2026-01-23
+
+---
+
+## Acceptance Criteria Coverage
+
+### ✅ AC-1: Search users by email
+**Status:** Satisfied
+**UI Elements:**
+- Component: `SearchBar`
+  - Location: `UserManagementDashboard` header
+  - Props: `{ placeholder: "Search by email", filterKey: "email" }`
+- Functionality:
+  - Real-time filtering on input change
+  - Case-insensitive search
+  - No backend required (filters local mock data)
+
+**User Flow:**
+1. User types in search box → `onChange` handler fires
+2. `filteredUsers` state updates → component re-renders
+3. Table shows only matching users
+
+**Test Cases:**
+- ✓ Type "john" → shows john@test.com
+- ✓ Type "ADMIN" → shows admin@test.com (case-insensitive)
+- ✓ Clear search → shows all users
+
+---
+
+### ✅ AC-2: Display user roles with badges
+**Status:** Satisfied
+**UI Elements:**
+- Component: `RoleBadge`
+  - Location: `UserList` role column
+  - Variants: `["admin", "user", "guest"]`
+  - Styling: Color-coded badges (admin=red, user=blue, guest=gray)
+
+**User Flow:**
+1. User views user list
+2. Role column shows colored badge for each user
+
+**Test Cases:**
+- ✓ Admin user shows red "ADMIN" badge
+- ✓ Regular user shows blue "USER" badge
+- ✓ Guest shows gray "GUEST" badge
+
+---
+
+### ✅ AC-3: Admin can ban users
+**Status:** Satisfied
+**UI Elements:**
+- Component: `BanButton`
+  - Location: `UserList` actions column
+  - Permissions: Only visible if current user is admin
+  - Confirmation: Shows modal before banning
+
+**User Flow:**
+1. Admin clicks "Ban" button
+2. Confirmation dialog appears: "Are you sure you want to ban {email}?"
+3. Admin clicks "Confirm"
+4. User status updates to "banned"
+5. Ban button becomes disabled
+6. Success message appears
+
+**Test Cases:**
+- ✓ Click ban → confirmation dialog shows
+- ✓ Click confirm → user status changes to "banned"
+- ✓ Banned user's ban button is disabled
+- ✓ Non-admin users don't see ban button (permission check)
+
+---
+
+## Coverage Summary
+
+| Total AC | Satisfied | Partial | Missing |
+|----------|-----------|---------|---------|
+| 3 | 3 | 0 | 0 |
+
+**Coverage:** 100%
+
+---
+
+## Mock Data Specification
+
+**Entity:** User
+**Count:** 20 records
+**Generator:** Faker.js
+
+**Fields:**
+- `id`: Sequential integer (1-20)
+- `email`: faker.internet.email()
+- `name`: faker.person.fullName()
+- `role`: enum ["admin", "user", "guest"] (weighted: 10% admin, 70% user, 20% guest)
+- `status`: enum ["active", "banned", "pending"] (weighted: 80% active, 10% banned, 10% pending)
+- `createdAt`: faker.date.past() (within last year)
+- `avatar`: faker.image.avatar()
+
+**Sample:**
+```json
+[
+  {
+    "id": 1,
+    "email": "admin@test.com",
+    "name": "Admin User",
+    "role": "admin",
+    "status": "active",
+    "createdAt": "2025-06-15T10:30:00Z",
+    "avatar": "https://avatars.dicebear.com/api/avataaars/admin.svg"
+  },
+  ...
+]
+```
+
+---
+
+## Navigation Map
+
+```
+Dashboard
+  ↓ (Click "Users" in sidebar)
+UserManagementDashboard
+  ↓ (Click user row)
+UserDetailPage (future epic)
+```
+
+---
+
+## Design Constraints
+
+**Accessibility:**
+- ✅ WCAG AA compliant
+- ✅ Keyboard navigation support (Tab, Enter, Escape)
+- ✅ Screen reader labels on all interactive elements
+- ✅ Color contrast ratio ≥ 4.5:1
+
+**Branding:**
+- ✅ Uses project design system colors
+- ✅ Professional, clean UI
+- ✅ Consistent with existing pages
+
+**Responsive:**
+- ✅ Mobile-first design
+- ✅ Breakpoints: 640px (mobile), 768px (tablet), 1024px (desktop)
+
+---
+
+**Status:** ✅ Ready for mockup deployment
+**Next Step:** Run `ui_deploy_mockup({ epicId: "epic-003" })`
+```
+
+---
+
 **Analyst:** Claude Sonnet 4.5 (Meta-Supervisor)
 **Review:** Ready for Planning Phase - Epic Creation
+**Status:** Feature request complete with technical specifications
