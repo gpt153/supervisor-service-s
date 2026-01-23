@@ -28,6 +28,24 @@ type TaskType =
   | 'security'
   | 'integration';
 
+// Tiered timeout strategy based on task complexity
+// Research and validation are quick (10 min)
+// Implementation and testing need more time (30 min)
+// Planning and fixes are in between (15-20 min)
+const TIMEOUT_BY_TASK_TYPE: Record<TaskType, number> = {
+  research: 10 * 60 * 1000,        // 10 minutes - quick codebase exploration
+  planning: 15 * 60 * 1000,        // 15 minutes - create implementation plans
+  implementation: 30 * 60 * 1000,  // 30 minutes - write code, tests, docs
+  testing: 30 * 60 * 1000,         // 30 minutes - run full test suites
+  validation: 10 * 60 * 1000,      // 10 minutes - validate implementation
+  documentation: 10 * 60 * 1000,   // 10 minutes - write docs
+  fix: 20 * 60 * 1000,             // 20 minutes - debug and fix issues
+  deployment: 15 * 60 * 1000,      // 15 minutes - deploy to production
+  review: 10 * 60 * 1000,          // 10 minutes - code review
+  security: 15 * 60 * 1000,        // 15 minutes - security analysis
+  integration: 20 * 60 * 1000,     // 20 minutes - integrate components
+};
+
 interface SpawnSubagentParams {
   task_type: TaskType;
   description: string;
@@ -394,12 +412,16 @@ async function spawnAgent(
       agentType = 'codex';
     }
 
+    // Get timeout based on task type
+    const timeout = TIMEOUT_BY_TASK_TYPE[taskType] || 10 * 60 * 1000; // Default to 10 min
+    console.log(`[Subagent Spawner]    Timeout: ${timeout / 1000}s (${timeout / 60000} minutes)`);
+
     // Execute the task
     const result = await executor.executeWithAgent(
       {
         prompt: instructions,
         cwd: projectPath,
-        timeout: 600000, // 10 minutes
+        timeout,
         outputFormat: 'text',
       },
       agentType
