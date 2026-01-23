@@ -14,7 +14,7 @@ import { ClaudeKeyManager } from './ClaudeKeyManager.js';
  */
 const DEFAULT_CONFIG: AdapterConfig = {
   enabled: true,
-  cliCommand: 'claude',
+  cliCommand: '/home/samuel/.local/bin/claude',
   defaultTimeout: 120000, // 120 seconds (Claude agents take 60-90s typically)
   quotaLimit: 1000, // Conservative estimate (Claude Pro subscription)
   quotaResetHours: 24,
