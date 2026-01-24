@@ -23,6 +23,8 @@ import { getSubscriptionOptimizationTools } from './subscription-optimization-to
 import { getAPIKeyAutomationTools } from './api-key-automation-tools.js';
 import { spawnSubagentTool } from './spawn-subagent-tool.js';
 import { uiTools } from './ui-tools.js';
+import { getPerStepPIVTools } from './piv-per-step-tool.js';
+import { getPIVPhaseTools } from './piv-phase-tools.js';
 
 const execAsync = promisify(exec);
 
@@ -370,8 +372,12 @@ export function getAllTools(): ToolDefinition[] {
     // GCloud integration tools
     ...getGCloudTools(),
 
-    // PIV loop tools
+    // PIV loop tools (monolithic)
     ...getPIVTools(),
+
+    // PIV per-step tools (granular control)
+    ...getPerStepPIVTools(),
+    ...getPIVPhaseTools(),
 
     // Project context tools
     ...getProjectContextTools(),
