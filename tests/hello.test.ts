@@ -1,5 +1,8 @@
 /**
  * Tests for hello function
+ *
+ * Validates that:
+ * 1. hello() returns "Hello, World!"
  */
 
 import { hello } from '../src/test/hello.js';
@@ -43,12 +46,12 @@ class TestRunner {
 function assertEquals(actual: any, expected: any, message?: string): void {
   if (actual !== expected) {
     throw new Error(
-      message || `Expected ${JSON.stringify(expected)} but got ${JSON.stringify(actual)}`
+      message || `Expected ${JSON.stringify(expected)}, got ${JSON.stringify(actual)}`
     );
   }
 }
 
-// Run tests
+// Tests
 const runner = new TestRunner();
 
 runner.test('hello() returns "Hello, World!"', () => {
