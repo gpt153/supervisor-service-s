@@ -17,6 +17,38 @@ import axios from 'axios';
 const META_MCP_ENDPOINT = 'http://localhost:8081/mcp/meta';
 
 /**
+ * Ensure .bmad/ directory structure exists
+ */
+async function ensureBMADDirectories(projectPath: string): Promise<void> {
+  const bmadPath = path.join(projectPath, '.bmad');
+  const directories = [
+    'feature-requests',
+    'prd',
+    'epics',
+    'adr',
+    'architecture',
+    'plans',
+    'context',
+    'reports'
+  ];
+
+  try {
+    // Create .bmad/ root if doesn't exist
+    await fs.mkdir(bmadPath, { recursive: true });
+
+    // Create subdirectories
+    for (const dir of directories) {
+      await fs.mkdir(path.join(bmadPath, dir), { recursive: true });
+    }
+
+    console.log('[BMAD] Directory structure verified');
+  } catch (error) {
+    console.error('[BMAD] Failed to create directory structure:', error);
+    throw error;
+  }
+}
+
+/**
  * Call mcp_meta_spawn_subagent via MCP HTTP endpoint
  */
 async function spawnSubagent(params: {
@@ -274,7 +306,10 @@ export async function bmadFullWorkflow(params: BMADFullWorkflowParams): Promise<
     console.log(`[BMAD] Project: ${params.projectName}`);
     console.log(`[BMAD] Feature: ${params.featureDescription}`);
 
-    // 0. Detect complexity if not provided
+    // 0. Ensure .bmad/ directory structure exists
+    await ensureBMADDirectories(params.projectPath);
+
+    // 1. Detect complexity if not provided
     const complexity = params.complexity ?? await detectComplexity(params.featureDescription, params.projectPath);
     result.complexity = complexity;
     console.log(`[BMAD] Complexity level: ${complexity}`);
