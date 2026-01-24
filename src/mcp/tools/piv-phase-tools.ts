@@ -10,7 +10,7 @@
 import { ToolDefinition, ProjectContext } from '../../types/project.js';
 import axios from 'axios';
 
-const META_MCP_ENDPOINT = 'http://localhost:8081/mcp';
+const META_MCP_ENDPOINT = 'http://localhost:8081/mcp/meta';
 
 /**
  * Call mcp_meta_spawn_subagent via MCP HTTP endpoint

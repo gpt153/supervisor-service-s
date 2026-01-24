@@ -34,7 +34,7 @@ interface PhaseResult {
   files_changed?: string[];
 }
 
-const META_MCP_ENDPOINT = 'http://localhost:8081/mcp';
+const META_MCP_ENDPOINT = 'http://localhost:8081/mcp/meta';
 
 /**
  * Call mcp_meta_spawn_subagent via MCP HTTP endpoint
