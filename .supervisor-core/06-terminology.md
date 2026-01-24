@@ -35,7 +35,7 @@
 
 ### Project-Supervisor (PS)
 **What**: Claude instance supervising a specific product/service
-**Example**: "The Consilio project-supervisor (PS) spawned PIV agents"
+**Example**: "The Consilio project-supervisor (PS) spawned implementation agents"
 
 **There are multiple PSes:**
 - Consilio PS (manages Consilio service)

@@ -30,28 +30,29 @@
 ✅ Deployed to production (if applicable)
 ✅ Post-deploy verification complete
 
-## PIV Per-Step Implementation (MANDATORY)
-
-**CRITICAL: Use per-step PIV for all epic implementations.**
+## Epic Implementation (MANDATORY)
 
 ### When User Says: "Continue building"
 
 **EXECUTE THIS WORKFLOW:**
 
 1. Find next epic from `.bmad/epics/`
-2. Start per-step PIV: `mcp_meta_run_piv_per_step({ ... })`
-3. Tool spawns Prime → Plan → Execute → Validates ALL acceptance criteria
-4. Monitor progress (tool provides phase updates)
+2. **If epic has Implementation Notes**: Use `mcp_meta_bmad_implement_epic`
+3. **If epic only has description**: Use `mcp_meta_run_piv_per_step`
+4. Monitor progress
 5. When complete: Report and start next epic
 
 ### When User Says: "Implement [feature]"
 
-1. Create epic if needed (with acceptance criteria)
-2. Start per-step PIV immediately
-3. Wait for completion (tool handles all phases)
-4. Report results
+**Decision tree:**
 
-### Tool Parameters
+**User provides BMAD epic file?**
+- ✅ YES → Use `mcp_meta_bmad_implement_epic({ epicFile: "path" })`
+- ❌ NO → Use `mcp_meta_run_piv_per_step({ epicDescription: "..." })`
+
+### PIV Per-Step (From Description)
+
+**Use when**: User describes feature WITHOUT detailed technical plan
 
 ```typescript
 mcp_meta_run_piv_per_step({
@@ -62,47 +63,37 @@ mcp_meta_run_piv_per_step({
   epicDescription: "Implement GDPR compliance features...",
   acceptanceCriteria: [
     "User can export all personal data",
-    "User can delete account and all data",
-    "Cookie consent banner implemented",
-    "Privacy policy displayed"
-  ],
-  tasks: ["User story 1", "User story 2"],  // Optional
-  baseBranch: "main",  // Optional, defaults to main
-  createPR: true  // Optional, defaults to true
+    "User can delete account and all data"
+  ]
 })
 ```
 
-### What Happens (Automatic)
+**Phases**: Prime (research) → Plan (design) → Execute (code) → Validate (test)
 
-1. **Prime Phase**: Spawns research agent via `mcp_meta_spawn_subagent` (research)
-   - AI analyzes codebase, identifies patterns, tech stack
-   - Saves context to `.agents/context/{epicId}.json`
+### BMAD (From Epic File)
 
-2. **Plan Phase**: Spawns planning agent (planning)
-   - AI creates detailed implementation plan
-   - Breaks down into tasks with validation commands
-   - Saves plan to `.agents/plans/{epicId}.json`
-
-3. **Execute Phase**: Spawns implementation agent (implementation)
-   - AI writes actual code (NOT just docs)
-   - Runs tests, validations
-   - Commits to git, creates branch
-
-4. **Validation Phase**: Spawns validation agents (one per criterion)
-   - Validates EACH acceptance criterion
-   - Returns success ONLY if ALL criteria met
-
-### If Phase Hangs or Fails
-
-**Tool has 35-minute timeout per phase. If timeout:**
+**Use when**: Epic file EXISTS with Technical Requirements and Implementation Notes
 
 ```typescript
-// Restart just the failed phase
-mcp_meta_run_execute({  // Or run_prime, run_plan
-  epicId: "epic-006",
-  planFile: ".agents/plans/epic-006.json",
-  // Don't need to re-run Prime/Plan
+mcp_meta_bmad_implement_epic({
+  projectName: "consilio",
+  projectPath: "/home/samuel/sv/consilio-s",
+  epicFile: ".bmad/epics/epic-006-gdpr.md"
 })
+```
+
+**Workflow**: Reads notes → Executes tasks → Validates criteria
+
+### If Tool Hangs or Fails
+
+**35-minute timeout per phase/task. If timeout:**
+
+```typescript
+// PIV: Restart failed phase
+mcp_meta_run_execute({ epicId: "epic-006" })
+
+// BMAD: Tool auto-retries failed task
+// If still failing after 3 retries, reports error
 ```
 
 ## Status Updates (CLI Sessions Only)
@@ -161,10 +152,17 @@ Last activity: {timestamp}
 
 ### Primary (Use These)
 
-- `mcp_meta_run_piv_per_step` - **PRIMARY**: Run complete PIV with per-step spawning
+**Single tasks:**
+- `mcp_meta_spawn_subagent` - Spawn agent for single task (research, implementation, etc.)
+
+**Epic from description:**
+- `mcp_meta_run_piv_per_step` - Research → Plan → Implement from feature description
 - `mcp_meta_run_prime` - Run Prime phase only (research)
 - `mcp_meta_run_plan` - Run Plan phase only (design)
 - `mcp_meta_run_execute` - Run Execute phase only (implementation)
+
+**Epic from BMAD file:**
+- `mcp_meta_bmad_implement_epic` - Execute Implementation Notes from epic file
 
 ### Legacy (Deprecated)
 

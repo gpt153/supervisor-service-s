@@ -15,25 +15,50 @@ Access via `/home/samuel/sv/.claude/commands/`:
 - `supervision/piv-supervise.md` - PIV-specific supervision
 - `supervision/prime-supervisor.md` - Context priming
 
-## Subagent Spawning (Primary Tool)
+## Execution Tools (Primary)
 
-**CRITICAL: Use this for ALL execution tasks.**
+**CRITICAL: Use these for ALL execution tasks.**
 
+### Single Task
 ```
 mcp_meta_spawn_subagent({
-  task_type: "implementation",  // research, planning, testing, validation, documentation, fix, deployment, review
+  task_type: "implementation",
   description: "What to do",
   context: { /* optional */ }
 })
 ```
 
-**Automatically handles**:
-- Queries Odin for optimal AI service
-- Selects appropriate subagent template
-- Spawns agent with best model
-- Tracks usage and cost
+**Use for**: Single isolated task, quick fixes, research
 
-**Common task types**: research, planning, implementation, testing, validation, documentation, fix, deployment, review
+### Epic from Description
+```
+mcp_meta_run_piv_per_step({
+  projectName: "project",
+  epicId: "epic-001",
+  epicTitle: "Feature",
+  epicDescription: "What to build",
+  acceptanceCriteria: ["..."]
+})
+```
+
+**Use when**: User describes feature WITHOUT detailed technical plan
+
+### Epic from BMAD File
+```
+mcp_meta_bmad_implement_epic({
+  projectName: "project",
+  epicFile: ".bmad/epics/epic-001.md"
+})
+```
+
+**Use when**: Epic file EXISTS with Implementation Notes
+
+**All tools auto-handle**:
+- Query Odin for optimal AI service
+- Select appropriate subagent template
+- Track usage and cost
+
+**Task types**: research, planning, implementation, testing, validation, documentation, fix, deployment, review
 
 **Full catalog**: `/home/samuel/sv/docs/subagent-catalog.md`
 

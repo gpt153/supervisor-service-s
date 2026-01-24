@@ -28,9 +28,9 @@
 
 ## MANDATORY: Delegate Everything
 
-**Two delegation options:**
+**Three delegation options:**
 
-### Option 1: Single Task (use for individual tasks)
+### Option 1: Single Task
 ```
 mcp_meta_spawn_subagent({
   task_type: "implementation",  // research, planning, testing, validation, fix, review
@@ -39,25 +39,40 @@ mcp_meta_spawn_subagent({
 })
 ```
 
-**Task types**: research, planning, implementation, testing, validation, fix, review
+**Use for**: Single isolated task, quick fixes, research
 
-**Tool auto-selects**: Best AI service (Odin query), appropriate subagent, tracks cost.
-
-### Option 2: Full Epic (use for multi-task features)
+### Option 2: Epic from Description (PIV per-step)
 ```
-mcp_meta_bmad_implement_epic({
-  projectName: "project-name",
-  projectPath: "/absolute/path",
-  epicFile: ".bmad/epics/epic-001-feature.md",
-  createPR: false
+mcp_meta_run_piv_per_step({
+  projectName: "project",
+  projectPath: "/path",
+  epicId: "epic-001",
+  epicTitle: "Feature Name",
+  epicDescription: "What to build",
+  acceptanceCriteria: ["Criterion 1", "Criterion 2"]
 })
 ```
 
-**BMAD workflow**: Parses epic → executes all implementation tasks → validates acceptance criteria → reports results
+**Workflow**: Prime (research) → Plan (design) → Execute (implement) → Validate
 
-**When to use BMAD**: User provides epic file OR feature has 3+ related tasks
+**Use when**: User describes feature WITHOUT detailed technical plan
 
-**When to use spawn**: Single isolated task, quick fixes, research
+### Option 3: Epic from BMAD File
+```
+mcp_meta_bmad_implement_epic({
+  projectName: "project",
+  projectPath: "/path",
+  epicFile: ".bmad/epics/epic-001.md"
+})
+```
+
+**Workflow**: Reads Implementation Notes → Executes tasks → Validates acceptance criteria
+
+**Use when**: BMAD epic file EXISTS with Technical Requirements and Implementation Notes
+
+---
+
+**Tool auto-selects**: Best AI service (Odin query), appropriate subagent, tracks cost.
 
 **NEVER ask "Should I spawn?" - Spawning is MANDATORY.**
 
