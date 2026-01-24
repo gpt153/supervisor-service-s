@@ -1,8 +1,5 @@
 /**
- * Tests for Hello World function
- *
- * Validates that:
- * 1. hello() function returns correct string
+ * Tests for hello function
  */
 
 import { hello } from '../src/test/hello.js';
@@ -29,16 +26,13 @@ class TestRunner {
     });
   }
 
-  async run(): Promise<void> {
-    console.log('\n\n=== Hello World Tests ===\n');
-    for (const test of this.tests) {
-      test();
-    }
-    console.log('\n=== Results ===');
+  run(): void {
+    console.log('\n=== Hello Function Tests ===\n');
+    this.tests.forEach(test => test());
+    console.log(`\n=== Results ===`);
     console.log(`✅ Passed: ${this.passed}`);
     console.log(`❌ Failed: ${this.failed}`);
-    console.log(`📊 Total: ${this.passed + this.failed}`);
-    console.log('');
+    console.log(`📊 Total: ${this.tests.length}\n`);
 
     if (this.failed > 0) {
       process.exit(1);
@@ -46,23 +40,20 @@ class TestRunner {
   }
 }
 
-/**
- * Simple assertion helper
- */
-function assertEqual(actual: unknown, expected: unknown, message?: string): void {
+function assertEquals(actual: any, expected: any, message?: string): void {
   if (actual !== expected) {
-    throw new Error(message || `Expected ${expected}, got ${actual}`);
+    throw new Error(
+      message || `Expected ${JSON.stringify(expected)} but got ${JSON.stringify(actual)}`
+    );
   }
 }
 
-// Create test runner
+// Run tests
 const runner = new TestRunner();
 
-// Test: hello() returns "Hello, World!"
 runner.test('hello() returns "Hello, World!"', () => {
   const result = hello();
-  assertEqual(result, 'Hello, World!', 'hello() should return "Hello, World!"');
+  assertEquals(result, 'Hello, World!');
 });
 
-// Run tests
 runner.run();
