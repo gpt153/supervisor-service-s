@@ -37,7 +37,9 @@
 **EXECUTE THIS WORKFLOW:**
 
 1. Find next epic from `.bmad/epics/`
-2. **If epic file exists**: Use `mcp_meta_bmad_implement_epic`
+2. **If epic file exists**: Check for Implementation Notes
+   - Has numbered steps? → Use `mcp_meta_execute_epic_tasks`
+   - No implementation steps? → Use `mcp_meta_run_piv_per_step`
 3. **If no epic file**: Spawn PM agent to create epic first
 4. Monitor progress
 5. When complete: Report and start next epic
@@ -46,11 +48,14 @@
 
 **Decision tree:**
 
-**BMAD epic file exists?**
-- ✅ YES → Use `mcp_meta_bmad_implement_epic({ epicFile: "path" })`
+**Epic file exists?**
 - ❌ NO → Create epic first:
   1. Spawn PM agent: `mcp_meta_spawn_subagent({ task_type: "planning", description: "Create BMAD epic for: [feature]" })`
-  2. Then implement: `mcp_meta_bmad_implement_epic({ epicFile: "..." })`
+  2. Then choose Option 2 or 3 below based on epic content
+
+- ✅ YES → **Epic has Implementation Notes with numbered steps?**
+  - ✅ YES → Use `mcp_meta_execute_epic_tasks({ epicFile: "path" })` (faster)
+  - ❌ NO → Use `mcp_meta_run_piv_per_step({ epicFile: "path" })` (full workflow)
 
 ### BMAD Workflow (ONLY Epic Method)
 
@@ -71,16 +76,25 @@
 - [ ] Criterion 2
 ```
 
-**Tool execution:**
+**Tool execution (with pre-written Implementation Notes):**
 ```typescript
-mcp_meta_bmad_implement_epic({
+mcp_meta_execute_epic_tasks({
   projectName: "consilio",
   projectPath: "/home/samuel/sv/consilio-s",
   epicFile: ".bmad/epics/epic-006-gdpr.md"
 })
 ```
 
-**Workflow**: Reads Implementation Notes → Spawns agents for each task → Validates ALL acceptance criteria
+**Tool execution (without Implementation Notes - PIV creates them):**
+```typescript
+mcp_meta_run_piv_per_step({
+  projectName: "consilio",
+  projectPath: "/home/samuel/sv/consilio-s",
+  epicFile: ".bmad/epics/epic-006-gdpr.md"
+})
+```
+
+**Workflow**: Reads epic → [If PIV: Prime + Plan phases add Implementation Notes] → Execute tasks → Validate criteria
 
 ### If Tool Hangs or Fails
 
@@ -148,15 +162,18 @@ Last activity: {timestamp}
 **Single tasks:**
 - `mcp_meta_spawn_subagent` - Spawn agent for single task (research, planning, implementation, testing, etc.)
 
-**Epic implementation:**
-- `mcp_meta_bmad_implement_epic` - Execute Implementation Notes from BMAD epic file
+**Epic implementation (choose based on epic state):**
+- `mcp_meta_run_piv_per_step` - Full PIV workflow when epic lacks Implementation Notes
+- `mcp_meta_execute_epic_tasks` - Execute pre-written Implementation Notes (faster)
+
+**Decision:** Epic has numbered Implementation Notes? → `execute_epic_tasks`. Otherwise → `run_piv_per_step`
 
 ### Deprecated (DO NOT USE)
 
-- `mcp_meta_run_piv_per_step` - ⚠️ DEPRECATED: Use BMAD workflow instead
 - `mcp_meta_run_prime` - ⚠️ DEPRECATED: Use spawn_subagent with task_type="research"
 - `mcp_meta_run_plan` - ⚠️ DEPRECATED: Use spawn_subagent with task_type="planning"
-- `mcp_meta_run_execute` - ⚠️ DEPRECATED: Use mcp_meta_bmad_implement_epic
+- `mcp_meta_run_execute` - ⚠️ DEPRECATED: Use mcp_meta_execute_epic_tasks
+- `mcp_meta_bmad_implement_epic` - ⚠️ RENAMED: Use mcp_meta_execute_epic_tasks
 - `mcp__meta__start_piv_loop` - ⚠️ DEPRECATED: Old non-AI version
 - `mcp__meta__piv_status` - ⚠️ DEPRECATED
 - `mcp__meta__cancel_piv` - ⚠️ DEPRECATED

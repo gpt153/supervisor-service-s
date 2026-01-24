@@ -28,7 +28,7 @@
 
 ## MANDATORY: Delegate Everything
 
-**Two delegation options:**
+**Three delegation options:**
 
 ### Option 1: Single Task
 ```
@@ -39,22 +39,45 @@ mcp_meta_spawn_subagent({
 })
 ```
 
-**Use for**: Single isolated task, quick fixes, research
+**Use for**: Single isolated task, quick fixes, research, creating epics
 
-### Option 2: Epic Implementation (BMAD ONLY)
+### Option 2: PIV Per-Step (Epic Without Implementation Notes)
 ```
-mcp_meta_bmad_implement_epic({
+mcp_meta_run_piv_per_step({
   projectName: "project",
   projectPath: "/path",
   epicFile: ".bmad/epics/epic-001.md"
 })
 ```
 
-**Workflow**: Reads Implementation Notes → Executes tasks → Validates acceptance criteria
+**Use when**: Epic exists but has NO Implementation Notes
+**Tool does**: Prime (research) → Plan (design) → Execute (code) → Validate (test)
+**Epic contains**: Goals, requirements, acceptance criteria (NOT step-by-step instructions)
 
-**If epic doesn't exist yet:**
-1. Spawn PM agent to create epic: `mcp_meta_spawn_subagent({ task_type: "planning", description: "Create BMAD epic for: [feature description]" })`
-2. Then run: `mcp_meta_bmad_implement_epic({ epicFile: "..." })`
+### Option 3: Execute Epic Tasks (Pre-Planned Epic)
+```
+mcp_meta_execute_epic_tasks({
+  projectName: "project",
+  projectPath: "/path",
+  epicFile: ".bmad/epics/epic-001.md"
+})
+```
+
+**Use when**: Epic has detailed Implementation Notes already
+**Tool does**: Execute tasks → Validate criteria
+**Epic contains**: Numbered implementation steps (1. Do this, 2. Do that...)
+
+**Decision Tree:**
+```
+User gives feature description?
+└─ Use Option 1 to create epic first
+
+Epic file exists?
+├─ NO  → Use Option 1 (spawn PM agent to create it)
+└─ YES → Epic has Implementation Notes section with numbered tasks?
+          ├─ YES → Option 3 (execute_epic_tasks)
+          └─ NO  → Option 2 (run_piv_per_step)
+```
 
 ---
 

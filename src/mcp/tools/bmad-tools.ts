@@ -1,8 +1,10 @@
 /**
- * BMAD Epic Implementation Tools
+ * BMAD Epic Task Execution Tools
  *
- * Orchestrates implementation of BMAD epics by reading Implementation Notes
- * and spawning subagents for each task and acceptance criterion validation.
+ * Executes pre-written Implementation Notes from BMAD epics by spawning
+ * subagents for each task and validating acceptance criteria.
+ *
+ * For epics without Implementation Notes, use PIV per-step workflow instead.
  */
 
 import fs from 'fs/promises';
@@ -68,7 +70,7 @@ async function spawnSubagent(params: {
   }
 }
 
-export interface BMADImplementEpicParams {
+export interface ExecuteEpicTasksParams {
   projectName: string;
   projectPath: string;
   epicFile: string;
@@ -76,7 +78,7 @@ export interface BMADImplementEpicParams {
   createPR?: boolean;
 }
 
-export interface BMADImplementEpicResult {
+export interface ExecuteEpicTasksResult {
   success: boolean;
   epic_id: string;
   epic_title: string;
@@ -98,10 +100,13 @@ export interface BMADImplementEpicResult {
 }
 
 /**
- * Implement a BMAD epic by executing Implementation Notes sequentially
- * and validating all acceptance criteria.
+ * Execute pre-written Implementation Notes from a BMAD epic sequentially
+ * and validate all acceptance criteria.
+ *
+ * Use this when: Epic already has detailed Implementation Notes (numbered steps)
+ * For epics without Implementation Notes: Use mcp_meta_run_piv_per_step instead
  */
-async function bmadImplementEpic(params: BMADImplementEpicParams): Promise<BMADImplementEpicResult> {
+async function executeEpicTasks(params: ExecuteEpicTasksParams): Promise<ExecuteEpicTasksResult> {
   try {
     // 1. Read and parse epic file
     const epicFilePath = path.join(params.projectPath, params.epicFile);
@@ -280,8 +285,8 @@ async function bmadImplementEpic(params: BMADImplementEpicParams): Promise<BMADI
 export function getBMADTools() {
   return [
     {
-      name: 'mcp_meta_bmad_implement_epic',
-      description: 'Implement a BMAD epic by executing Implementation Notes and validating acceptance criteria',
+      name: 'mcp_meta_execute_epic_tasks',
+      description: 'Execute pre-written Implementation Notes from BMAD epic and validate acceptance criteria. Use when epic already has detailed numbered implementation steps. For epics without Implementation Notes, use mcp_meta_run_piv_per_step instead.',
       inputSchema: {
         type: 'object',
         properties: {
@@ -308,7 +313,7 @@ export function getBMADTools() {
         },
         required: ['projectName', 'projectPath', 'epicFile'],
       },
-      handler: bmadImplementEpic,
+      handler: executeEpicTasks,
     },
   ];
 }

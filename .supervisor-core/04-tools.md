@@ -39,18 +39,29 @@ mcp_meta_spawn_subagent({
 - `fix` - Bug fixes
 - `review` - Code review
 
-### Epic Implementation (BMAD Only)
+### Epic Implementation - Option 1: PIV Per-Step
 ```
-mcp_meta_bmad_implement_epic({
+mcp_meta_run_piv_per_step({
   projectName: "project",
   projectPath: "/path",
   epicFile: ".bmad/epics/epic-001.md"
 })
 ```
 
-**Use when**: Epic file EXISTS with Implementation Notes
+**Use when**: Epic exists but NO Implementation Notes yet
+**Does**: Prime (research) → Plan (design) → Execute (code) → Validate (test)
 
-**If epic doesn't exist**: First spawn PM agent with `task_type: "planning"` to create epic
+### Epic Implementation - Option 2: Execute Tasks
+```
+mcp_meta_execute_epic_tasks({
+  projectName: "project",
+  projectPath: "/path",
+  epicFile: ".bmad/epics/epic-001.md"
+})
+```
+
+**Use when**: Epic has detailed numbered Implementation Notes
+**Does**: Execute tasks → Validate criteria (faster, skips research/planning)
 
 **All tools auto-handle**:
 - Query Odin for optimal AI service
