@@ -25,6 +25,7 @@ import { spawnSubagentTool } from './spawn-subagent-tool.js';
 import { uiTools } from './ui-tools.js';
 import { getPerStepPIVTools } from './piv-per-step-tool.js';
 import { getPIVPhaseTools } from './piv-phase-tools.js';
+import { getBMADTools } from './bmad-tools.js';
 
 const execAsync = promisify(exec);
 
@@ -378,6 +379,9 @@ export function getAllTools(): ToolDefinition[] {
     // PIV per-step tools (granular control)
     ...getPerStepPIVTools(),
     ...getPIVPhaseTools(),
+
+    // BMAD epic implementation tools
+    ...getBMADTools(),
 
     // Project context tools
     ...getProjectContextTools(),
