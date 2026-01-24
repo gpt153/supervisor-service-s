@@ -28,7 +28,7 @@
 
 ## MANDATORY: Delegate Everything
 
-**Three delegation options:**
+**Two delegation options:**
 
 ### Option 1: Single Task
 ```
@@ -41,23 +41,7 @@ mcp_meta_spawn_subagent({
 
 **Use for**: Single isolated task, quick fixes, research
 
-### Option 2: Epic from Description (PIV per-step)
-```
-mcp_meta_run_piv_per_step({
-  projectName: "project",
-  projectPath: "/path",
-  epicId: "epic-001",
-  epicTitle: "Feature Name",
-  epicDescription: "What to build",
-  acceptanceCriteria: ["Criterion 1", "Criterion 2"]
-})
-```
-
-**Workflow**: Prime (research) → Plan (design) → Execute (implement) → Validate
-
-**Use when**: User describes feature WITHOUT detailed technical plan
-
-### Option 3: Epic from BMAD File
+### Option 2: Epic Implementation (BMAD ONLY)
 ```
 mcp_meta_bmad_implement_epic({
   projectName: "project",
@@ -68,7 +52,9 @@ mcp_meta_bmad_implement_epic({
 
 **Workflow**: Reads Implementation Notes → Executes tasks → Validates acceptance criteria
 
-**Use when**: BMAD epic file EXISTS with Technical Requirements and Implementation Notes
+**If epic doesn't exist yet:**
+1. Spawn PM agent to create epic: `mcp_meta_spawn_subagent({ task_type: "planning", description: "Create BMAD epic for: [feature description]" })`
+2. Then run: `mcp_meta_bmad_implement_epic({ epicFile: "..." })`
 
 ---
 

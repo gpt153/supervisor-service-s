@@ -22,43 +22,40 @@ Access via `/home/samuel/sv/.claude/commands/`:
 ### Single Task
 ```
 mcp_meta_spawn_subagent({
-  task_type: "implementation",
+  task_type: "implementation",  // or: research, planning, testing, validation, fix, review, etc.
   description: "What to do",
   context: { /* optional */ }
 })
 ```
 
-**Use for**: Single isolated task, quick fixes, research
+**Use for**: Single isolated task, quick fixes, research, creating epics
 
-### Epic from Description
-```
-mcp_meta_run_piv_per_step({
-  projectName: "project",
-  epicId: "epic-001",
-  epicTitle: "Feature",
-  epicDescription: "What to build",
-  acceptanceCriteria: ["..."]
-})
-```
+**Common task_type values:**
+- `planning` - Create BMAD epic from feature description
+- `implementation` - Write code for single feature
+- `research` - Analyze codebase or investigate issue
+- `testing` - Write or run tests
+- `validation` - Verify acceptance criteria
+- `fix` - Bug fixes
+- `review` - Code review
 
-**Use when**: User describes feature WITHOUT detailed technical plan
-
-### Epic from BMAD File
+### Epic Implementation (BMAD Only)
 ```
 mcp_meta_bmad_implement_epic({
   projectName: "project",
+  projectPath: "/path",
   epicFile: ".bmad/epics/epic-001.md"
 })
 ```
 
 **Use when**: Epic file EXISTS with Implementation Notes
 
+**If epic doesn't exist**: First spawn PM agent with `task_type: "planning"` to create epic
+
 **All tools auto-handle**:
 - Query Odin for optimal AI service
 - Select appropriate subagent template
 - Track usage and cost
-
-**Task types**: research, planning, implementation, testing, validation, documentation, fix, deployment, review
 
 **Full catalog**: `/home/samuel/sv/docs/subagent-catalog.md`
 

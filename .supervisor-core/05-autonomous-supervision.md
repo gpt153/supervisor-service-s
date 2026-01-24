@@ -37,8 +37,8 @@
 **EXECUTE THIS WORKFLOW:**
 
 1. Find next epic from `.bmad/epics/`
-2. **If epic has Implementation Notes**: Use `mcp_meta_bmad_implement_epic`
-3. **If epic only has description**: Use `mcp_meta_run_piv_per_step`
+2. **If epic file exists**: Use `mcp_meta_bmad_implement_epic`
+3. **If no epic file**: Spawn PM agent to create epic first
 4. Monitor progress
 5. When complete: Report and start next epic
 
@@ -46,34 +46,32 @@
 
 **Decision tree:**
 
-**User provides BMAD epic file?**
+**BMAD epic file exists?**
 - ✅ YES → Use `mcp_meta_bmad_implement_epic({ epicFile: "path" })`
-- ❌ NO → Use `mcp_meta_run_piv_per_step({ epicDescription: "..." })`
+- ❌ NO → Create epic first:
+  1. Spawn PM agent: `mcp_meta_spawn_subagent({ task_type: "planning", description: "Create BMAD epic for: [feature]" })`
+  2. Then implement: `mcp_meta_bmad_implement_epic({ epicFile: "..." })`
 
-### PIV Per-Step (From Description)
+### BMAD Workflow (ONLY Epic Method)
 
-**Use when**: User describes feature WITHOUT detailed technical plan
+**Epic file format:**
+```markdown
+# Epic NNN: Feature Name
 
-```typescript
-mcp_meta_run_piv_per_step({
-  projectName: "consilio",
-  projectPath: "/home/samuel/sv/consilio-s",
-  epicId: "epic-006",
-  epicTitle: "GDPR Compliance",
-  epicDescription: "Implement GDPR compliance features...",
-  acceptanceCriteria: [
-    "User can export all personal data",
-    "User can delete account and all data"
-  ]
-})
+## Technical Requirements
+[What to build - detailed specs]
+
+## Implementation Notes
+1. Task 1 description
+2. Task 2 description
+3. Task 3 description
+
+## Acceptance Criteria
+- [ ] Criterion 1
+- [ ] Criterion 2
 ```
 
-**Phases**: Prime (research) → Plan (design) → Execute (code) → Validate (test)
-
-### BMAD (From Epic File)
-
-**Use when**: Epic file EXISTS with Technical Requirements and Implementation Notes
-
+**Tool execution:**
 ```typescript
 mcp_meta_bmad_implement_epic({
   projectName: "consilio",
@@ -82,19 +80,14 @@ mcp_meta_bmad_implement_epic({
 })
 ```
 
-**Workflow**: Reads notes → Executes tasks → Validates criteria
+**Workflow**: Reads Implementation Notes → Spawns agents for each task → Validates ALL acceptance criteria
 
 ### If Tool Hangs or Fails
 
-**35-minute timeout per phase/task. If timeout:**
-
-```typescript
-// PIV: Restart failed phase
-mcp_meta_run_execute({ epicId: "epic-006" })
-
-// BMAD: Tool auto-retries failed task
-// If still failing after 3 retries, reports error
-```
+**35-minute timeout per task. If timeout:**
+- BMAD auto-retries failed task (up to 3 times)
+- If still failing after 3 retries, reports error with failed task details
+- You can manually inspect and retry specific tasks
 
 ## Status Updates (CLI Sessions Only)
 
@@ -153,21 +146,19 @@ Last activity: {timestamp}
 ### Primary (Use These)
 
 **Single tasks:**
-- `mcp_meta_spawn_subagent` - Spawn agent for single task (research, implementation, etc.)
+- `mcp_meta_spawn_subagent` - Spawn agent for single task (research, planning, implementation, testing, etc.)
 
-**Epic from description:**
-- `mcp_meta_run_piv_per_step` - Research → Plan → Implement from feature description
-- `mcp_meta_run_prime` - Run Prime phase only (research)
-- `mcp_meta_run_plan` - Run Plan phase only (design)
-- `mcp_meta_run_execute` - Run Execute phase only (implementation)
+**Epic implementation:**
+- `mcp_meta_bmad_implement_epic` - Execute Implementation Notes from BMAD epic file
 
-**Epic from BMAD file:**
-- `mcp_meta_bmad_implement_epic` - Execute Implementation Notes from epic file
+### Deprecated (DO NOT USE)
 
-### Legacy (Deprecated)
-
-- `mcp__meta__start_piv_loop` - ⚠️ DEPRECATED: Basic file analysis only, no AI
-- `mcp__meta__piv_status` - ⚠️ DEPRECATED: Only works with legacy tool
+- `mcp_meta_run_piv_per_step` - ⚠️ DEPRECATED: Use BMAD workflow instead
+- `mcp_meta_run_prime` - ⚠️ DEPRECATED: Use spawn_subagent with task_type="research"
+- `mcp_meta_run_plan` - ⚠️ DEPRECATED: Use spawn_subagent with task_type="planning"
+- `mcp_meta_run_execute` - ⚠️ DEPRECATED: Use mcp_meta_bmad_implement_epic
+- `mcp__meta__start_piv_loop` - ⚠️ DEPRECATED: Old non-AI version
+- `mcp__meta__piv_status` - ⚠️ DEPRECATED
 - `mcp__meta__cancel_piv` - ⚠️ DEPRECATED
 - `mcp__meta__list_active_piv` - ⚠️ DEPRECATED
 

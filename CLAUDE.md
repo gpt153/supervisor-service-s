@@ -16,8 +16,9 @@
   - /home/samuel/sv/supervisor-service-s/.supervisor-meta/01-meta-focus.md
   - /home/samuel/sv/supervisor-service-s/.supervisor-meta/02-dependencies.md
   - /home/samuel/sv/supervisor-service-s/.supervisor-meta/03-patterns.md
-  - /home/samuel/sv/supervisor-service-s/.supervisor-meta/04-port-allocations.md -->
-<!-- Generated: 2026-01-24T09:01:22.239Z -->
+  - /home/samuel/sv/supervisor-service-s/.supervisor-meta/04-port-allocations.md
+  - /home/samuel/sv/supervisor-service-s/.supervisor-specific/02-deployment-status.md -->
+<!-- Generated: 2026-01-24T09:09:31.254Z -->
 
 # Supervisor Identity
 
@@ -49,7 +50,7 @@
 
 ## MANDATORY: Delegate Everything
 
-**Three delegation options:**
+**Two delegation options:**
 
 ### Option 1: Single Task
 ```
@@ -62,23 +63,7 @@ mcp_meta_spawn_subagent({
 
 **Use for**: Single isolated task, quick fixes, research
 
-### Option 2: Epic from Description (PIV per-step)
-```
-mcp_meta_run_piv_per_step({
-  projectName: "project",
-  projectPath: "/path",
-  epicId: "epic-001",
-  epicTitle: "Feature Name",
-  epicDescription: "What to build",
-  acceptanceCriteria: ["Criterion 1", "Criterion 2"]
-})
-```
-
-**Workflow**: Prime (research) → Plan (design) → Execute (implement) → Validate
-
-**Use when**: User describes feature WITHOUT detailed technical plan
-
-### Option 3: Epic from BMAD File
+### Option 2: Epic Implementation (BMAD ONLY)
 ```
 mcp_meta_bmad_implement_epic({
   projectName: "project",
@@ -89,7 +74,9 @@ mcp_meta_bmad_implement_epic({
 
 **Workflow**: Reads Implementation Notes → Executes tasks → Validates acceptance criteria
 
-**Use when**: BMAD epic file EXISTS with Technical Requirements and Implementation Notes
+**If epic doesn't exist yet:**
+1. Spawn PM agent to create epic: `mcp_meta_spawn_subagent({ task_type: "planning", description: "Create BMAD epic for: [feature description]" })`
+2. Then run: `mcp_meta_bmad_implement_epic({ epicFile: "..." })`
 
 ---
 
@@ -371,43 +358,40 @@ Access via `/home/samuel/sv/.claude/commands/`:
 ### Single Task
 ```
 mcp_meta_spawn_subagent({
-  task_type: "implementation",
+  task_type: "implementation",  // or: research, planning, testing, validation, fix, review, etc.
   description: "What to do",
   context: { /* optional */ }
 })
 ```
 
-**Use for**: Single isolated task, quick fixes, research
+**Use for**: Single isolated task, quick fixes, research, creating epics
 
-### Epic from Description
-```
-mcp_meta_run_piv_per_step({
-  projectName: "project",
-  epicId: "epic-001",
-  epicTitle: "Feature",
-  epicDescription: "What to build",
-  acceptanceCriteria: ["..."]
-})
-```
+**Common task_type values:**
+- `planning` - Create BMAD epic from feature description
+- `implementation` - Write code for single feature
+- `research` - Analyze codebase or investigate issue
+- `testing` - Write or run tests
+- `validation` - Verify acceptance criteria
+- `fix` - Bug fixes
+- `review` - Code review
 
-**Use when**: User describes feature WITHOUT detailed technical plan
-
-### Epic from BMAD File
+### Epic Implementation (BMAD Only)
 ```
 mcp_meta_bmad_implement_epic({
   projectName: "project",
+  projectPath: "/path",
   epicFile: ".bmad/epics/epic-001.md"
 })
 ```
 
 **Use when**: Epic file EXISTS with Implementation Notes
 
+**If epic doesn't exist**: First spawn PM agent with `task_type: "planning"` to create epic
+
 **All tools auto-handle**:
 - Query Odin for optimal AI service
 - Select appropriate subagent template
 - Track usage and cost
-
-**Task types**: research, planning, implementation, testing, validation, documentation, fix, deployment, review
 
 **Full catalog**: `/home/samuel/sv/docs/subagent-catalog.md`
 
@@ -473,8 +457,8 @@ mcp_meta_bmad_implement_epic({
 **EXECUTE THIS WORKFLOW:**
 
 1. Find next epic from `.bmad/epics/`
-2. **If epic has Implementation Notes**: Use `mcp_meta_bmad_implement_epic`
-3. **If epic only has description**: Use `mcp_meta_run_piv_per_step`
+2. **If epic file exists**: Use `mcp_meta_bmad_implement_epic`
+3. **If no epic file**: Spawn PM agent to create epic first
 4. Monitor progress
 5. When complete: Report and start next epic
 
@@ -482,34 +466,32 @@ mcp_meta_bmad_implement_epic({
 
 **Decision tree:**
 
-**User provides BMAD epic file?**
+**BMAD epic file exists?**
 - ✅ YES → Use `mcp_meta_bmad_implement_epic({ epicFile: "path" })`
-- ❌ NO → Use `mcp_meta_run_piv_per_step({ epicDescription: "..." })`
+- ❌ NO → Create epic first:
+  1. Spawn PM agent: `mcp_meta_spawn_subagent({ task_type: "planning", description: "Create BMAD epic for: [feature]" })`
+  2. Then implement: `mcp_meta_bmad_implement_epic({ epicFile: "..." })`
 
-### PIV Per-Step (From Description)
+### BMAD Workflow (ONLY Epic Method)
 
-**Use when**: User describes feature WITHOUT detailed technical plan
+**Epic file format:**
+```markdown
+# Epic NNN: Feature Name
 
-```typescript
-mcp_meta_run_piv_per_step({
-  projectName: "consilio",
-  projectPath: "/home/samuel/sv/consilio-s",
-  epicId: "epic-006",
-  epicTitle: "GDPR Compliance",
-  epicDescription: "Implement GDPR compliance features...",
-  acceptanceCriteria: [
-    "User can export all personal data",
-    "User can delete account and all data"
-  ]
-})
+## Technical Requirements
+[What to build - detailed specs]
+
+## Implementation Notes
+1. Task 1 description
+2. Task 2 description
+3. Task 3 description
+
+## Acceptance Criteria
+- [ ] Criterion 1
+- [ ] Criterion 2
 ```
 
-**Phases**: Prime (research) → Plan (design) → Execute (code) → Validate (test)
-
-### BMAD (From Epic File)
-
-**Use when**: Epic file EXISTS with Technical Requirements and Implementation Notes
-
+**Tool execution:**
 ```typescript
 mcp_meta_bmad_implement_epic({
   projectName: "consilio",
@@ -518,19 +500,14 @@ mcp_meta_bmad_implement_epic({
 })
 ```
 
-**Workflow**: Reads notes → Executes tasks → Validates criteria
+**Workflow**: Reads Implementation Notes → Spawns agents for each task → Validates ALL acceptance criteria
 
 ### If Tool Hangs or Fails
 
-**35-minute timeout per phase/task. If timeout:**
-
-```typescript
-// PIV: Restart failed phase
-mcp_meta_run_execute({ epicId: "epic-006" })
-
-// BMAD: Tool auto-retries failed task
-// If still failing after 3 retries, reports error
-```
+**35-minute timeout per task. If timeout:**
+- BMAD auto-retries failed task (up to 3 times)
+- If still failing after 3 retries, reports error with failed task details
+- You can manually inspect and retry specific tasks
 
 ## Status Updates (CLI Sessions Only)
 
@@ -589,21 +566,19 @@ Last activity: {timestamp}
 ### Primary (Use These)
 
 **Single tasks:**
-- `mcp_meta_spawn_subagent` - Spawn agent for single task (research, implementation, etc.)
+- `mcp_meta_spawn_subagent` - Spawn agent for single task (research, planning, implementation, testing, etc.)
 
-**Epic from description:**
-- `mcp_meta_run_piv_per_step` - Research → Plan → Implement from feature description
-- `mcp_meta_run_prime` - Run Prime phase only (research)
-- `mcp_meta_run_plan` - Run Plan phase only (design)
-- `mcp_meta_run_execute` - Run Execute phase only (implementation)
+**Epic implementation:**
+- `mcp_meta_bmad_implement_epic` - Execute Implementation Notes from BMAD epic file
 
-**Epic from BMAD file:**
-- `mcp_meta_bmad_implement_epic` - Execute Implementation Notes from epic file
+### Deprecated (DO NOT USE)
 
-### Legacy (Deprecated)
-
-- `mcp__meta__start_piv_loop` - ⚠️ DEPRECATED: Basic file analysis only, no AI
-- `mcp__meta__piv_status` - ⚠️ DEPRECATED: Only works with legacy tool
+- `mcp_meta_run_piv_per_step` - ⚠️ DEPRECATED: Use BMAD workflow instead
+- `mcp_meta_run_prime` - ⚠️ DEPRECATED: Use spawn_subagent with task_type="research"
+- `mcp_meta_run_plan` - ⚠️ DEPRECATED: Use spawn_subagent with task_type="planning"
+- `mcp_meta_run_execute` - ⚠️ DEPRECATED: Use mcp_meta_bmad_implement_epic
+- `mcp__meta__start_piv_loop` - ⚠️ DEPRECATED: Old non-AI version
+- `mcp__meta__piv_status` - ⚠️ DEPRECATED
 - `mcp__meta__cancel_piv` - ⚠️ DEPRECATED
 - `mcp__meta__list_active_piv` - ⚠️ DEPRECATED
 
@@ -1633,3 +1608,257 @@ ingress:
 
 **Maintained by**: Meta-supervisor (MS) only
 **Update frequency**: Every port allocation change
+
+# Deployment Status
+
+**Project**: Supervisor Service (Meta Infrastructure)
+**Last Updated**: 2026-01-24
+
+---
+
+## Live Deployments
+
+### Development (Local)
+
+| Service | Status | URL/Port | Notes |
+|---------|--------|----------|-------|
+| MCP Server | ✅ Running | `localhost:8081` | HTTP endpoint |
+| PostgreSQL | ✅ Running | `localhost:5432` | Supervisor database |
+| Laptop Agent | ✅ Running | `localhost:8765` | WebSocket server (changed from 5200 due to VS Code conflict) |
+| Tunnel Manager | ✅ Running | Cloudflare daemon | Manages public URLs |
+
+### Production
+
+**Tunnel ID**: `aaffe732-9972-4f70-a758-a3ece1df4035`
+
+| Service | Status | Public URL | Target |
+|---------|--------|------------|--------|
+| Laptop Agent | ✅ Operational | `mac.153.se` | `localhost:8765` |
+| Consilio | ✅ Operational | `consilio.153.se` | `localhost:5175` |
+| OpenHorizon | ⚠️ Configured | `oh.153.se` | `localhost:5174` (not active) |
+
+**DNS Status**: All `*.153.se` domains operational via Cloudflare Tunnel
+
+---
+
+## Service Ports
+
+**Supervisor Infrastructure (8000-8099)**
+
+| Service | Port | Purpose | Status |
+|---------|------|---------|--------|
+| MCP Server | 8081 | HTTP MCP endpoint | ✅ Active |
+| Laptop Agent | 8765 | WebSocket server | ✅ Active |
+
+**Database**
+
+| Service | Port | Purpose | Status |
+|---------|------|---------|--------|
+| PostgreSQL | 5432 | Supervisor metadata DB | ✅ Running |
+
+**Port Range Notes**:
+- Original laptop agent port was 5200 (from OpenHorizon range)
+- Changed to 8765 due to VS Code live server conflict on port 5200
+- 8765 is outside managed port ranges (dedicated for laptop agent)
+
+---
+
+## Architecture Diagram
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│                    Cloudflare Tunnel                         │
+│                  (aaffe732-9972-4f70-a758...)                │
+└─────────────────────────────────────────────────────────────┘
+                              │
+        ┌─────────────────────┼─────────────────────┐
+        │                     │                     │
+        ▼                     ▼                     ▼
+  mac.153.se          consilio.153.se         oh.153.se
+  (port 8765)         (port 5175)             (port 5174)
+        │                     │                     │
+        ▼                     ▼                     ▼
+┌──────────────┐     ┌──────────────┐     ┌──────────────┐
+│ Laptop Agent │     │   Consilio   │     │ OpenHorizon  │
+│  (VS Code)   │     │   Frontend   │     │  (inactive)  │
+└──────────────┘     └──────────────┘     └──────────────┘
+
+┌─────────────────────────────────────────────────────────────┐
+│              Supervisor Service (localhost)                  │
+├─────────────────────────────────────────────────────────────┤
+│  MCP Server (8081)  │  PostgreSQL (5432)                    │
+│  - Project mgmt     │  - Epics & Issues                     │
+│  - Health checks    │  - Health metrics                     │
+│  - Tunnel mgmt      │  - Service status                     │
+│  - Port allocations │  - Learning index                     │
+└─────────────────────────────────────────────────────────────┘
+         │                           │
+         ▼                           ▼
+┌─────────────────────────────────────────────────────────────┐
+│              Project Supervisors (PSes)                      │
+├─────────────────────────────────────────────────────────────┤
+│  Consilio PS  │  Odin PS  │  OpenHorizon PS  │ Health PS   │
+│  (5000-5099)  │ (5300-5399) │  (5200-5299)   │ (5100-5199) │
+└─────────────────────────────────────────────────────────────┘
+```
+
+---
+
+## How to Run Locally
+
+### Start Core Services
+
+```bash
+# Start PostgreSQL (if not running)
+sudo systemctl start postgresql
+
+# Start MCP Server
+cd /home/samuel/sv/supervisor-service-s
+npm run dev:mcp
+
+# Start Laptop Agent (if needed)
+npm run dev:laptop-agent
+```
+
+### Verify Services
+
+```bash
+# Check MCP Server
+curl http://localhost:8081/health
+
+# Check database connection
+psql -U supervisor -d supervisor_meta -c "SELECT NOW();"
+
+# Check Cloudflare Tunnel
+curl https://mac.153.se/health
+```
+
+### Access URLs
+
+**Local Development**:
+- MCP Server: `http://localhost:8081`
+- Laptop Agent: `ws://localhost:8765`
+
+**Public (Tunnel)**:
+- Laptop Agent: `https://mac.153.se`
+- Consilio: `https://consilio.153.se`
+
+---
+
+## Environment Variables
+
+**Required in `.env`**:
+
+```bash
+# Database
+PGUSER=supervisor
+PGHOST=localhost
+PGDATABASE=supervisor_meta
+PGPASSWORD=<from-vault>
+PGPORT=5432
+
+# MCP Server
+MCP_PORT=8081
+
+# Laptop Agent
+LAPTOP_AGENT_PORT=8765
+
+# Cloudflare Tunnel
+TUNNEL_ID=aaffe732-9972-4f70-a758-a3ece1df4035
+```
+
+**Secrets stored in vault** (use `mcp_meta_get_secret`):
+- `meta/database/pgpassword`
+- `meta/cloudflare/tunnel-token`
+
+---
+
+## Database Info
+
+**Connection String (Development)**:
+```
+postgresql://supervisor:<password>@localhost:5432/supervisor_meta
+```
+
+**Migrations**:
+```bash
+# Create migration
+npm run migrate:create <name>
+
+# Run migrations
+npm run migrate:up
+
+# Rollback
+npm run migrate:down
+```
+
+**Current Schema**:
+- `issues` - Issue tracking
+- `epics` - Epic management
+- `health_metrics` - Service health data
+- `learning_index` - Learning embeddings
+- `port_allocations` - Port registry
+
+---
+
+## Deployment Workflow
+
+### Deploy MCP Server Update
+
+1. Test locally: `npm run dev:mcp`
+2. Build: `npm run build`
+3. Restart: `systemctl restart supervisor-mcp` (if systemd service)
+4. Verify: `curl http://localhost:8081/health`
+
+### Update Tunnel Configuration
+
+1. Update `.env` with new `TUNNEL_ID` if changed
+2. Restart Cloudflare daemon: `sudo systemctl restart cloudflared`
+3. Verify DNS: `dig mac.153.se` and `curl https://mac.153.se/health`
+
+### Database Migration
+
+1. Create migration: `npm run migrate:create <name>`
+2. Test locally: `npm run migrate:up`
+3. Backup production: `pg_dump supervisor_meta > backup.sql`
+4. Run in production: `npm run migrate:up`
+5. Verify: Check application logs
+
+---
+
+## Known Issues
+
+**Resolved**:
+- ✅ Laptop agent port conflict with VS Code (5200 → 8765)
+- ✅ Tunnel ID updated to latest deployment
+- ✅ DNS propagation for `mac.153.se` confirmed operational
+
+**Active**:
+- None
+
+**Technical Debt**:
+- Consider moving laptop agent to dedicated systemd service
+- Add health check monitoring for tunnel connectivity
+- Implement automatic tunnel failover
+
+---
+
+## Recent Changes
+
+**2026-01-24**:
+- Updated laptop agent port from 5200 to 8765 (VS Code conflict)
+- Updated tunnel ID to `aaffe732-9972-4f70-a758-a3ece1df4035`
+- Confirmed `mac.153.se` DNS operational
+- Added port conflict notes to documentation
+
+**2026-01-21**:
+- Added secrets management workflow
+- Updated tunnel management documentation
+
+**2026-01-20**:
+- Port range system implemented
+- Migration to project-specific port ranges completed
+
+---
+
+**Maintained by**: Meta-Supervisor (MS)
