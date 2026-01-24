@@ -17,7 +17,7 @@
   - /home/samuel/sv/supervisor-service-s/.supervisor-meta/02-dependencies.md
   - /home/samuel/sv/supervisor-service-s/.supervisor-meta/03-patterns.md
   - /home/samuel/sv/supervisor-service-s/.supervisor-meta/04-port-allocations.md -->
-<!-- Generated: 2026-01-22T20:22:18.874Z -->
+<!-- Generated: 2026-01-24T06:44:01.514Z -->
 
 # Supervisor Identity
 
@@ -391,23 +391,80 @@ mcp_meta_spawn_subagent({
 ✅ Deployed to production (if applicable)
 ✅ Post-deploy verification complete
 
-## PIV Agent Spawning (MANDATORY)
+## PIV Per-Step Implementation (MANDATORY)
+
+**CRITICAL: Use per-step PIV for all epic implementations.**
 
 ### When User Says: "Continue building"
 
 **EXECUTE THIS WORKFLOW:**
 
-1. Check .agents/active-piv.json
-2. If no active work: Find next epic
-3. Start PIV: `mcp_meta_start_piv_loop({ ... })`
-4. Monitor (don't interrupt PIV)
+1. Find next epic from `.bmad/epics/`
+2. Start per-step PIV: `mcp_meta_run_piv_per_step({ ... })`
+3. Tool spawns Prime → Plan → Execute → Validates ALL acceptance criteria
+4. Monitor progress (tool provides phase updates)
 5. When complete: Report and start next epic
 
 ### When User Says: "Implement [feature]"
 
-1. Create epic if needed
-2. Start PIV immediately
-3. Return to idle (PIV works autonomously)
+1. Create epic if needed (with acceptance criteria)
+2. Start per-step PIV immediately
+3. Wait for completion (tool handles all phases)
+4. Report results
+
+### Tool Parameters
+
+```typescript
+mcp_meta_run_piv_per_step({
+  projectName: "consilio",
+  projectPath: "/home/samuel/sv/consilio-s",
+  epicId: "epic-006",
+  epicTitle: "GDPR Compliance",
+  epicDescription: "Implement GDPR compliance features...",
+  acceptanceCriteria: [
+    "User can export all personal data",
+    "User can delete account and all data",
+    "Cookie consent banner implemented",
+    "Privacy policy displayed"
+  ],
+  tasks: ["User story 1", "User story 2"],  // Optional
+  baseBranch: "main",  // Optional, defaults to main
+  createPR: true  // Optional, defaults to true
+})
+```
+
+### What Happens (Automatic)
+
+1. **Prime Phase**: Spawns research agent via `mcp_meta_spawn_subagent` (research)
+   - AI analyzes codebase, identifies patterns, tech stack
+   - Saves context to `.agents/context/{epicId}.json`
+
+2. **Plan Phase**: Spawns planning agent (planning)
+   - AI creates detailed implementation plan
+   - Breaks down into tasks with validation commands
+   - Saves plan to `.agents/plans/{epicId}.json`
+
+3. **Execute Phase**: Spawns implementation agent (implementation)
+   - AI writes actual code (NOT just docs)
+   - Runs tests, validations
+   - Commits to git, creates branch
+
+4. **Validation Phase**: Spawns validation agents (one per criterion)
+   - Validates EACH acceptance criterion
+   - Returns success ONLY if ALL criteria met
+
+### If Phase Hangs or Fails
+
+**Tool has 35-minute timeout per phase. If timeout:**
+
+```typescript
+// Restart just the failed phase
+mcp_meta_run_execute({  // Or run_prime, run_plan
+  epicId: "epic-006",
+  planFile: ".agents/plans/epic-006.json",
+  // Don't need to re-run Prime/Plan
+})
+```
 
 ## Status Updates (CLI Sessions Only)
 
@@ -463,10 +520,19 @@ Last activity: {timestamp}
 
 ## Available MCP Tools
 
-- `mcp_meta_start_piv_loop` - Start PIV for epic
-- `mcp_meta_piv_status` - Check PIV progress
-- `mcp_meta_cancel_piv` - Cancel PIV (rarely needed)
-- `mcp_meta_list_active_piv` - List all active PIVs
+### Primary (Use These)
+
+- `mcp_meta_run_piv_per_step` - **PRIMARY**: Run complete PIV with per-step spawning
+- `mcp_meta_run_prime` - Run Prime phase only (research)
+- `mcp_meta_run_plan` - Run Plan phase only (design)
+- `mcp_meta_run_execute` - Run Execute phase only (implementation)
+
+### Legacy (Deprecated)
+
+- `mcp__meta__start_piv_loop` - ⚠️ DEPRECATED: Basic file analysis only, no AI
+- `mcp__meta__piv_status` - ⚠️ DEPRECATED: Only works with legacy tool
+- `mcp__meta__cancel_piv` - ⚠️ DEPRECATED
+- `mcp__meta__list_active_piv` - ⚠️ DEPRECATED
 
 ---
 
