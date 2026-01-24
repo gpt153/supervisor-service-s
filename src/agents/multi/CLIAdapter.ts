@@ -300,17 +300,24 @@ export abstract class CLIAdapter {
   /**
    * Check if stderr output indicates an error
    * Can be overridden by subclasses
+   *
+   * NOTE: Only treat stderr as error if it contains specific error patterns.
+   * Many CLI tools write informational messages or warnings to stderr
+   * that don't indicate task failure.
    */
   protected isErrorOutput(stderr: string): boolean {
-    const errorIndicators = [
-      'error:',
-      'error',
-      'failed',
-      'exception',
-      'fatal',
+    // Only treat as error if stderr contains these specific patterns
+    // (not just the words "error" or "failed" which could be in warnings)
+    const errorPatterns = [
+      /^Error:/im,           // Lines starting with "Error:"
+      /fatal error/i,        // Fatal errors
+      /exception:/i,         // Exception messages with colon
+      /command not found/i,  // Command execution failures
+      /permission denied/i,  // Permission errors
+      /cannot /i,            // "Cannot execute", "Cannot access", etc.
     ];
-    const lowerStderr = stderr.toLowerCase();
-    return errorIndicators.some((indicator) => lowerStderr.includes(indicator));
+
+    return errorPatterns.some((pattern) => pattern.test(stderr));
   }
 
   /**

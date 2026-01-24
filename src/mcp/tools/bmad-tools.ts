@@ -40,7 +40,23 @@ async function spawnSubagent(params: {
       throw new Error(response.data.error.message || 'MCP call failed');
     }
 
-    return response.data.result;
+    // Parse the MCP result - spawn tool returns JSON string in content[0].text
+    const mcpResult = response.data.result;
+    if (mcpResult.content && mcpResult.content[0] && mcpResult.content[0].text) {
+      const firstParse = JSON.parse(mcpResult.content[0].text);
+
+      // Spawn tool returns ANOTHER MCP response (double-nested)
+      // Parse again to get the actual agent result
+      if (firstParse.content && firstParse.content[0] && firstParse.content[0].text) {
+        return JSON.parse(firstParse.content[0].text);
+      }
+
+      // If not double-nested, return first parse
+      return firstParse;
+    }
+
+    // Fallback if format is unexpected
+    return mcpResult;
   } catch (error: any) {
     if (error.code === 'ECONNREFUSED') {
       throw new Error('MCP server not running on port 8081. Start with: npm run start:mcp');

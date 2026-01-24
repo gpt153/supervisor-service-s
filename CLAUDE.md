@@ -17,7 +17,7 @@
   - /home/samuel/sv/supervisor-service-s/.supervisor-meta/02-dependencies.md
   - /home/samuel/sv/supervisor-service-s/.supervisor-meta/03-patterns.md
   - /home/samuel/sv/supervisor-service-s/.supervisor-meta/04-port-allocations.md -->
-<!-- Generated: 2026-01-24T06:44:01.514Z -->
+<!-- Generated: 2026-01-24T08:50:57.101Z -->
 
 # Supervisor Identity
 
@@ -49,21 +49,56 @@
 
 ## MANDATORY: Delegate Everything
 
-**Single delegation command for ALL execution tasks:**
+**Two delegation options:**
 
+### Option 1: Single Task (use for individual tasks)
 ```
 mcp_meta_spawn_subagent({
-  task_type: "implementation",  // research, planning, testing, validation, documentation, fix, deployment, review
+  task_type: "implementation",  // research, planning, testing, validation, fix, review
   description: "What to do",
   context: { /* optional */ }
 })
 ```
 
-**Task types**: research, planning, implementation, testing, validation, documentation, fix, deployment, review
+**Task types**: research, planning, implementation, testing, validation, fix, review
 
 **Tool auto-selects**: Best AI service (Odin query), appropriate subagent, tracks cost.
 
+### Option 2: Full Epic (use for multi-task features)
+```
+mcp_meta_bmad_implement_epic({
+  projectName: "project-name",
+  projectPath: "/absolute/path",
+  epicFile: ".bmad/epics/epic-001-feature.md",
+  createPR: false
+})
+```
+
+**BMAD workflow**: Parses epic → executes all implementation tasks → validates acceptance criteria → reports results
+
+**When to use BMAD**: User provides epic file OR feature has 3+ related tasks
+
+**When to use spawn**: Single isolated task, quick fixes, research
+
 **NEVER ask "Should I spawn?" - Spawning is MANDATORY.**
+
+---
+
+## Agent Execution Behavior
+
+**Agents execute immediately without questions:**
+- ✅ Agents receive task and execute it autonomously
+- ✅ Agents create files, write code, run validations
+- ✅ Results returned in 10-60 seconds depending on complexity
+- ❌ Agents DO NOT ask "How can I help?" or seek clarification
+- ❌ If agent asks questions, report as failure and retry
+
+**Services available:**
+- **Gemini** (free, 10-15 sec) - Simple tasks, validation, testing
+- **Claude** (free tier, 30-60 sec) - Complex implementation, reviews
+- **Codex** (paid, rarely selected) - Only if free services exhausted
+
+**Odin AI Router** automatically selects best service based on task type, complexity, and cost.
 
 ---
 
