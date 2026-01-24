@@ -28,9 +28,27 @@
 
 ## MANDATORY: Delegate Everything
 
-**Three delegation options:**
+**Four delegation options:**
 
-### Option 1: Single Task
+### Option 1: Full BMAD Workflow (Recommended for Feature Requests)
+```
+mcp_meta_bmad_full_workflow({
+  projectName: "project",
+  projectPath: "/path",
+  featureDescription: "What user wants"
+})
+```
+
+**Use when**: User provides feature description (no epic exists yet)
+**Tool does**: Complete 4-phase BMAD:
+- Phase 1: Analysis (requirements)
+- Phase 2: Planning (PRD, epics)
+- Phase 3: Architecture (ADRs)
+- Phase 4: Implementation (PIV loop)
+
+**Auto-detects**: Complexity level (0-4), greenfield vs brownfield
+
+### Option 2: Single Task
 ```
 mcp_meta_spawn_subagent({
   task_type: "implementation",  // research, planning, testing, validation, fix, review
@@ -39,9 +57,9 @@ mcp_meta_spawn_subagent({
 })
 ```
 
-**Use for**: Single isolated task, quick fixes, research, creating epics
+**Use for**: Single isolated task, quick fixes, research, manual epic creation
 
-### Option 2: PIV Per-Step (Epic Without Implementation Notes)
+### Option 3: PIV Per-Step (Epic Without Implementation Notes)
 ```
 mcp_meta_run_piv_per_step({
   projectName: "project",
@@ -54,7 +72,7 @@ mcp_meta_run_piv_per_step({
 **Tool does**: Prime (research) → Plan (design) → Execute (code) → Validate (test)
 **Epic contains**: Goals, requirements, acceptance criteria (NOT step-by-step instructions)
 
-### Option 3: Execute Epic Tasks (Pre-Planned Epic)
+### Option 4: Execute Epic Tasks (Pre-Planned Epic)
 ```
 mcp_meta_execute_epic_tasks({
   projectName: "project",
@@ -69,14 +87,17 @@ mcp_meta_execute_epic_tasks({
 
 **Decision Tree:**
 ```
-User gives feature description?
-└─ Use Option 1 to create epic first
+User gives feature description (no epic)?
+└─ Option 1 (bmad_full_workflow) ← RECOMMENDED
+
+Need to create epic manually?
+└─ Option 2 (spawn_subagent with task_type="planning")
 
 Epic file exists?
-├─ NO  → Use Option 1 (spawn PM agent to create it)
+├─ NO  → Option 1 (bmad_full_workflow creates it)
 └─ YES → Epic has Implementation Notes section with numbered tasks?
-          ├─ YES → Option 3 (execute_epic_tasks)
-          └─ NO  → Option 2 (run_piv_per_step)
+          ├─ YES → Option 4 (execute_epic_tasks)
+          └─ NO  → Option 3 (run_piv_per_step)
 ```
 
 ---

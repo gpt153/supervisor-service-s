@@ -19,6 +19,29 @@ Access via `/home/samuel/sv/.claude/commands/`:
 
 **CRITICAL: Use these for ALL execution tasks.**
 
+### Full BMAD Workflow (Recommended)
+```
+mcp_meta_bmad_full_workflow({
+  projectName: "project",
+  projectPath: "/path",
+  featureDescription: "User's feature request"
+})
+```
+
+**Use when**: User provides feature description (start-to-finish workflow)
+**Does**: Complete 4-phase BMAD methodology
+- Auto-detects complexity (0-4)
+- Creates feature request, PRD (if needed), epic(s), ADRs
+- Implements with PIV loop
+- Creates pull requests
+
+**Complexity levels:**
+- 0: Bug fix (direct implementation, no planning)
+- 1: Small feature (analysis + epic + implementation)
+- 2: Medium feature (+ architecture/ADRs)
+- 3: Large feature (+ PRD, may shard into multiple epics)
+- 4: Enterprise feature (complete methodology)
+
 ### Single Task
 ```
 mcp_meta_spawn_subagent({
@@ -28,7 +51,7 @@ mcp_meta_spawn_subagent({
 })
 ```
 
-**Use for**: Single isolated task, quick fixes, research, creating epics
+**Use for**: Single isolated task, quick fixes, research, manual operations
 
 **Common task_type values:**
 - `planning` - Create BMAD epic from feature description

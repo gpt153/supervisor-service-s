@@ -26,6 +26,7 @@ import { uiTools } from './ui-tools.js';
 import { getPerStepPIVTools } from './piv-per-step-tool.js';
 import { getPIVPhaseTools } from './piv-phase-tools.js';
 import { getBMADTools } from './bmad-tools.js';
+import { getBMADFullWorkflowTools } from './bmad-full-workflow.js';
 
 const execAsync = promisify(exec);
 
@@ -382,6 +383,9 @@ export function getAllTools(): ToolDefinition[] {
 
     // BMAD epic implementation tools
     ...getBMADTools(),
+
+    // BMAD full workflow orchestrator (all 4 phases)
+    ...getBMADFullWorkflowTools(),
 
     // Project context tools
     ...getProjectContextTools(),

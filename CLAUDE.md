@@ -18,7 +18,7 @@
   - /home/samuel/sv/supervisor-service-s/.supervisor-meta/03-patterns.md
   - /home/samuel/sv/supervisor-service-s/.supervisor-meta/04-port-allocations.md
   - /home/samuel/sv/supervisor-service-s/.supervisor-specific/02-deployment-status.md -->
-<!-- Generated: 2026-01-24T10:30:17.772Z -->
+<!-- Generated: 2026-01-24T11:08:06.632Z -->
 
 # Supervisor Identity
 
@@ -50,9 +50,27 @@
 
 ## MANDATORY: Delegate Everything
 
-**Three delegation options:**
+**Four delegation options:**
 
-### Option 1: Single Task
+### Option 1: Full BMAD Workflow (Recommended for Feature Requests)
+```
+mcp_meta_bmad_full_workflow({
+  projectName: "project",
+  projectPath: "/path",
+  featureDescription: "What user wants"
+})
+```
+
+**Use when**: User provides feature description (no epic exists yet)
+**Tool does**: Complete 4-phase BMAD:
+- Phase 1: Analysis (requirements)
+- Phase 2: Planning (PRD, epics)
+- Phase 3: Architecture (ADRs)
+- Phase 4: Implementation (PIV loop)
+
+**Auto-detects**: Complexity level (0-4), greenfield vs brownfield
+
+### Option 2: Single Task
 ```
 mcp_meta_spawn_subagent({
   task_type: "implementation",  // research, planning, testing, validation, fix, review
@@ -61,9 +79,9 @@ mcp_meta_spawn_subagent({
 })
 ```
 
-**Use for**: Single isolated task, quick fixes, research, creating epics
+**Use for**: Single isolated task, quick fixes, research, manual epic creation
 
-### Option 2: PIV Per-Step (Epic Without Implementation Notes)
+### Option 3: PIV Per-Step (Epic Without Implementation Notes)
 ```
 mcp_meta_run_piv_per_step({
   projectName: "project",
@@ -76,7 +94,7 @@ mcp_meta_run_piv_per_step({
 **Tool does**: Prime (research) → Plan (design) → Execute (code) → Validate (test)
 **Epic contains**: Goals, requirements, acceptance criteria (NOT step-by-step instructions)
 
-### Option 3: Execute Epic Tasks (Pre-Planned Epic)
+### Option 4: Execute Epic Tasks (Pre-Planned Epic)
 ```
 mcp_meta_execute_epic_tasks({
   projectName: "project",
@@ -91,14 +109,17 @@ mcp_meta_execute_epic_tasks({
 
 **Decision Tree:**
 ```
-User gives feature description?
-└─ Use Option 1 to create epic first
+User gives feature description (no epic)?
+└─ Option 1 (bmad_full_workflow) ← RECOMMENDED
+
+Need to create epic manually?
+└─ Option 2 (spawn_subagent with task_type="planning")
 
 Epic file exists?
-├─ NO  → Use Option 1 (spawn PM agent to create it)
+├─ NO  → Option 1 (bmad_full_workflow creates it)
 └─ YES → Epic has Implementation Notes section with numbered tasks?
-          ├─ YES → Option 3 (execute_epic_tasks)
-          └─ NO  → Option 2 (run_piv_per_step)
+          ├─ YES → Option 4 (execute_epic_tasks)
+          └─ NO  → Option 3 (run_piv_per_step)
 ```
 
 ---
@@ -378,6 +399,29 @@ Access via `/home/samuel/sv/.claude/commands/`:
 
 **CRITICAL: Use these for ALL execution tasks.**
 
+### Full BMAD Workflow (Recommended)
+```
+mcp_meta_bmad_full_workflow({
+  projectName: "project",
+  projectPath: "/path",
+  featureDescription: "User's feature request"
+})
+```
+
+**Use when**: User provides feature description (start-to-finish workflow)
+**Does**: Complete 4-phase BMAD methodology
+- Auto-detects complexity (0-4)
+- Creates feature request, PRD (if needed), epic(s), ADRs
+- Implements with PIV loop
+- Creates pull requests
+
+**Complexity levels:**
+- 0: Bug fix (direct implementation, no planning)
+- 1: Small feature (analysis + epic + implementation)
+- 2: Medium feature (+ architecture/ADRs)
+- 3: Large feature (+ PRD, may shard into multiple epics)
+- 4: Enterprise feature (complete methodology)
+
 ### Single Task
 ```
 mcp_meta_spawn_subagent({
@@ -387,7 +431,7 @@ mcp_meta_spawn_subagent({
 })
 ```
 
-**Use for**: Single isolated task, quick fixes, research, creating epics
+**Use for**: Single isolated task, quick fixes, research, manual operations
 
 **Common task_type values:**
 - `planning` - Create BMAD epic from feature description
@@ -500,12 +544,24 @@ mcp_meta_execute_epic_tasks({
 
 ### When User Says: "Implement [feature]"
 
-**Decision tree:**
+**RECOMMENDED: Use full BMAD workflow**
+
+```typescript
+mcp_meta_bmad_full_workflow({
+  projectName: "project",
+  projectPath: "/path",
+  featureDescription: "[feature description]"
+})
+```
+
+**This handles everything**: Analysis → Planning → Architecture → Implementation
+
+**Alternative (manual epic management):**
 
 **Epic file exists?**
 - ❌ NO → Create epic first:
   1. Spawn PM agent: `mcp_meta_spawn_subagent({ task_type: "planning", description: "Create BMAD epic for: [feature]" })`
-  2. Then choose Option 2 or 3 below based on epic content
+  2. Then choose PIV per-step or execute tasks
 
 - ✅ YES → **Epic has Implementation Notes with numbered steps?**
   - ✅ YES → Use `mcp_meta_execute_epic_tasks({ epicFile: "path" })` (faster)
@@ -613,10 +669,13 @@ Last activity: {timestamp}
 
 ### Primary (Use These)
 
+**Full workflow (RECOMMENDED for feature requests):**
+- `mcp_meta_bmad_full_workflow` - Complete BMAD methodology (Analysis → Planning → Architecture → Implementation)
+
 **Single tasks:**
 - `mcp_meta_spawn_subagent` - Spawn agent for single task (research, planning, implementation, testing, etc.)
 
-**Epic implementation (choose based on epic state):**
+**Epic implementation (when epic already exists):**
 - `mcp_meta_run_piv_per_step` - Full PIV workflow when epic lacks Implementation Notes
 - `mcp_meta_execute_epic_tasks` - Execute pre-written Implementation Notes (faster)
 
