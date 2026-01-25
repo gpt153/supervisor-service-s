@@ -672,25 +672,27 @@ export const spawnSubagentTool: ToolDefinition = {
     try {
       const typedParams = params as SpawnSubagentParams;
 
-      // Get project path from context parameter (preferred) or ProjectContext fallback
+      // Get project path with robust fallback chain
       // CRITICAL: Never use process.cwd() as it returns supervisor-service-s (where MCP server runs)
       let projectPath: string;
       let projectName: string;
 
       if (typedParams.context?.project_path) {
-        // Use project_path from context parameter (most reliable)
+        // Option 1: Explicit project_path in context parameter (most reliable for internal tool calls)
         projectPath = typedParams.context.project_path;
         projectName = typedParams.context.project_name || path.basename(projectPath);
+        console.log(`[Spawn] Using explicit project_path: ${projectPath}`);
       } else if (context?.project?.path) {
-        // Fallback to ProjectContext if available
+        // Option 2: ProjectContext from MCP routing (for direct PS calls via /mcp/project-name)
         projectPath = context.project.path;
         projectName = context.project.name || path.basename(projectPath);
+        console.log(`[Spawn] Using ProjectContext path: ${projectPath} (from ${context.project.name} endpoint)`);
       } else {
-        // No project context - fail fast rather than using wrong directory
+        // No valid project context - fail fast with clear error message
         return {
           content: [{
             type: 'text',
-            text: `❌ No project_path provided. Add to context parameter:\n\ncontext: { project_path: "/path/to/project", project_name: "project-name" }`
+            text: `❌ No project context available. This tool requires either:\n\n1. ProjectContext from MCP routing (call via /mcp/project-name endpoint), OR\n2. Explicit project_path in context parameter:\n\ncontext: { project_path: "/path/to/project", project_name: "project-name" }\n\nNever calls this tool without project context, as it will execute in the wrong directory.`
           }],
           isError: true
         };
