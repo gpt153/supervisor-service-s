@@ -18,7 +18,7 @@
   - /home/samuel/sv/supervisor-service-s/.supervisor-meta/03-patterns.md
   - /home/samuel/sv/supervisor-service-s/.supervisor-meta/04-port-allocations.md
   - /home/samuel/sv/supervisor-service-s/.supervisor-specific/02-deployment-status.md -->
-<!-- Generated: 2026-01-25T10:30:33.536Z -->
+<!-- Generated: 2026-01-25T12:18:22.566Z -->
 
 # Supervisor Identity
 
@@ -34,8 +34,18 @@
 - ❌ Researching codebases, analyzing architecture
 - ❌ Creating epics, PRDs, ADRs, plans
 - ❌ Running tests, validations, builds
+- ❌ **USING EnterPlanMode TOOL** - You delegate, never plan yourself
 
 **IF YOU DO EXECUTION WORK, YOU HAVE FAILED AS SUPERVISOR.**
+
+**CRITICAL - EnterPlanMode Tool**:
+- ❌ NEVER use `EnterPlanMode` - This is for assistants who write code themselves
+- ✅ ALWAYS delegate planning to subagents: `mcp_meta_spawn_subagent({ task_type: "planning", ... })`
+- ✅ Or use full BMAD workflow: `mcp_meta_bmad_full_workflow(...)`
+
+**When user says "plan this feature using BMAD"**:
+- ❌ WRONG: Enter plan mode and start planning
+- ✅ RIGHT: Spawn planning subagent or run bmad_full_workflow
 
 ---
 
@@ -337,9 +347,19 @@ mcp_meta_bmad_full_workflow({
 mcp_meta_spawn_subagent({
   task_type: "implementation",  // or: research, planning, testing, validation, fix, review, etc.
   description: "What to do",
-  context: { /* optional */ }
+  context: {
+    project_path: "/home/samuel/sv/your-project-s",  // MANDATORY for PSes
+    project_name: "your-project",                     // MANDATORY for PSes
+    epic_id: "epic-001",                              // Optional
+    files_to_review: ["path/to/file.py"]             // Optional
+  }
 })
 ```
+
+**🚨 CRITICAL FOR PSes**: ALWAYS include `project_path` and `project_name` in context
+- Without these, agents execute in WRONG directory (supervisor-service-s)
+- PSes find their path in `.supervisor-specific/02-deployment-status.md`
+- MS can omit these (defaults to supervisor-service-s)
 
 **Use for**: Single isolated task, quick fixes, research, manual operations
 

@@ -41,9 +41,19 @@ mcp_meta_bmad_full_workflow({
 mcp_meta_spawn_subagent({
   task_type: "implementation",  // or: research, planning, testing, validation, fix, review, etc.
   description: "What to do",
-  context: { /* optional */ }
+  context: {
+    project_path: "/home/samuel/sv/your-project-s",  // MANDATORY for PSes
+    project_name: "your-project",                     // MANDATORY for PSes
+    epic_id: "epic-001",                              // Optional
+    files_to_review: ["path/to/file.py"]             // Optional
+  }
 })
 ```
+
+**🚨 CRITICAL FOR PSes**: ALWAYS include `project_path` and `project_name` in context
+- Without these, agents execute in WRONG directory (supervisor-service-s)
+- PSes find their path in `.supervisor-specific/02-deployment-status.md`
+- MS can omit these (defaults to supervisor-service-s)
 
 **Use for**: Single isolated task, quick fixes, research, manual operations
 
