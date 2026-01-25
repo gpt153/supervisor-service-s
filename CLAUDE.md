@@ -18,7 +18,7 @@
   - /home/samuel/sv/supervisor-service-s/.supervisor-meta/03-patterns.md
   - /home/samuel/sv/supervisor-service-s/.supervisor-meta/04-port-allocations.md
   - /home/samuel/sv/supervisor-service-s/.supervisor-specific/02-deployment-status.md -->
-<!-- Generated: 2026-01-25T12:18:22.566Z -->
+<!-- Generated: 2026-01-25T12:31:27.679Z -->
 
 # Supervisor Identity
 
@@ -325,7 +325,61 @@ Access via `/home/samuel/sv/.claude/commands/`:
 
 **CRITICAL: Use these for ALL execution tasks.**
 
-### Full BMAD Workflow (Recommended)
+### Single Task (CLI Spawn - RECOMMENDED)
+
+**Primary method for PSes:**
+```bash
+Bash: /home/samuel/sv/supervisor-service-s/scripts/spawn <task_type> "<description>"
+```
+
+**Examples:**
+```bash
+# Implementation
+Bash: /home/samuel/sv/supervisor-service-s/scripts/spawn implementation "Replace OpenAI with CLIP model in image_embedding.py"
+
+# Research
+Bash: /home/samuel/sv/supervisor-service-s/scripts/spawn research "Investigate how memory validation works"
+
+# Testing
+Bash: /home/samuel/sv/supervisor-service-s/scripts/spawn testing "Write E2E tests for visual search"
+
+# Bug fix
+Bash: /home/samuel/sv/supervisor-service-s/scripts/spawn fix "Fix IndexError in embedding generation"
+```
+
+**Benefits:**
+- ✅ Auto-detects project from your current directory
+- ✅ Simple 2-argument syntax
+- ✅ Uses Odin AI router (optimal service selection)
+- ✅ Tracks usage and cost
+- ✅ No manual project_path needed
+
+**Common task types:** implementation, research, testing, validation, fix, review, planning
+
+### Single Task (MCP Alternative)
+
+**Use MCP when you need epic context:**
+```javascript
+mcp_meta_spawn_subagent({
+  task_type: "implementation",
+  description: "What to do",
+  context: {
+    project_path: "/home/samuel/sv/your-project-s",  // REQUIRED
+    project_name: "your-project",                     // REQUIRED
+    epic_id: "epic-001",                              // Optional
+    files_to_review: ["path/to/file.py"]             // Optional
+  }
+})
+```
+
+**When to use MCP spawn:**
+- Need epic_id context for task tracking
+- Need files_to_review list for complex tasks
+- Need validation_commands for testing
+
+**Otherwise, prefer CLI spawn (simpler).**
+
+### Full BMAD Workflow
 ```
 mcp_meta_bmad_full_workflow({
   projectName: "project",
@@ -341,36 +395,6 @@ mcp_meta_bmad_full_workflow({
 - Implements and validates
 
 **Complexity reference**: `/home/samuel/sv/docs/guides/bmad-user-guide.md`
-
-### Single Task
-```
-mcp_meta_spawn_subagent({
-  task_type: "implementation",  // or: research, planning, testing, validation, fix, review, etc.
-  description: "What to do",
-  context: {
-    project_path: "/home/samuel/sv/your-project-s",  // MANDATORY for PSes
-    project_name: "your-project",                     // MANDATORY for PSes
-    epic_id: "epic-001",                              // Optional
-    files_to_review: ["path/to/file.py"]             // Optional
-  }
-})
-```
-
-**🚨 CRITICAL FOR PSes**: ALWAYS include `project_path` and `project_name` in context
-- Without these, agents execute in WRONG directory (supervisor-service-s)
-- PSes find their path in `.supervisor-specific/02-deployment-status.md`
-- MS can omit these (defaults to supervisor-service-s)
-
-**Use for**: Single isolated task, quick fixes, research, manual operations
-
-**Common task_type values:**
-- `planning` - Create BMAD epic from feature description
-- `implementation` - Write code for single feature
-- `research` - Analyze codebase or investigate issue
-- `testing` - Write or run tests
-- `validation` - Verify acceptance criteria
-- `fix` - Bug fixes
-- `review` - Code review
 
 ### Epic Implementation - Option 1: PIV Per-Step
 ```
