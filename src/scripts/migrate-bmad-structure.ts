@@ -710,8 +710,9 @@ function main(): void {
   }
 }
 
-// Run if executed directly
-if (require.main === module) {
+// Run if executed directly (ES module check)
+const isMainModule = import.meta.url === `file://${process.argv[1]}`;
+if (isMainModule) {
   main();
 }
 
