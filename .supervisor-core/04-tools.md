@@ -31,21 +31,42 @@ Epic with notes?           → execute_epic_tasks
 
 ---
 
-## CLI Spawn Pattern (Recommended)
+## Model Selection Strategy
 
-**Two-step with AI routing:**
-```bash
-# Step 1: Get Odin's model recommendation
-Bash: /home/samuel/sv/supervisor-service-s/scripts/spawn <task_type> "<description>"
+**CRITICAL: Use Haiku for implementation to conserve tokens**
 
-# Step 2: Read instructions and call Task tool
-Read <instructions_file>
-Task(prompt=<instructions>, model=<from_odin>, subagent_type="general-purpose")
+| Task Type | Model | Subagent Type | Requirements |
+|-----------|-------|---------------|--------------|
+| **Implementation** (with plan) | `haiku` | `general-purpose` | Detailed epic with file paths, numbered steps |
+| **Research/Exploration** | `sonnet` | `Explore` | Open-ended investigation |
+| **Planning/Architecture** | `opus` | `Plan` | Complex decisions, system design |
+| **Testing/Validation** | `haiku` | `general-purpose` | Clear test instructions |
+
+**Spawn pattern:**
+```javascript
+// Implementation with clear plan
+Task({
+  description: "Implement feature X",
+  prompt: `[Detailed context from epic/handoff]`,
+  subagent_type: "general-purpose",
+  model: "haiku"  // Fast, cheap execution
+})
+
+// Research/exploration
+Task({
+  description: "Analyze codebase for X",
+  prompt: `[Question to investigate]`,
+  subagent_type: "Explore",
+  model: "sonnet"  // Needs reasoning
+})
 ```
 
-**Benefits**: Odin optimizes cost/quality, automatic tracking
-
-**Task types**: implementation, research, testing, validation, planning, documentation, deployment
+**Planning quality for Haiku success:**
+- ✅ Exact file paths and line numbers
+- ✅ Numbered implementation steps
+- ✅ Code snippets showing what to change
+- ✅ Test commands to verify
+- ❌ No architectural decisions left
 
 ---
 

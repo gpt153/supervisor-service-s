@@ -19,7 +19,7 @@
   - /home/samuel/sv/supervisor-service-s/.supervisor-meta/03-patterns.md
   - /home/samuel/sv/supervisor-service-s/.supervisor-meta/04-port-allocations.md
   - /home/samuel/sv/supervisor-service-s/.supervisor-specific/02-deployment-status.md -->
-<!-- Generated: 2026-01-25T15:24:04.570Z -->
+<!-- Generated: 2026-01-25T16:28:27.128Z -->
 
 # Supervisor Identity
 
@@ -214,21 +214,42 @@ Epic with notes?           → execute_epic_tasks
 
 ---
 
-## CLI Spawn Pattern (Recommended)
+## Model Selection Strategy
 
-**Two-step with AI routing:**
-```bash
-# Step 1: Get Odin's model recommendation
-Bash: /home/samuel/sv/supervisor-service-s/scripts/spawn <task_type> "<description>"
+**CRITICAL: Use Haiku for implementation to conserve tokens**
 
-# Step 2: Read instructions and call Task tool
-Read <instructions_file>
-Task(prompt=<instructions>, model=<from_odin>, subagent_type="general-purpose")
+| Task Type | Model | Subagent Type | Requirements |
+|-----------|-------|---------------|--------------|
+| **Implementation** (with plan) | `haiku` | `general-purpose` | Detailed epic with file paths, numbered steps |
+| **Research/Exploration** | `sonnet` | `Explore` | Open-ended investigation |
+| **Planning/Architecture** | `opus` | `Plan` | Complex decisions, system design |
+| **Testing/Validation** | `haiku` | `general-purpose` | Clear test instructions |
+
+**Spawn pattern:**
+```javascript
+// Implementation with clear plan
+Task({
+  description: "Implement feature X",
+  prompt: `[Detailed context from epic/handoff]`,
+  subagent_type: "general-purpose",
+  model: "haiku"  // Fast, cheap execution
+})
+
+// Research/exploration
+Task({
+  description: "Analyze codebase for X",
+  prompt: `[Question to investigate]`,
+  subagent_type: "Explore",
+  model: "sonnet"  // Needs reasoning
+})
 ```
 
-**Benefits**: Odin optimizes cost/quality, automatic tracking
-
-**Task types**: implementation, research, testing, validation, planning, documentation, deployment
+**Planning quality for Haiku success:**
+- ✅ Exact file paths and line numbers
+- ✅ Numbered implementation steps
+- ✅ Code snippets showing what to change
+- ✅ Test commands to verify
+- ❌ No architectural decisions left
 
 ---
 
@@ -665,21 +686,20 @@ mcp_meta_get_secret({ keyPath: 'project/{project}/{secret-name}' })
 
 # Handoff Workflow
 
-**CRITICAL: Use handoffs when context window reaches 80% or switching tasks**
+**CRITICAL: Create handoffs when context window ≥ 80% or switching tasks**
 
 ---
 
-## When to Create Handoff
+## When to Create
 
-**MANDATORY handoff creation:**
+**MANDATORY:**
 - ✅ Context window ≥ 80%
 - ✅ Switching to different epic/task mid-work
 - ✅ End of session with incomplete work
-- ✅ Multiple parallel sessions working on different tasks
+- ✅ Multiple parallel sessions on different tasks
 
-**DO NOT create handoff:**
+**DO NOT:**
 - ❌ Work is complete and committed
-- ❌ Task is fully done (archive instead)
 
 ---
 
@@ -690,113 +710,45 @@ YYYY-MM-DD-HHMM-{epic-or-task-id}-{brief-description}.md
 ```
 
 **Examples:**
-```
-2026-01-25-1430-epic-003-authentication.md
-2026-01-25-1545-bug-gmail-headers.md
-2026-01-25-1620-feature-oauth.md
-```
+- `2026-01-25-1430-epic-003-authentication.md`
+- `2026-01-25-1545-bug-gmail-headers.md`
 
-**Rules:**
-- Date/time in 24h format (for chronological sorting)
-- Epic ID when working on epic
-- Brief description (2-4 words, kebab-case)
-- Latest timestamp = most recent handoff
+**Rules:** Date/time in 24h format, epic ID, 2-4 word description, kebab-case
 
 ---
 
-## Creating Handoff
+## Must Include
 
 **Location**: `docs/handoffs/`
 
-**Template**: `/home/samuel/sv/templates/handoff-template.md`
-
-**Must include:**
-1. ✅ Current state (what's working, in progress, blocked)
-2. ✅ Exact location (file path, line number)
+**Required sections:**
+1. ✅ Current state (working, in progress, blocked)
+2. ✅ Exact location (file path:line)
 3. ✅ Next steps (numbered checklist)
-4. ✅ Files modified (git status output)
+4. ✅ Files modified (git status)
 5. ✅ Commands to resume (copy-paste ready)
 
 **Workflow:**
 ```bash
-# 1. Create handoff from template
 cp /home/samuel/sv/templates/handoff-template.md docs/handoffs/YYYY-MM-DD-HHMM-task.md
-
-# 2. Fill in all sections
-# 3. Update docs/handoffs/README.md table
-# 4. Commit
-git add docs/handoffs/
-git commit -m "chore: create handoff for [task]"
-git push
+# Fill sections, update README, commit
 ```
 
 ---
 
-## Resuming from Handoff
+## Resuming
 
-**Finding handoff:**
+**Find handoff:**
 ```bash
-cd /home/samuel/sv/{project}
-
-# Option 1: List by date (latest first)
+# By date (latest first)
 ls -lt docs/handoffs/*.md | head
 
-# Option 2: Search by epic
+# By epic/keyword
 ls docs/handoffs/*epic-003*
-
-# Option 3: Search by keyword
 grep -l "OAuth" docs/handoffs/*.md
 ```
 
-**Resume workflow:**
-1. Read full handoff document
-2. Run "Commands to Resume" section
-3. Check git status
-4. Continue from "Next Steps" checklist
-
----
-
-## Multi-Instance Scenario
-
-**User has 3 PS instances working on different tasks:**
-
-**Instance 1**: `ls docs/handoffs/*epic-003*` → Continue Epic 003
-**Instance 2**: `ls docs/handoffs/*bug-gmail*` → Continue Gmail fix
-**Instance 3**: `ls docs/handoffs/*oauth*` → Continue OAuth feature
-
-**No confusion!** Each instance finds correct handoff by task ID or keyword.
-
----
-
-## Completing Work
-
-**When work is done:**
-```bash
-# Move to archive
-mv docs/handoffs/YYYY-MM-DD-HHMM-task.md docs/archive/handoffs/
-
-# Update README table
-# Remove entry from docs/handoffs/README.md
-
-# Commit
-git add docs/handoffs/ docs/archive/handoffs/
-git commit -m "chore: archive handoff for completed [task]"
-git push
-```
-
----
-
-## File Structure
-
-```
-docs/
-├── handoffs/              ← Active (might resume)
-│   ├── README.md         ← Current active handoffs table
-│   └── 2026-01-25-*.md   ← Active handoff files
-└── archive/
-    └── handoffs/          ← Completed (historical reference)
-        └── 2026-01-*.md   ← Archived handoff files
-```
+**Resume:** Read handoff → Run commands → Check git status → Continue from next steps
 
 ---
 
@@ -805,9 +757,10 @@ docs/
 **Creating:**
 - [ ] Context ≥ 80%?
 - [ ] Used naming convention?
-- [ ] Filled all template sections?
-- [ ] Updated README.md table?
-- [ ] Committed handoff?
+- [ ] Filled all sections?
+- [ ] Commands copy-paste ready?
+- [ ] Updated README?
+- [ ] Committed?
 
 **Resuming:**
 - [ ] Found correct handoff?
@@ -815,17 +768,18 @@ docs/
 - [ ] Ran resume commands?
 - [ ] Checked git status?
 
-**Completing:**
-- [ ] Moved to archive?
-- [ ] Updated README.md?
-- [ ] Committed changes?
-
 ---
 
-**References:**
-- **Template**: `/home/samuel/sv/templates/handoff-template.md`
-- **README**: `docs/handoffs/README.md` (each project)
-- **Archived handoffs**: `docs/archive/handoffs/`
+## References
+
+**Template**: `/home/samuel/sv/templates/handoff-template.md`
+**Complete Guide**: `/home/samuel/sv/docs/guides/handoff-workflow-guide.md`
+
+**Guide includes:**
+- Detailed examples (creating, resuming, multi-instance)
+- Best practices
+- Troubleshooting
+- File structure details
 
 # Quick Start: Add New Core Instruction
 
