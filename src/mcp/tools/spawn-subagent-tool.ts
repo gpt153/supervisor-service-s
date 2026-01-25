@@ -105,32 +105,64 @@ async function queryOdin(
 
     const recommendation = JSON.parse(stdout);
 
-    // Map Odin response to our format
+    // FORCE Claude-only: Override if Odin recommends non-Claude
+    if (recommendation.service === 'gemini' || recommendation.service === 'codex') {
+      console.log(`[Odin Query] Odin recommended ${recommendation.service}, overriding to Claude for Task tool compatibility`);
+
+      // Map complexity to Claude model
+      if (complexity === 'simple') {
+        return {
+          service: 'claude',
+          model: 'claude-3-5-haiku-20241022',
+          cli_command: 'claude-code',
+          estimated_cost: '$0.0010',
+          reason: `Odin recommended ${recommendation.service}, overridden to Claude Haiku for Task tool`
+        };
+      } else if (complexity === 'complex') {
+        return {
+          service: 'claude',
+          model: 'claude-opus-4-5-20251101',
+          cli_command: 'claude-code',
+          estimated_cost: '$0.0150',
+          reason: `Odin recommended ${recommendation.service}, overridden to Claude Opus for Task tool`
+        };
+      } else {
+        return {
+          service: 'claude',
+          model: 'claude-sonnet-4-5-20250929',
+          cli_command: 'claude-code',
+          estimated_cost: '$0.0030',
+          reason: `Odin recommended ${recommendation.service}, overridden to Claude Sonnet for Task tool`
+        };
+      }
+    }
+
+    // Odin recommended Claude - use it
     return {
-      service: recommendation.service as 'gemini' | 'codex' | 'claude' | 'claude-max',
+      service: recommendation.service as 'claude' | 'claude-max',
       model: recommendation.model,
-      cli_command: recommendation.cli_command,
+      cli_command: 'claude-code',
       estimated_cost: recommendation.estimated_cost,
       reason: recommendation.reason
     };
   } catch (error) {
-    console.warn('[Odin Query] Failed, using fallback heuristics:', error);
-    // Fallback: Intelligent heuristics
+    console.warn('[Odin Query] Failed, using Claude-only fallback heuristics:', error);
+    // Fallback: Claude models only (for Task tool compatibility)
     if (complexity === 'simple' || taskType === 'testing' || taskType === 'validation') {
       return {
-        service: 'gemini',
-        model: 'gemini-2.5-flash-lite',
-        cli_command: 'scripts/ai/gemini_agent.sh',
-        estimated_cost: '$0.0000',
-        reason: 'Simple task, using free Gemini Flash (fallback)'
+        service: 'claude',
+        model: 'claude-3-5-haiku-20241022',  // Haiku for simple tasks
+        cli_command: 'claude-code',
+        estimated_cost: '$0.0010',
+        reason: 'Simple task, using Claude Haiku (fallback)'
       };
     }
 
     if (complexity === 'complex' || taskType === 'planning') {
       return {
         service: 'claude',
-        model: 'claude-opus-4-5-20251101',
-        cli_command: 'scripts/ai/claude_agent.sh',
+        model: 'claude-opus-4-5-20251101',  // Opus for complex tasks
+        cli_command: 'claude-code',
         estimated_cost: '$0.0150',
         reason: 'Complex task requiring deep reasoning (fallback)'
       };
@@ -139,8 +171,8 @@ async function queryOdin(
     // Medium complexity
     return {
       service: 'claude',
-      model: 'claude-sonnet-4-5-20250929',
-      cli_command: 'scripts/ai/claude_agent.sh',
+      model: 'claude-sonnet-4-5-20250929',  // Sonnet for medium tasks
+      cli_command: 'claude-code',
       estimated_cost: '$0.0030',
       reason: 'Medium complexity, using Claude Sonnet (fallback)'
     };

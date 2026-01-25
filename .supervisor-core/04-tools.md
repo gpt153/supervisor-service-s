@@ -19,39 +19,54 @@ Access via `/home/samuel/sv/.claude/commands/`:
 
 **CRITICAL: Use these for ALL execution tasks.**
 
-### Single Task (RECOMMENDED: Task Tool Directly)
+### Single Task (RECOMMENDED: Spawn + Task Tool)
 
-**Direct Task tool execution** (simplest and most reliable):
-```
-Task(
-  prompt="[Read instructions file and execute task]",
-  description="[5-10 word summary]",
-  subagent_type="general-purpose",
-  model="sonnet"  // or "haiku" for simple tasks, "opus" for complex
-)
-```
+**Two-step process with AI routing:**
 
-**When to use**:
-- ✅ All implementation, research, testing tasks
-- ✅ Guaranteed tool access (Write/Edit/Bash)
-- ✅ No external API limitations
-
-### Single Task (Legacy: CLI Spawn)
-
-**⚠️ DEPRECATED: This prepares instructions but requires manual Task tool call.**
-
+**Step 1: Get Odin's Claude model recommendation**
 ```bash
 Bash: /home/samuel/sv/supervisor-service-s/scripts/spawn <task_type> "<description>"
 ```
 
-**Process:**
-1. Spawn queries Odin for service recommendation
-2. Returns `task_tool_params` with model + instructions file
-3. **You must then call Task tool** with those parameters
+**Step 2: Read instructions and call Task tool**
+```
+Read(<instructions_file_from_spawn_output>)
+Task(
+  prompt="<instructions_from_file>",
+  description="<5-10 word summary>",
+  subagent_type="general-purpose",
+  model="<model_from_task_tool_params>"  // haiku/sonnet/opus
+)
+```
 
-**Use Task tool directly instead** - simpler and more reliable.
+**Benefits:**
+- ✅ Odin AI router selects optimal Claude model for cost/complexity
+- ✅ Full tool access (Write/Edit/Bash) via Task tool
+- ✅ Automatic cost tracking
+
+**Process:**
+1. Spawn queries Odin → recommends haiku/sonnet/opus based on complexity
+2. Spawn prepares instructions file with task details
+3. You read instructions file
+4. You call Task tool with Odin's recommended model
 
 **Common task types:** implementation, research, testing, validation, planning, documentation, deployment
+
+---
+
+### Alternative: Skip Odin Routing
+
+**If you want to pick Claude model yourself:**
+```
+Task(
+  prompt="<task description>",
+  description="<summary>",
+  subagent_type="general-purpose",
+  model="sonnet"  // or "haiku" (simple), "opus" (complex)
+)
+```
+
+**Use when:** You know which model to use, want one-step process
 
 ### Single Task (MCP Alternative)
 

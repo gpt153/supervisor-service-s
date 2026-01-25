@@ -18,7 +18,7 @@
   - /home/samuel/sv/supervisor-service-s/.supervisor-meta/03-patterns.md
   - /home/samuel/sv/supervisor-service-s/.supervisor-meta/04-port-allocations.md
   - /home/samuel/sv/supervisor-service-s/.supervisor-specific/02-deployment-status.md -->
-<!-- Generated: 2026-01-25T13:05:03.251Z -->
+<!-- Generated: 2026-01-25T13:26:01.127Z -->
 
 # Supervisor Identity
 
@@ -325,36 +325,54 @@ Access via `/home/samuel/sv/.claude/commands/`:
 
 **CRITICAL: Use these for ALL execution tasks.**
 
-### Single Task (CLI Spawn - RECOMMENDED)
+### Single Task (RECOMMENDED: Spawn + Task Tool)
 
-**Primary method for PSes:**
+**Two-step process with AI routing:**
+
+**Step 1: Get Odin's Claude model recommendation**
 ```bash
 Bash: /home/samuel/sv/supervisor-service-s/scripts/spawn <task_type> "<description>"
 ```
 
-**Examples:**
-```bash
-# Implementation
-Bash: /home/samuel/sv/supervisor-service-s/scripts/spawn implementation "Replace OpenAI with CLIP model in image_embedding.py"
-
-# Research
-Bash: /home/samuel/sv/supervisor-service-s/scripts/spawn research "Investigate how memory validation works"
-
-# Testing
-Bash: /home/samuel/sv/supervisor-service-s/scripts/spawn testing "Write E2E tests for visual search"
-
-# Bug fix (use implementation for fixes)
-Bash: /home/samuel/sv/supervisor-service-s/scripts/spawn implementation "Fix IndexError in embedding generation"
+**Step 2: Read instructions and call Task tool**
+```
+Read(<instructions_file_from_spawn_output>)
+Task(
+  prompt="<instructions_from_file>",
+  description="<5-10 word summary>",
+  subagent_type="general-purpose",
+  model="<model_from_task_tool_params>"  // haiku/sonnet/opus
+)
 ```
 
 **Benefits:**
-- ✅ Auto-detects project from your current directory
-- ✅ Simple 2-argument syntax
-- ✅ Uses Odin AI router (optimal service selection)
-- ✅ Tracks usage and cost
-- ✅ No manual project_path needed
+- ✅ Odin AI router selects optimal Claude model for cost/complexity
+- ✅ Full tool access (Write/Edit/Bash) via Task tool
+- ✅ Automatic cost tracking
+
+**Process:**
+1. Spawn queries Odin → recommends haiku/sonnet/opus based on complexity
+2. Spawn prepares instructions file with task details
+3. You read instructions file
+4. You call Task tool with Odin's recommended model
 
 **Common task types:** implementation, research, testing, validation, planning, documentation, deployment
+
+---
+
+### Alternative: Skip Odin Routing
+
+**If you want to pick Claude model yourself:**
+```
+Task(
+  prompt="<task description>",
+  description="<summary>",
+  subagent_type="general-purpose",
+  model="sonnet"  // or "haiku" (simple), "opus" (complex)
+)
+```
+
+**Use when:** You know which model to use, want one-step process
 
 ### Single Task (MCP Alternative)
 
