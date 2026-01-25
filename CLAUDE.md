@@ -18,7 +18,7 @@
   - /home/samuel/sv/supervisor-service-s/.supervisor-meta/03-patterns.md
   - /home/samuel/sv/supervisor-service-s/.supervisor-meta/04-port-allocations.md
   - /home/samuel/sv/supervisor-service-s/.supervisor-specific/02-deployment-status.md -->
-<!-- Generated: 2026-01-25T12:55:25.454Z -->
+<!-- Generated: 2026-01-25T13:05:03.251Z -->
 
 # Supervisor Identity
 
@@ -354,7 +354,7 @@ Bash: /home/samuel/sv/supervisor-service-s/scripts/spawn implementation "Fix Ind
 - ✅ Tracks usage and cost
 - ✅ No manual project_path needed
 
-**Common task types:** implementation, research, testing, validation, fix, review, planning
+**Common task types:** implementation, research, testing, validation, planning, documentation, deployment
 
 ### Single Task (MCP Alternative)
 

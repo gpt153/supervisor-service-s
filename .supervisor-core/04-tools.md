@@ -48,7 +48,7 @@ Bash: /home/samuel/sv/supervisor-service-s/scripts/spawn implementation "Fix Ind
 - ✅ Tracks usage and cost
 - ✅ No manual project_path needed
 
-**Common task types:** implementation, research, testing, validation, fix, review, planning
+**Common task types:** implementation, research, testing, validation, planning, documentation, deployment
 
 ### Single Task (MCP Alternative)
 
