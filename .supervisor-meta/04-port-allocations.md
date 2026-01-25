@@ -15,79 +15,7 @@
 | Supervisor Infrastructure | 8000-8099 | ✅ Active |
 | Legacy/Shared | 3000-3099 | ⚠️ Deprecated |
 
----
-
-## Detailed Port Assignments
-
-### Consilio (5000-5099)
-
-| Service | Port | Purpose | Status |
-|---------|------|---------|--------|
-| Backend API | 5000 | Express API | ✅ Migrated |
-| PostgreSQL | 5032 | Database | ✅ Migrated |
-| Frontend (dev) | 5073 | Vite dev server | ✅ Assigned |
-| Frontend (tunnel) | 5175 | Nginx proxy | ✅ Active |
-
-**Public Access:**
-- `consilio.153.se` → `localhost:5175`
-
----
-
-### Health-Agent (5100-5199)
-
-| Service | Port | Purpose | Status |
-|---------|------|---------|--------|
-| API (dev) | 5100 | FastAPI REST API | ✅ Migrated |
-| PostgreSQL | 5132 | Database | ✅ Migrated |
-| Redis | 5179 | Cache | ✅ Migrated |
-| Metrics | 5180 | Prometheus | ✅ Migrated |
-| OTLP | 5181 | OpenTelemetry | ✅ Migrated |
-| Telegram Bot | N/A | No port needed | ✅ Active |
-
-**Public Access:**
-- No public URL (Telegram bot only)
-
----
-
-### OpenHorizon (5200-5299)
-
-| Service | Port | Purpose | Status |
-|---------|------|---------|--------|
-| Frontend | 5200 | Next.js app | ✅ Assigned |
-| Backend | 5201 | API server | ✅ Assigned |
-| PostgreSQL | 5232 | Database (pipeline) | ✅ Migrated |
-| Redis | 5279 | Cache (pipeline) | ✅ Migrated |
-| Weaviate | 5280 | Vector DB | ✅ Migrated |
-| MinIO | 5281 | S3 storage | ✅ Migrated |
-| MinIO Console | 5282 | Admin UI | ✅ Migrated |
-
-**Public Access:**
-- `oh.153.se` → `localhost:5174` (configured, not active)
-- Production: `openhorizon.cc` (Cloud Run)
-- Production: `app.openhorizon.cc` (Cloud Run)
-
----
-
-### Odin (5300-5399)
-
-| Service | Port | Purpose | Status |
-|---------|------|---------|--------|
-| API | 5300 | FastAPI server | ✅ Migrated |
-| Frontend | 5301 | React dashboard | ✅ Reserved |
-| PostgreSQL | 5332 | Database | ✅ Migrated |
-| Redis | 5379 | Task queue | ✅ Migrated |
-
-**Public Access:**
-- No public deployment (local only)
-
----
-
-### Supervisor Infrastructure (8000-8099)
-
-| Service | Port | Purpose | Status |
-|---------|------|---------|--------|
-| Supervisor MCP | 8081 | MCP HTTP endpoint | ✅ Active |
-| PostgreSQL | 5432 | Supervisor DB | ❌ Not running |
+**Detailed assignments**: See `/home/samuel/sv/docs/guides/port-allocations-detailed.md`
 
 ---
 
@@ -107,36 +35,7 @@ ingress:
 - ✅ `consilio.153.se` → Working
 - ⚠️ `oh.153.se` → Configured but not active
 
----
-
-## Migration Status
-
-### Completed Migrations ✅
-
-**Consilio (5000-5099):**
-- ✅ Backend: 3000 → 5000
-- ✅ PostgreSQL: 5432 → 5032
-- ✅ Frontend: 5173 → 5073
-- ✅ Nginx: Updated to proxy 5073 + 5000
-
-**Health-Agent (5100-5199):**
-- ✅ API: 8080 → 5100
-- ✅ PostgreSQL: 5436 → 5132
-- ✅ Redis: 6379 → 5179
-- ✅ Metrics: 8000 → 5180
-- ✅ OTLP: 4318 → 5181
-
-**OpenHorizon (5200-5299):**
-- ✅ PostgreSQL: 15432 → 5232
-- ✅ Redis: 6381 → 5279
-- ✅ Weaviate: 8081 → 5280
-- ✅ MinIO: 9000 → 5281
-- ✅ MinIO Console: 9001 → 5282
-
-**Odin (5300-5399):**
-- ✅ API: 8000 → 5300
-- ✅ PostgreSQL: 5432 → 5332
-- ✅ Redis: 6379 → 5379
+**Migration history**: See detailed guide
 
 ---
 

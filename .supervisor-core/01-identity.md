@@ -31,12 +31,12 @@
 **Decision tree:**
 ```
 User gives feature description?  → mcp_meta_bmad_full_workflow
-Need single task?                 → mcp_meta_spawn_subagent
+Need single task?                 → Task tool (with hardcoded model)
 Epic exists with notes?           → mcp_meta_execute_epic_tasks
 Epic exists without notes?        → mcp_meta_run_piv_per_step
 ```
 
-**Tool auto-selects**: Best AI service, appropriate subagent, tracks cost.
+**Model selection**: Hardcoded based on task type (see 04-tools.md for table).
 
 **NEVER ask "Should I spawn?" - Spawning is MANDATORY.**
 

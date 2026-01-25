@@ -19,7 +19,7 @@
   - /home/samuel/sv/supervisor-service-s/.supervisor-meta/03-patterns.md
   - /home/samuel/sv/supervisor-service-s/.supervisor-meta/04-port-allocations.md
   - /home/samuel/sv/supervisor-service-s/.supervisor-specific/02-deployment-status.md -->
-<!-- Generated: 2026-01-25T16:28:27.128Z -->
+<!-- Generated: 2026-01-25T16:42:55.183Z -->
 
 # Supervisor Identity
 
@@ -54,12 +54,12 @@
 **Decision tree:**
 ```
 User gives feature description?  → mcp_meta_bmad_full_workflow
-Need single task?                 → mcp_meta_spawn_subagent
+Need single task?                 → Task tool (with hardcoded model)
 Epic exists with notes?           → mcp_meta_execute_epic_tasks
 Epic exists without notes?        → mcp_meta_run_piv_per_step
 ```
 
-**Tool auto-selects**: Best AI service, appropriate subagent, tracks cost.
+**Model selection**: Hardcoded based on task type (see 04-tools.md for table).
 
 **NEVER ask "Should I spawn?" - Spawning is MANDATORY.**
 
@@ -198,19 +198,17 @@ Access via `/home/samuel/sv/.claude/commands/`:
 | Tool | When to Use | Syntax |
 |------|-------------|--------|
 | `mcp_meta_bmad_full_workflow` | User gives feature description | `{ projectName, projectPath, featureDescription }` |
-| `mcp_meta_spawn_subagent` | Single task (research, implementation, testing) | `{ task_type, description, context }` |
+| `Task` tool | Single task (research, implementation, testing) | `{ description, prompt, subagent_type, model }` |
 | `mcp_meta_run_piv_per_step` | Epic exists, no Implementation Notes | `{ projectName, projectPath, epicFile }` |
 | `mcp_meta_execute_epic_tasks` | Epic has Implementation Notes | `{ projectName, projectPath, epicFile }` |
 
 **Decision tree:**
 ```
 Feature request?           → bmad_full_workflow
-Single task?               → spawn_subagent
+Single task?               → Task tool (use model table below)
 Epic without notes?        → run_piv_per_step
 Epic with notes?           → execute_epic_tasks
 ```
-
-**Tools auto-handle**: Odin AI routing, subagent selection, cost tracking
 
 ---
 
@@ -366,7 +364,7 @@ Last activity: {timestamp}
 ## Primary Tools
 
 **Feature request**: `mcp_meta_bmad_full_workflow`
-**Single task**: `mcp_meta_spawn_subagent`
+**Single task**: `Task` tool (with hardcoded model - see 04-tools.md)
 **Epic with notes**: `mcp_meta_execute_epic_tasks`
 **Epic without notes**: `mcp_meta_run_piv_per_step`
 
@@ -1012,88 +1010,50 @@ This service depends on shared resources in `/home/samuel/sv/`:
 
 ## Code Organization
 
-### Module Structure
-```typescript
-// Each module exports a class or functions
-export class ServiceName {
-  constructor(dependencies) {
-    // Dependency injection
-  }
+**Module Structure**: Export classes/functions, dependency injection, structured returns (`{ success, data/error }`)
 
-  async methodName(): Promise<Result> {
-    // Implementation
-  }
-}
-```
+**Error Handling**: Try/catch async operations, log errors, return structured responses
 
-### Error Handling
-```typescript
-try {
-  const result = await operation();
-  return { success: true, data: result };
-} catch (error) {
-  console.error('Operation failed:', error);
-  return {
-    success: false,
-    error: error instanceof Error ? error.message : 'Unknown error'
-  };
-}
-```
+**Database Queries**: Import from `../db/client.js`, parameterized queries, return `result.rows`
 
-### Database Queries
-```typescript
-import { pool } from '../db/client.js';
+---
 
-export async function queryName(params: Params): Promise<Result[]> {
-  const query = `
-    SELECT * FROM table_name
-    WHERE condition = $1
-  `;
+## Naming Conventions
 
-  const result = await pool.query(query, [params.value]);
-  return result.rows;
-}
-```
+- **Classes**: PascalCase (`InstructionAssembler.ts`)
+- **Utilities**: kebab-case (`string-utils.ts`)
+- **Types**: kebab-case + suffix (`instruction-types.ts`)
+- **Tests**: Same as file + `.test.ts`
 
-## File Naming
+---
 
-- Classes: PascalCase (e.g., `InstructionAssembler.ts`)
-- Utilities: kebab-case (e.g., `string-utils.ts`)
-- Types: kebab-case with suffix (e.g., `instruction-types.ts`)
-- Tests: Same as file + `.test.ts` (e.g., `InstructionAssembler.test.ts`)
+## Imports
 
-## Import Conventions
-
-Always use `.js` extension for local imports (TypeScript ESM requirement):
+**CRITICAL**: Always use `.js` extension for local imports (TypeScript ESM requirement)
 
 ```typescript
-import { Something } from './module.js';  // ✓ Correct
-import { Something } from './module';     // ✗ Wrong
+import { Something } from './module.js';  // ✓
+import { Something } from './module';     // ✗
 ```
+
+---
 
 ## Documentation
 
-Use JSDoc for all public APIs:
+**JSDoc for all public APIs**: Description, `@param`, `@returns`, `@throws`
 
-```typescript
-/**
- * Brief description of what this does
- *
- * @param paramName - Description of parameter
- * @returns Description of return value
- * @throws {ErrorType} When this error occurs
- */
-export async function functionName(paramName: string): Promise<Result> {
-  // Implementation
-}
-```
+---
 
 ## Testing
 
-- Unit tests in `tests/unit/`
-- Integration tests in `tests/integration/`
-- Test database separate from production
-- Mock external dependencies
+**Locations**: Unit (`tests/unit/`), Integration (`tests/integration/`)
+**Practice**: Separate test database, mock external dependencies
+
+---
+
+## References
+
+**Guide**: `/home/samuel/sv/docs/guides/meta-service-patterns-guide.md` (complete examples, templates, patterns)
 
 # Port Allocation Registry
 
@@ -1112,79 +1072,7 @@ export async function functionName(paramName: string): Promise<Result> {
 | Supervisor Infrastructure | 8000-8099 | ✅ Active |
 | Legacy/Shared | 3000-3099 | ⚠️ Deprecated |
 
----
-
-## Detailed Port Assignments
-
-### Consilio (5000-5099)
-
-| Service | Port | Purpose | Status |
-|---------|------|---------|--------|
-| Backend API | 5000 | Express API | ✅ Migrated |
-| PostgreSQL | 5032 | Database | ✅ Migrated |
-| Frontend (dev) | 5073 | Vite dev server | ✅ Assigned |
-| Frontend (tunnel) | 5175 | Nginx proxy | ✅ Active |
-
-**Public Access:**
-- `consilio.153.se` → `localhost:5175`
-
----
-
-### Health-Agent (5100-5199)
-
-| Service | Port | Purpose | Status |
-|---------|------|---------|--------|
-| API (dev) | 5100 | FastAPI REST API | ✅ Migrated |
-| PostgreSQL | 5132 | Database | ✅ Migrated |
-| Redis | 5179 | Cache | ✅ Migrated |
-| Metrics | 5180 | Prometheus | ✅ Migrated |
-| OTLP | 5181 | OpenTelemetry | ✅ Migrated |
-| Telegram Bot | N/A | No port needed | ✅ Active |
-
-**Public Access:**
-- No public URL (Telegram bot only)
-
----
-
-### OpenHorizon (5200-5299)
-
-| Service | Port | Purpose | Status |
-|---------|------|---------|--------|
-| Frontend | 5200 | Next.js app | ✅ Assigned |
-| Backend | 5201 | API server | ✅ Assigned |
-| PostgreSQL | 5232 | Database (pipeline) | ✅ Migrated |
-| Redis | 5279 | Cache (pipeline) | ✅ Migrated |
-| Weaviate | 5280 | Vector DB | ✅ Migrated |
-| MinIO | 5281 | S3 storage | ✅ Migrated |
-| MinIO Console | 5282 | Admin UI | ✅ Migrated |
-
-**Public Access:**
-- `oh.153.se` → `localhost:5174` (configured, not active)
-- Production: `openhorizon.cc` (Cloud Run)
-- Production: `app.openhorizon.cc` (Cloud Run)
-
----
-
-### Odin (5300-5399)
-
-| Service | Port | Purpose | Status |
-|---------|------|---------|--------|
-| API | 5300 | FastAPI server | ✅ Migrated |
-| Frontend | 5301 | React dashboard | ✅ Reserved |
-| PostgreSQL | 5332 | Database | ✅ Migrated |
-| Redis | 5379 | Task queue | ✅ Migrated |
-
-**Public Access:**
-- No public deployment (local only)
-
----
-
-### Supervisor Infrastructure (8000-8099)
-
-| Service | Port | Purpose | Status |
-|---------|------|---------|--------|
-| Supervisor MCP | 8081 | MCP HTTP endpoint | ✅ Active |
-| PostgreSQL | 5432 | Supervisor DB | ❌ Not running |
+**Detailed assignments**: See `/home/samuel/sv/docs/guides/port-allocations-detailed.md`
 
 ---
 
@@ -1204,36 +1092,7 @@ ingress:
 - ✅ `consilio.153.se` → Working
 - ⚠️ `oh.153.se` → Configured but not active
 
----
-
-## Migration Status
-
-### Completed Migrations ✅
-
-**Consilio (5000-5099):**
-- ✅ Backend: 3000 → 5000
-- ✅ PostgreSQL: 5432 → 5032
-- ✅ Frontend: 5173 → 5073
-- ✅ Nginx: Updated to proxy 5073 + 5000
-
-**Health-Agent (5100-5199):**
-- ✅ API: 8080 → 5100
-- ✅ PostgreSQL: 5436 → 5132
-- ✅ Redis: 6379 → 5179
-- ✅ Metrics: 8000 → 5180
-- ✅ OTLP: 4318 → 5181
-
-**OpenHorizon (5200-5299):**
-- ✅ PostgreSQL: 15432 → 5232
-- ✅ Redis: 6381 → 5279
-- ✅ Weaviate: 8081 → 5280
-- ✅ MinIO: 9000 → 5281
-- ✅ MinIO Console: 9001 → 5282
-
-**Odin (5300-5399):**
-- ✅ API: 8000 → 5300
-- ✅ PostgreSQL: 5432 → 5332
-- ✅ Redis: 6379 → 5379
+**Migration history**: See detailed guide
 
 ---
 

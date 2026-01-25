@@ -15,19 +15,17 @@ Access via `/home/samuel/sv/.claude/commands/`:
 | Tool | When to Use | Syntax |
 |------|-------------|--------|
 | `mcp_meta_bmad_full_workflow` | User gives feature description | `{ projectName, projectPath, featureDescription }` |
-| `mcp_meta_spawn_subagent` | Single task (research, implementation, testing) | `{ task_type, description, context }` |
+| `Task` tool | Single task (research, implementation, testing) | `{ description, prompt, subagent_type, model }` |
 | `mcp_meta_run_piv_per_step` | Epic exists, no Implementation Notes | `{ projectName, projectPath, epicFile }` |
 | `mcp_meta_execute_epic_tasks` | Epic has Implementation Notes | `{ projectName, projectPath, epicFile }` |
 
 **Decision tree:**
 ```
 Feature request?           → bmad_full_workflow
-Single task?               → spawn_subagent
+Single task?               → Task tool (use model table below)
 Epic without notes?        → run_piv_per_step
 Epic with notes?           → execute_epic_tasks
 ```
-
-**Tools auto-handle**: Odin AI routing, subagent selection, cost tracking
 
 ---
 

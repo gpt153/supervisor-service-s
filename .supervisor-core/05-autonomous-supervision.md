@@ -94,7 +94,7 @@ Last activity: {timestamp}
 ## Primary Tools
 
 **Feature request**: `mcp_meta_bmad_full_workflow`
-**Single task**: `mcp_meta_spawn_subagent`
+**Single task**: `Task` tool (with hardcoded model - see 04-tools.md)
 **Epic with notes**: `mcp_meta_execute_epic_tasks`
 **Epic without notes**: `mcp_meta_run_piv_per_step`
 
