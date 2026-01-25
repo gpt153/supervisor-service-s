@@ -29,18 +29,12 @@ mcp_meta_bmad_full_workflow({
 ```
 
 **Use when**: User provides feature description (start-to-finish workflow)
-**Does**: Complete 4-phase BMAD methodology
-- Auto-detects complexity (0-4)
-- Creates feature request, PRD (if needed), epic(s), ADRs
-- Implements with PIV loop
-- Creates pull requests
+**Does**: Complete 4-phase BMAD (Analysis → Planning → Architecture → Implementation)
+- Auto-detects complexity (0-4) and greenfield vs brownfield
+- Creates all artifacts (feature request, PRD, epic, ADRs) as needed
+- Implements and validates
 
-**Complexity levels:**
-- 0: Bug fix (direct implementation, no planning)
-- 1: Small feature (analysis + epic + implementation)
-- 2: Medium feature (+ architecture/ADRs)
-- 3: Large feature (+ PRD, may shard into multiple epics)
-- 4: Enterprise feature (complete methodology)
+**Complexity reference**: `/home/samuel/sv/docs/guides/bmad-user-guide.md`
 
 ### Single Task
 ```

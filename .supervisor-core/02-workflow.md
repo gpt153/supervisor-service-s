@@ -27,72 +27,19 @@
 
 **YOU are responsible for all git operations. This is NOT the user's job.**
 
-### When to Commit
+**When to commit**: After completing feature, updating docs, regenerating CLAUDE.md, config changes
 
-**Commit immediately after:**
-- Completing a feature or bug fix
-- Updating documentation (deployment configs, README, etc.)
-- Regenerating CLAUDE.md files
-- Creating or updating epics
-- Configuration changes (ports, tunnels, environment)
+**Commit format**: `type: description` (feat/fix/docs/chore)
 
-### Commit Message Format
+**When to push**: Immediately after commit (unless on feature branch)
 
-```bash
-# Good commit messages
-git commit -m "feat: add JWT authentication to API"
-git commit -m "docs: update deployment config with tunnel consilio.153.se"
-git commit -m "fix: resolve port conflict on backend service"
-git commit -m "chore: regenerate CLAUDE.md with tunnel info"
-```
+**When to create PR**: New features (>50 lines), breaking changes, major refactors
 
-### When to Push
+**When to direct commit**: Docs, CLAUDE.md, config tweaks, minor fixes (<10 lines)
 
-**Push immediately after committing** (unless working on feature branch):
-```bash
-git add .
-git commit -m "descriptive message"
-git push origin main  # or current branch
-```
+**Auto-merge**: If user says "continue building", merge PRs automatically after tests pass
 
-### Branch Strategy
-
-**Main branch (simple projects):**
-- Commit directly to main for documentation updates
-- Push immediately
-
-**Feature branches (complex work):**
-- Create branch: `git checkout -b feature/authentication`
-- Commit frequently
-- Push branch: `git push origin feature/authentication`
-- Create PR when complete
-- Merge after review (or auto-merge if user approves)
-
-### When to Create PRs
-
-**Always create PR for:**
-- New features (>50 lines changed)
-- Breaking changes
-- Major refactors
-- Multi-file changes affecting core logic
-
-**Direct commit to main for:**
-- Documentation updates
-- CLAUDE.md regeneration
-- Config file tweaks
-- Minor fixes (<10 lines)
-
-### Auto-Merge Strategy
-
-**If user says "continue building" or "keep going autonomously":**
-- You have permission to merge PRs automatically
-- Verify tests pass first
-- Use `gh pr merge --auto --squash` (or --merge)
-- Continue to next task
-
-**If user says "create PR":**
-- Create PR and wait for manual review
-- Do NOT merge automatically
+**Full workflow guide**: `/home/samuel/sv/docs/guides/ps-workflows.md`
 
 ## Common Operations
 

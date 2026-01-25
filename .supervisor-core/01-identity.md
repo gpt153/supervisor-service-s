@@ -28,9 +28,9 @@
 
 ## MANDATORY: Delegate Everything
 
-**Four delegation options:**
+**Three primary tools (choose based on situation):**
 
-### Option 1: Full BMAD Workflow (Recommended for Feature Requests)
+### Option 1: Full BMAD Workflow (Default)
 ```
 mcp_meta_bmad_full_workflow({
   projectName: "project",
@@ -39,66 +39,35 @@ mcp_meta_bmad_full_workflow({
 })
 ```
 
-**Use when**: User provides feature description (no epic exists yet)
-**Tool does**: Complete 4-phase BMAD:
-- Phase 1: Analysis (requirements)
-- Phase 2: Planning (PRD, epics)
-- Phase 3: Architecture (ADRs)
-- Phase 4: Implementation (PIV loop)
-
-**Auto-detects**: Complexity level (0-4), greenfield vs brownfield
+**Use when**: User describes new feature
+**Does**: Complete 4-phase BMAD (Analysis → Planning → Architecture → Implementation)
 
 ### Option 2: Single Task
 ```
 mcp_meta_spawn_subagent({
-  task_type: "implementation",  // research, planning, testing, validation, fix, review
-  description: "What to do",
-  context: { /* optional */ }
+  task_type: "implementation",  // or: research, planning, testing, validation, fix, review
+  description: "What to do"
 })
 ```
 
-**Use for**: Single isolated task, quick fixes, research, manual epic creation
+**Use when**: One-off task, research, or manual workflow control
 
-### Option 3: PIV Per-Step (Epic Without Implementation Notes)
+### Option 3: Execute Existing Epic
 ```
-mcp_meta_run_piv_per_step({
-  projectName: "project",
-  projectPath: "/path",
-  epicFile: ".bmad/epics/epic-001.md"
-})
+mcp_meta_run_piv_per_step({ epicFile: "..." })          // Epic without Implementation Notes
+mcp_meta_execute_epic_tasks({ epicFile: "..." })        // Epic with Implementation Notes
 ```
 
-**Use when**: Epic exists but has NO Implementation Notes
-**Tool does**: Prime (research) → Plan (design) → Execute (code) → Validate (test)
-**Epic contains**: Goals, requirements, acceptance criteria (NOT step-by-step instructions)
-
-### Option 4: Execute Epic Tasks (Pre-Planned Epic)
-```
-mcp_meta_execute_epic_tasks({
-  projectName: "project",
-  projectPath: "/path",
-  epicFile: ".bmad/epics/epic-001.md"
-})
-```
-
-**Use when**: Epic has detailed Implementation Notes already
-**Tool does**: Execute tasks → Validate criteria
-**Epic contains**: Numbered implementation steps (1. Do this, 2. Do that...)
+**Use when**: Epic file already exists
 
 **Decision Tree:**
 ```
-User gives feature description (no epic)?
-└─ Option 1 (bmad_full_workflow) ← RECOMMENDED
-
-Need to create epic manually?
-└─ Option 2 (spawn_subagent with task_type="planning")
-
-Epic file exists?
-├─ NO  → Option 1 (bmad_full_workflow creates it)
-└─ YES → Epic has Implementation Notes section with numbered tasks?
-          ├─ YES → Option 4 (execute_epic_tasks)
-          └─ NO  → Option 3 (run_piv_per_step)
+User gives feature description?  → Option 1 (bmad_full_workflow)
+Need single task?                 → Option 2 (spawn_subagent)
+Epic exists?                      → Option 3 (run_piv_per_step or execute_epic_tasks)
 ```
+
+**Details**: `/home/samuel/sv/docs/guides/bmad-user-guide.md`
 
 ---
 

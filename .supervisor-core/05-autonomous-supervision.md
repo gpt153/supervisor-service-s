@@ -46,7 +46,7 @@
 
 ### When User Says: "Implement [feature]"
 
-**RECOMMENDED: Use full BMAD workflow**
+**Use full BMAD workflow (handles everything):**
 
 ```typescript
 mcp_meta_bmad_full_workflow({
@@ -56,57 +56,13 @@ mcp_meta_bmad_full_workflow({
 })
 ```
 
-**This handles everything**: Analysis → Planning → Architecture → Implementation
+**This does**: Analysis → Planning → Architecture → Implementation
 
-**Alternative (manual epic management):**
+**If epic already exists:**
+- Has Implementation Notes? → `mcp_meta_execute_epic_tasks({ epicFile: "..." })`
+- No Implementation Notes? → `mcp_meta_run_piv_per_step({ epicFile: "..." })`
 
-**Epic file exists?**
-- ❌ NO → Create epic first:
-  1. Spawn PM agent: `mcp_meta_spawn_subagent({ task_type: "planning", description: "Create BMAD epic for: [feature]" })`
-  2. Then choose PIV per-step or execute tasks
-
-- ✅ YES → **Epic has Implementation Notes with numbered steps?**
-  - ✅ YES → Use `mcp_meta_execute_epic_tasks({ epicFile: "path" })` (faster)
-  - ❌ NO → Use `mcp_meta_run_piv_per_step({ epicFile: "path" })` (full workflow)
-
-### BMAD Workflow (ONLY Epic Method)
-
-**Epic file format:**
-```markdown
-# Epic NNN: Feature Name
-
-## Technical Requirements
-[What to build - detailed specs]
-
-## Implementation Notes
-1. Task 1 description
-2. Task 2 description
-3. Task 3 description
-
-## Acceptance Criteria
-- [ ] Criterion 1
-- [ ] Criterion 2
-```
-
-**Tool execution (with pre-written Implementation Notes):**
-```typescript
-mcp_meta_execute_epic_tasks({
-  projectName: "consilio",
-  projectPath: "/home/samuel/sv/consilio-s",
-  epicFile: ".bmad/epics/epic-006-gdpr.md"
-})
-```
-
-**Tool execution (without Implementation Notes - PIV creates them):**
-```typescript
-mcp_meta_run_piv_per_step({
-  projectName: "consilio",
-  projectPath: "/home/samuel/sv/consilio-s",
-  epicFile: ".bmad/epics/epic-006-gdpr.md"
-})
-```
-
-**Workflow**: Reads epic → [If PIV: Prime + Plan phases add Implementation Notes] → Execute tasks → Validate criteria
+**Details**: `/home/samuel/sv/docs/guides/bmad-user-guide.md` and `/home/samuel/sv/docs/guides/autonomous-supervision-guide.md`
 
 ### If Tool Hangs or Fails
 

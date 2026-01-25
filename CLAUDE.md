@@ -18,7 +18,7 @@
   - /home/samuel/sv/supervisor-service-s/.supervisor-meta/03-patterns.md
   - /home/samuel/sv/supervisor-service-s/.supervisor-meta/04-port-allocations.md
   - /home/samuel/sv/supervisor-service-s/.supervisor-specific/02-deployment-status.md -->
-<!-- Generated: 2026-01-24T11:30:53.443Z -->
+<!-- Generated: 2026-01-25T10:13:39.936Z -->
 
 # Supervisor Identity
 
@@ -50,9 +50,9 @@
 
 ## MANDATORY: Delegate Everything
 
-**Four delegation options:**
+**Three primary tools (choose based on situation):**
 
-### Option 1: Full BMAD Workflow (Recommended for Feature Requests)
+### Option 1: Full BMAD Workflow (Default)
 ```
 mcp_meta_bmad_full_workflow({
   projectName: "project",
@@ -61,66 +61,35 @@ mcp_meta_bmad_full_workflow({
 })
 ```
 
-**Use when**: User provides feature description (no epic exists yet)
-**Tool does**: Complete 4-phase BMAD:
-- Phase 1: Analysis (requirements)
-- Phase 2: Planning (PRD, epics)
-- Phase 3: Architecture (ADRs)
-- Phase 4: Implementation (PIV loop)
-
-**Auto-detects**: Complexity level (0-4), greenfield vs brownfield
+**Use when**: User describes new feature
+**Does**: Complete 4-phase BMAD (Analysis → Planning → Architecture → Implementation)
 
 ### Option 2: Single Task
 ```
 mcp_meta_spawn_subagent({
-  task_type: "implementation",  // research, planning, testing, validation, fix, review
-  description: "What to do",
-  context: { /* optional */ }
+  task_type: "implementation",  // or: research, planning, testing, validation, fix, review
+  description: "What to do"
 })
 ```
 
-**Use for**: Single isolated task, quick fixes, research, manual epic creation
+**Use when**: One-off task, research, or manual workflow control
 
-### Option 3: PIV Per-Step (Epic Without Implementation Notes)
+### Option 3: Execute Existing Epic
 ```
-mcp_meta_run_piv_per_step({
-  projectName: "project",
-  projectPath: "/path",
-  epicFile: ".bmad/epics/epic-001.md"
-})
+mcp_meta_run_piv_per_step({ epicFile: "..." })          // Epic without Implementation Notes
+mcp_meta_execute_epic_tasks({ epicFile: "..." })        // Epic with Implementation Notes
 ```
 
-**Use when**: Epic exists but has NO Implementation Notes
-**Tool does**: Prime (research) → Plan (design) → Execute (code) → Validate (test)
-**Epic contains**: Goals, requirements, acceptance criteria (NOT step-by-step instructions)
-
-### Option 4: Execute Epic Tasks (Pre-Planned Epic)
-```
-mcp_meta_execute_epic_tasks({
-  projectName: "project",
-  projectPath: "/path",
-  epicFile: ".bmad/epics/epic-001.md"
-})
-```
-
-**Use when**: Epic has detailed Implementation Notes already
-**Tool does**: Execute tasks → Validate criteria
-**Epic contains**: Numbered implementation steps (1. Do this, 2. Do that...)
+**Use when**: Epic file already exists
 
 **Decision Tree:**
 ```
-User gives feature description (no epic)?
-└─ Option 1 (bmad_full_workflow) ← RECOMMENDED
-
-Need to create epic manually?
-└─ Option 2 (spawn_subagent with task_type="planning")
-
-Epic file exists?
-├─ NO  → Option 1 (bmad_full_workflow creates it)
-└─ YES → Epic has Implementation Notes section with numbered tasks?
-          ├─ YES → Option 4 (execute_epic_tasks)
-          └─ NO  → Option 3 (run_piv_per_step)
+User gives feature description?  → Option 1 (bmad_full_workflow)
+Need single task?                 → Option 2 (spawn_subagent)
+Epic exists?                      → Option 3 (run_piv_per_step or execute_epic_tasks)
 ```
+
+**Details**: `/home/samuel/sv/docs/guides/bmad-user-guide.md`
 
 ---
 
@@ -231,72 +200,19 @@ Epic file exists?
 
 **YOU are responsible for all git operations. This is NOT the user's job.**
 
-### When to Commit
+**When to commit**: After completing feature, updating docs, regenerating CLAUDE.md, config changes
 
-**Commit immediately after:**
-- Completing a feature or bug fix
-- Updating documentation (deployment configs, README, etc.)
-- Regenerating CLAUDE.md files
-- Creating or updating epics
-- Configuration changes (ports, tunnels, environment)
+**Commit format**: `type: description` (feat/fix/docs/chore)
 
-### Commit Message Format
+**When to push**: Immediately after commit (unless on feature branch)
 
-```bash
-# Good commit messages
-git commit -m "feat: add JWT authentication to API"
-git commit -m "docs: update deployment config with tunnel consilio.153.se"
-git commit -m "fix: resolve port conflict on backend service"
-git commit -m "chore: regenerate CLAUDE.md with tunnel info"
-```
+**When to create PR**: New features (>50 lines), breaking changes, major refactors
 
-### When to Push
+**When to direct commit**: Docs, CLAUDE.md, config tweaks, minor fixes (<10 lines)
 
-**Push immediately after committing** (unless working on feature branch):
-```bash
-git add .
-git commit -m "descriptive message"
-git push origin main  # or current branch
-```
+**Auto-merge**: If user says "continue building", merge PRs automatically after tests pass
 
-### Branch Strategy
-
-**Main branch (simple projects):**
-- Commit directly to main for documentation updates
-- Push immediately
-
-**Feature branches (complex work):**
-- Create branch: `git checkout -b feature/authentication`
-- Commit frequently
-- Push branch: `git push origin feature/authentication`
-- Create PR when complete
-- Merge after review (or auto-merge if user approves)
-
-### When to Create PRs
-
-**Always create PR for:**
-- New features (>50 lines changed)
-- Breaking changes
-- Major refactors
-- Multi-file changes affecting core logic
-
-**Direct commit to main for:**
-- Documentation updates
-- CLAUDE.md regeneration
-- Config file tweaks
-- Minor fixes (<10 lines)
-
-### Auto-Merge Strategy
-
-**If user says "continue building" or "keep going autonomously":**
-- You have permission to merge PRs automatically
-- Verify tests pass first
-- Use `gh pr merge --auto --squash` (or --merge)
-- Continue to next task
-
-**If user says "create PR":**
-- Create PR and wait for manual review
-- Do NOT merge automatically
+**Full workflow guide**: `/home/samuel/sv/docs/guides/ps-workflows.md`
 
 ## Common Operations
 
@@ -409,18 +325,12 @@ mcp_meta_bmad_full_workflow({
 ```
 
 **Use when**: User provides feature description (start-to-finish workflow)
-**Does**: Complete 4-phase BMAD methodology
-- Auto-detects complexity (0-4)
-- Creates feature request, PRD (if needed), epic(s), ADRs
-- Implements with PIV loop
-- Creates pull requests
+**Does**: Complete 4-phase BMAD (Analysis → Planning → Architecture → Implementation)
+- Auto-detects complexity (0-4) and greenfield vs brownfield
+- Creates all artifacts (feature request, PRD, epic, ADRs) as needed
+- Implements and validates
 
-**Complexity levels:**
-- 0: Bug fix (direct implementation, no planning)
-- 1: Small feature (analysis + epic + implementation)
-- 2: Medium feature (+ architecture/ADRs)
-- 3: Large feature (+ PRD, may shard into multiple epics)
-- 4: Enterprise feature (complete methodology)
+**Complexity reference**: `/home/samuel/sv/docs/guides/bmad-user-guide.md`
 
 ### Single Task
 ```
@@ -544,7 +454,7 @@ mcp_meta_execute_epic_tasks({
 
 ### When User Says: "Implement [feature]"
 
-**RECOMMENDED: Use full BMAD workflow**
+**Use full BMAD workflow (handles everything):**
 
 ```typescript
 mcp_meta_bmad_full_workflow({
@@ -554,57 +464,13 @@ mcp_meta_bmad_full_workflow({
 })
 ```
 
-**This handles everything**: Analysis → Planning → Architecture → Implementation
+**This does**: Analysis → Planning → Architecture → Implementation
 
-**Alternative (manual epic management):**
+**If epic already exists:**
+- Has Implementation Notes? → `mcp_meta_execute_epic_tasks({ epicFile: "..." })`
+- No Implementation Notes? → `mcp_meta_run_piv_per_step({ epicFile: "..." })`
 
-**Epic file exists?**
-- ❌ NO → Create epic first:
-  1. Spawn PM agent: `mcp_meta_spawn_subagent({ task_type: "planning", description: "Create BMAD epic for: [feature]" })`
-  2. Then choose PIV per-step or execute tasks
-
-- ✅ YES → **Epic has Implementation Notes with numbered steps?**
-  - ✅ YES → Use `mcp_meta_execute_epic_tasks({ epicFile: "path" })` (faster)
-  - ❌ NO → Use `mcp_meta_run_piv_per_step({ epicFile: "path" })` (full workflow)
-
-### BMAD Workflow (ONLY Epic Method)
-
-**Epic file format:**
-```markdown
-# Epic NNN: Feature Name
-
-## Technical Requirements
-[What to build - detailed specs]
-
-## Implementation Notes
-1. Task 1 description
-2. Task 2 description
-3. Task 3 description
-
-## Acceptance Criteria
-- [ ] Criterion 1
-- [ ] Criterion 2
-```
-
-**Tool execution (with pre-written Implementation Notes):**
-```typescript
-mcp_meta_execute_epic_tasks({
-  projectName: "consilio",
-  projectPath: "/home/samuel/sv/consilio-s",
-  epicFile: ".bmad/epics/epic-006-gdpr.md"
-})
-```
-
-**Tool execution (without Implementation Notes - PIV creates them):**
-```typescript
-mcp_meta_run_piv_per_step({
-  projectName: "consilio",
-  projectPath: "/home/samuel/sv/consilio-s",
-  epicFile: ".bmad/epics/epic-006-gdpr.md"
-})
-```
-
-**Workflow**: Reads epic → [If PIV: Prime + Plan phases add Implementation Notes] → Execute tasks → Validate criteria
+**Details**: `/home/samuel/sv/docs/guides/bmad-user-guide.md` and `/home/samuel/sv/docs/guides/autonomous-supervision-guide.md`
 
 ### If Tool Hangs or Fails
 
