@@ -50,6 +50,8 @@ interface SpawnSubagentParams {
   task_type: TaskType;
   description: string;
   context?: {
+    project_path?: string;        // CRITICAL: Target project directory (e.g., /home/samuel/sv/health-agent-s)
+    project_name?: string;         // Target project name (e.g., "health-agent")
     epic_id?: string;
     plan_file?: string;
     files_to_review?: string[];
@@ -670,9 +672,29 @@ export const spawnSubagentTool: ToolDefinition = {
     try {
       const typedParams = params as SpawnSubagentParams;
 
-      // Get project path from context or cwd
-      const projectPath = context?.project?.path || process.cwd();
-      const projectName = context?.project?.name || path.basename(projectPath);
+      // Get project path from context parameter (preferred) or ProjectContext fallback
+      // CRITICAL: Never use process.cwd() as it returns supervisor-service-s (where MCP server runs)
+      let projectPath: string;
+      let projectName: string;
+
+      if (typedParams.context?.project_path) {
+        // Use project_path from context parameter (most reliable)
+        projectPath = typedParams.context.project_path;
+        projectName = typedParams.context.project_name || path.basename(projectPath);
+      } else if (context?.project?.path) {
+        // Fallback to ProjectContext if available
+        projectPath = context.project.path;
+        projectName = context.project.name || path.basename(projectPath);
+      } else {
+        // No project context - fail fast rather than using wrong directory
+        return {
+          content: [{
+            type: 'text',
+            text: `❌ No project_path provided. Add to context parameter:\n\ncontext: { project_path: "/path/to/project", project_name: "project-name" }`
+          }],
+          isError: true
+        };
+      }
 
       console.log(`\n=== Spawning Subagent ===`);
       console.log(`Task Type: ${typedParams.task_type}`);
