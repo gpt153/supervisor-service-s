@@ -17,31 +17,47 @@ import axios from 'axios';
 const META_MCP_ENDPOINT = 'http://localhost:8081/mcp/meta';
 
 /**
- * Ensure .bmad/ directory structure exists
+ * Convert feature description to kebab-case slug
+ * Example: "Add dark mode theme system" → "dark-mode"
  */
-async function ensureBMADDirectories(projectPath: string): Promise<void> {
-  const bmadPath = path.join(projectPath, '.bmad');
+function generateFeatureName(description: string): string {
+  // Extract first 3-5 meaningful words, ignore articles and prepositions
+  const stopWords = new Set(['the', 'a', 'an', 'for', 'to', 'of', 'in', 'on', 'at', 'with']);
+
+  const words = description
+    .toLowerCase()
+    .replace(/[^a-z0-9\s-]/g, '') // Remove special chars
+    .split(/\s+/)
+    .filter(w => w.length > 2 && !stopWords.has(w))
+    .slice(0, 3); // Take first 3 meaningful words
+
+  return words.join('-');
+}
+
+/**
+ * Ensure .bmad/features/{feature-name}/ directory structure exists
+ */
+async function ensureBMADDirectories(projectPath: string, featureName: string): Promise<string> {
+  const featurePath = path.join(projectPath, '.bmad', 'features', featureName);
   const directories = [
-    'feature-requests',
-    'prd',
     'epics',
     'adr',
-    'architecture',
     'plans',
     'context',
     'reports'
   ];
 
   try {
-    // Create .bmad/ root if doesn't exist
-    await fs.mkdir(bmadPath, { recursive: true });
+    // Create feature root directory
+    await fs.mkdir(featurePath, { recursive: true });
 
     // Create subdirectories
     for (const dir of directories) {
-      await fs.mkdir(path.join(bmadPath, dir), { recursive: true });
+      await fs.mkdir(path.join(featurePath, dir), { recursive: true });
     }
 
-    console.log('[BMAD] Directory structure verified');
+    console.log(`[BMAD] Feature directory structure created: .bmad/features/${featureName}/`);
+    return featurePath;
   } catch (error) {
     console.error('[BMAD] Failed to create directory structure:', error);
     throw error;
@@ -306,8 +322,11 @@ export async function bmadFullWorkflow(params: BMADFullWorkflowParams): Promise<
     console.log(`[BMAD] Project: ${params.projectName}`);
     console.log(`[BMAD] Feature: ${params.featureDescription}`);
 
-    // 0. Ensure .bmad/ directory structure exists
-    await ensureBMADDirectories(params.projectPath);
+    // 0. Generate feature name and create directory structure
+    const featureName = generateFeatureName(params.featureDescription);
+    console.log(`[BMAD] Feature name: ${featureName}`);
+
+    const featurePath = await ensureBMADDirectories(params.projectPath, featureName);
 
     // 1. Detect complexity if not provided
     const complexity = params.complexity ?? await detectComplexity(params.featureDescription, params.projectPath);
@@ -323,6 +342,8 @@ export async function bmadFullWorkflow(params: BMADFullWorkflowParams): Promise<
         description: params.featureDescription,
         context: {
           project_path: params.projectPath,
+          feature_name: featureName,
+          feature_path: featurePath,
           complexity: 0,
           direct_implementation: true,
         }
@@ -349,6 +370,9 @@ export async function bmadFullWorkflow(params: BMADFullWorkflowParams): Promise<
           phase: 'analysis',
           artifact_type: 'feature_request',
           project_path: params.projectPath,
+          feature_name: featureName,
+          feature_path: featurePath,
+          output_path: path.join(featurePath, 'feature-request.md'),
           complexity,
         }
       });
@@ -377,6 +401,9 @@ export async function bmadFullWorkflow(params: BMADFullWorkflowParams): Promise<
             artifact_type: 'prd',
             feature_request: result.outputs.feature_request,
             project_path: params.projectPath,
+            feature_name: featureName,
+            feature_path: featurePath,
+            output_path: path.join(featurePath, 'prd.md'),
             complexity,
           }
         });
@@ -397,6 +424,9 @@ export async function bmadFullWorkflow(params: BMADFullWorkflowParams): Promise<
           prd: result.outputs.prd,
           feature_request: result.outputs.feature_request,
           project_path: params.projectPath,
+          feature_name: featureName,
+          feature_path: featurePath,
+          epics_directory: path.join(featurePath, 'epics'),
           complexity,
         }
       });
@@ -434,6 +464,9 @@ export async function bmadFullWorkflow(params: BMADFullWorkflowParams): Promise<
             artifact_type: 'adr',
             epic_file: epicFile,
             project_path: params.projectPath,
+            feature_name: featureName,
+            feature_path: featurePath,
+            adr_directory: path.join(featurePath, 'adr'),
           }
         });
 
@@ -468,6 +501,8 @@ export async function bmadFullWorkflow(params: BMADFullWorkflowParams): Promise<
             language: projectState.language || 'typescript',
             epic_file: epicFile,
             project_path: params.projectPath,
+            feature_name: featureName,
+            feature_path: featurePath,
           }
         });
 
@@ -487,6 +522,8 @@ export async function bmadFullWorkflow(params: BMADFullWorkflowParams): Promise<
           projectName: params.projectName,
           projectPath: params.projectPath,
           epicFile,
+          featureName,
+          featurePath,
         });
       } else {
         console.log('[BMAD] Epic lacks Implementation Notes - using PIV per-step');
@@ -495,6 +532,8 @@ export async function bmadFullWorkflow(params: BMADFullWorkflowParams): Promise<
           projectName: params.projectName,
           projectPath: params.projectPath,
           epicFile,
+          featureName,
+          featurePath,
         });
       }
 
