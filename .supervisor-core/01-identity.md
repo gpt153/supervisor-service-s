@@ -55,7 +55,7 @@ mcp_meta_bmad_full_workflow({
 ### Option 2: Single Task
 ```
 mcp_meta_spawn_subagent({
-  task_type: "implementation",  // or: research, planning, testing, validation, fix, review
+  task_type: "implementation",  // or: research, planning, testing, validation, documentation
   description: "What to do"
 })
 ```

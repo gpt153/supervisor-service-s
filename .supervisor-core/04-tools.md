@@ -37,8 +37,8 @@ Bash: /home/samuel/sv/supervisor-service-s/scripts/spawn research "Investigate h
 # Testing
 Bash: /home/samuel/sv/supervisor-service-s/scripts/spawn testing "Write E2E tests for visual search"
 
-# Bug fix
-Bash: /home/samuel/sv/supervisor-service-s/scripts/spawn fix "Fix IndexError in embedding generation"
+# Bug fix (use implementation for fixes)
+Bash: /home/samuel/sv/supervisor-service-s/scripts/spawn implementation "Fix IndexError in embedding generation"
 ```
 
 **Benefits:**

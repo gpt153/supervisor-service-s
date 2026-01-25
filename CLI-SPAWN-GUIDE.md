@@ -35,12 +35,12 @@ Bash: /home/samuel/sv/supervisor-service-s/scripts/spawn testing "Write E2E test
 
 ### Bug Fix
 ```bash
-Bash: /home/samuel/sv/supervisor-service-s/scripts/spawn fix "Fix IndexError in embedding generation when image is None"
+Bash: /home/samuel/sv/supervisor-service-s/scripts/spawn implementation "Fix IndexError in embedding generation when image is None"
 ```
 
 ### Code Review
 ```bash
-Bash: /home/samuel/sv/supervisor-service-s/scripts/spawn review "Review the CLIP integration changes for security issues"
+Bash: /home/samuel/sv/supervisor-service-s/scripts/spawn research "Review the CLIP integration code and identify potential issues"
 ```
 
 ---
@@ -59,13 +59,13 @@ Bash: /home/samuel/sv/supervisor-service-s/scripts/spawn review "Review the CLIP
 
 | Type | Use For |
 |------|---------|
-| `implementation` | Write code, add features, modify files |
-| `research` | Analyze codebase, investigate issues, understand systems |
+| `implementation` | Write code, add features, modify files, **bug fixes** |
+| `research` | Analyze codebase, investigate issues, understand systems, code review |
 | `testing` | Write tests, run validations, verify behavior |
 | `validation` | Check acceptance criteria, verify requirements |
-| `fix` | Bug fixes, error corrections |
-| `review` | Code review, security audit, quality check |
 | `planning` | Create epics, design implementation plans |
+| `documentation` | Update docs, README, API documentation |
+| `deployment` | Deploy services, infrastructure changes |
 
 ---
 

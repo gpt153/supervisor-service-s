@@ -18,7 +18,7 @@
   - /home/samuel/sv/supervisor-service-s/.supervisor-meta/03-patterns.md
   - /home/samuel/sv/supervisor-service-s/.supervisor-meta/04-port-allocations.md
   - /home/samuel/sv/supervisor-service-s/.supervisor-specific/02-deployment-status.md -->
-<!-- Generated: 2026-01-25T12:31:27.679Z -->
+<!-- Generated: 2026-01-25T12:55:25.454Z -->
 
 # Supervisor Identity
 
@@ -77,7 +77,7 @@ mcp_meta_bmad_full_workflow({
 ### Option 2: Single Task
 ```
 mcp_meta_spawn_subagent({
-  task_type: "implementation",  // or: research, planning, testing, validation, fix, review
+  task_type: "implementation",  // or: research, planning, testing, validation, documentation
   description: "What to do"
 })
 ```
@@ -343,8 +343,8 @@ Bash: /home/samuel/sv/supervisor-service-s/scripts/spawn research "Investigate h
 # Testing
 Bash: /home/samuel/sv/supervisor-service-s/scripts/spawn testing "Write E2E tests for visual search"
 
-# Bug fix
-Bash: /home/samuel/sv/supervisor-service-s/scripts/spawn fix "Fix IndexError in embedding generation"
+# Bug fix (use implementation for fixes)
+Bash: /home/samuel/sv/supervisor-service-s/scripts/spawn implementation "Fix IndexError in embedding generation"
 ```
 
 **Benefits:**
