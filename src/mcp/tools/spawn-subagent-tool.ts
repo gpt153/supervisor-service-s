@@ -394,42 +394,47 @@ async function spawnAgent(
     console.warn(`[Subagent Spawner] ⚠️  Failed to record spawn in database:`, error);
   }
 
-  // Execute agent using MultiAgentExecutor
-  console.log(`[Subagent Spawner] 🚀 Executing agent...`);
+  // Return instructions for MS to execute via Task tool
+  // The MCP tool can't call Task tool directly (only available in Claude conversations)
+  // So we return instructions + metadata for MS to spawn via Task tool
+  console.log(`[Subagent Spawner] 📄 Preparing for Claude Code Task tool execution...`);
   const startTime = Date.now();
 
   try {
-    const executor = new MultiAgentExecutor();
-
-    // Initialize adapters (load API keys from vault)
-    await executor.initialize();
-
-    // Map Odin service to AgentType
-    let agentType: 'gemini' | 'claude' | 'codex';
-    if (recommendation.service === 'claude' || recommendation.service === 'claude-max') {
-      agentType = 'claude';
-    } else if (recommendation.service === 'gemini') {
-      agentType = 'gemini';
+    // Map Odin recommendation to Claude Code model parameter
+    let claudeModel: 'sonnet' | 'opus' | 'haiku';
+    if (recommendation.service === 'claude-max' || recommendation.model.includes('opus')) {
+      claudeModel = 'opus';
+    } else if (recommendation.model.includes('haiku') || recommendation.service === 'gemini') {
+      claudeModel = 'haiku';  // Use haiku for simple/free tasks
     } else {
-      agentType = 'codex';
+      claudeModel = 'sonnet';  // Default to sonnet for medium complexity
     }
 
-    // Get timeout based on task type
-    const timeout = TIMEOUT_BY_TASK_TYPE[taskType] || 10 * 60 * 1000; // Default to 10 min
-    console.log(`[Subagent Spawner]    Timeout: ${timeout / 1000}s (${timeout / 60000} minutes)`);
+    // Get max turns based on task type
+    const timeout = TIMEOUT_BY_TASK_TYPE[taskType] || 10 * 60 * 1000;
+    const maxTurns = Math.ceil(timeout / (2 * 60 * 1000));  // Estimate: 2 minutes per turn
 
-    // Execute the task
-    const result = await executor.executeWithAgent(
-      {
-        prompt: instructions,
-        cwd: projectPath,
-        timeout,
-        outputFormat: 'text',
-      },
-      agentType
-    );
+    console.log(`[Subagent Spawner] ✅ Instructions prepared for Task tool`);
+    console.log(`[Subagent Spawner]    Recommended model: ${claudeModel}`);
+    console.log(`[Subagent Spawner]    Max turns: ${maxTurns}`);
+    console.log(`[Subagent Spawner]    Instructions file: ${instructionsPath}`);
 
     const duration = Date.now() - startTime;
+
+    // Return success with metadata for MS to spawn via Task tool
+    const result = {
+      success: true,
+      output: `Instructions prepared. MS should now call Task tool with model="${claudeModel}", max_turns=${maxTurns}.`,
+      error: undefined,
+      // Additional metadata for Task tool execution
+      task_tool_params: {
+        model: claudeModel,
+        max_turns: maxTurns,
+        instructions_file: instructionsPath,
+        project_path: projectPath
+      }
+    };
 
     console.log(`[Subagent Spawner] ${result.success ? '✅' : '❌'} Execution ${result.success ? 'completed' : 'failed'}`);
     console.log(`[Subagent Spawner]    Duration: ${duration}ms`);
@@ -476,6 +481,7 @@ async function spawnAgent(
       error: result.error,
       duration_ms: duration,
       output_file: outputFile,
+      task_tool_params: result.task_tool_params,
     };
   } catch (error) {
     const duration = Date.now() - startTime;
@@ -792,8 +798,9 @@ export const spawnSubagentTool: ToolDefinition = {
             output_file: executionResult.output_file,
             output: executionResult.output,
             error: executionResult.error,
+            task_tool_params: executionResult.task_tool_params,
             message: executionResult.success
-              ? `✅ Subagent executed successfully. Agent ID: ${executionResult.agent_id}`
+              ? `✅ Instructions prepared for Task tool execution. Model: ${executionResult.task_tool_params?.model}, Max turns: ${executionResult.task_tool_params?.max_turns}`
               : `❌ Subagent execution failed. Error: ${executionResult.error}`
           }, null, 2)
         }],

@@ -67,6 +67,17 @@ try {
   console.log(`   Model: ${parsed.model_used}`);
   console.log(`   Duration: ${parsed.duration_ms}ms`);
   console.log(`   Cost: ${parsed.estimated_cost}`);
+
+  if (parsed.task_tool_params) {
+    console.log(`\n📋 Task Tool Parameters:`);
+    console.log(`   Model: ${parsed.task_tool_params.model}`);
+    console.log(`   Max turns: ${parsed.task_tool_params.max_turns}`);
+    console.log(`   Instructions: ${parsed.task_tool_params.instructions_file}`);
+    console.log(`   Project path: ${parsed.task_tool_params.project_path}`);
+    console.log(`\n⚠️  NEXT STEP: MS must call Task tool to execute with full tool access.`);
+    console.log(`   The instructions file contains the complete task description.`);
+  }
+
   console.log(`\n📄 Output: ${parsed.output_file}`);
   console.log(`\nTo see output: cat ${parsed.output_file}`);
 

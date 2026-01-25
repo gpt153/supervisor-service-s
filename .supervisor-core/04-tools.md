@@ -19,34 +19,37 @@ Access via `/home/samuel/sv/.claude/commands/`:
 
 **CRITICAL: Use these for ALL execution tasks.**
 
-### Single Task (CLI Spawn - RECOMMENDED)
+### Single Task (RECOMMENDED: Task Tool Directly)
 
-**Primary method for PSes:**
+**Direct Task tool execution** (simplest and most reliable):
+```
+Task(
+  prompt="[Read instructions file and execute task]",
+  description="[5-10 word summary]",
+  subagent_type="general-purpose",
+  model="sonnet"  // or "haiku" for simple tasks, "opus" for complex
+)
+```
+
+**When to use**:
+- ✅ All implementation, research, testing tasks
+- ✅ Guaranteed tool access (Write/Edit/Bash)
+- ✅ No external API limitations
+
+### Single Task (Legacy: CLI Spawn)
+
+**⚠️ DEPRECATED: This prepares instructions but requires manual Task tool call.**
+
 ```bash
 Bash: /home/samuel/sv/supervisor-service-s/scripts/spawn <task_type> "<description>"
 ```
 
-**Examples:**
-```bash
-# Implementation
-Bash: /home/samuel/sv/supervisor-service-s/scripts/spawn implementation "Replace OpenAI with CLIP model in image_embedding.py"
+**Process:**
+1. Spawn queries Odin for service recommendation
+2. Returns `task_tool_params` with model + instructions file
+3. **You must then call Task tool** with those parameters
 
-# Research
-Bash: /home/samuel/sv/supervisor-service-s/scripts/spawn research "Investigate how memory validation works"
-
-# Testing
-Bash: /home/samuel/sv/supervisor-service-s/scripts/spawn testing "Write E2E tests for visual search"
-
-# Bug fix (use implementation for fixes)
-Bash: /home/samuel/sv/supervisor-service-s/scripts/spawn implementation "Fix IndexError in embedding generation"
-```
-
-**Benefits:**
-- ✅ Auto-detects project from your current directory
-- ✅ Simple 2-argument syntax
-- ✅ Uses Odin AI router (optimal service selection)
-- ✅ Tracks usage and cost
-- ✅ No manual project_path needed
+**Use Task tool directly instead** - simpler and more reliable.
 
 **Common task types:** implementation, research, testing, validation, planning, documentation, deployment
 
