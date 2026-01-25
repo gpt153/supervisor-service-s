@@ -672,6 +672,13 @@ export const spawnSubagentTool: ToolDefinition = {
     try {
       const typedParams = params as SpawnSubagentParams;
 
+      // DEBUG: Log what we received
+      console.log('[Spawn] Received context:', JSON.stringify({
+        hasContext: !!context,
+        contextProject: context?.project,
+        paramsContext: typedParams.context
+      }, null, 2));
+
       // Get project path with robust fallback chain
       // CRITICAL: Never use process.cwd() as it returns supervisor-service-s (where MCP server runs)
       let projectPath: string;

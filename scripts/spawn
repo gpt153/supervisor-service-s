@@ -1,0 +1,6 @@
+#!/bin/bash
+# Wrapper to run spawn-cli via tsx
+# Preserves original pwd via environment variable
+export SPAWN_PROJECT_PATH="$(pwd)"
+cd /home/samuel/sv/supervisor-service-s
+exec npx tsx scripts/spawn-cli.mjs "$@"
