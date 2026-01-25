@@ -1,84 +1,35 @@
 # Quick Start: Add New Core Instruction
 
-**5-minute guide for adding new behavior**
+**5-minute guide**
 
 ---
 
-## Step 1: Create Core File
+## Workflow
 
-```bash
-cd /home/samuel/sv/supervisor-service-s/.supervisor-core/
-vim 10-new-topic.md  # Use next number
-```
+1. **Create core file**: `.supervisor-core/11-new-topic.md` (next number)
+2. **Keep lean**: 60-130 lines, core rules + checklists only
+3. **Extract details**: Templates → `/docs/templates/`, guides → `/docs/guides/`
+4. **Test**: `npm run init-projects -- --project consilio-s --verbose`
+5. **Verify size**: `wc -c CLAUDE.md  # Should be < 40k`
+6. **Deploy**: `npm run init-projects -- --verbose`
 
-**Template** (60-130 lines target):
+---
+
+## Template Structure
+
 ```markdown
 # Topic Name
 
-## Critical Behavior
-
-**YOU MUST do X whenever Y happens.**
+## Critical Rules
+**MUST do X when Y**
 
 ## Checklist
-
-1. ✅ Item 1
-2. ✅ Item 2
-3. ✅ Item 3
-
-## When to Act
-
-- Trigger 1
-- Trigger 2
+1. ✅ Step 1
+2. ✅ Step 2
 
 ## References
-
-**Template**: `/home/samuel/sv/docs/templates/topic-template.md`
 **Guide**: `/home/samuel/sv/docs/guides/topic-guide.md`
 ```
-
----
-
-## Step 2: Create External Docs (Optional)
-
-**Template** (`/docs/templates/topic-template.md`):
-- Copy-paste ready structure
-- Placeholders for project-specific content
-
-**Guide** (`/docs/guides/topic-guide.md`):
-- Detailed walkthrough
-- Real examples
-- Common mistakes
-
-**Examples** (`/docs/examples/topic-examples.sh`):
-- Concrete code examples
-- Exact commands to run
-
----
-
-## Step 3: Test & Deploy
-
-```bash
-cd /home/samuel/sv/supervisor-service-s
-
-# Test one project
-npm run init-projects -- --project consilio-s --verbose
-
-# Check size
-wc -c /home/samuel/sv/consilio-s/CLAUDE.md  # Should be < 40k
-
-# Deploy all
-npm run init-projects -- --verbose
-```
-
----
-
-## Key Rules
-
-1. **Core behavior inline** (not just referenced)
-2. **Keep lean** (< 130 lines if possible)
-3. **Extract examples** to /docs/
-4. **Absolute paths** in references
-5. **Test before propagating**
 
 ---
 

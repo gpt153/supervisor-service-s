@@ -1,16 +1,25 @@
 ---
+epic_id: {feature-slug}-{NNN}
 parent_feature: {feature-slug}
-epic_id: {NNN}
 status: planning
+complexity: {0-4}
 created: {YYYY-MM-DD}
+started: null
+completed: null
+assigned_to: null
+source: {prd | feature-request}
 ---
 
 # Epic {NNN}: {Epic Title}
 
 **Feature**: {Human-readable feature name}
-**Epic ID**: {NNN}
-**Status**: {planning|in-progress|complete}
+**Epic ID**: {feature-slug}-{NNN}
+**Status**: {planning|in-progress|completed|archived}
+**Complexity**: {0-4}
 **Created**: {YYYY-MM-DD}
+**Started**: {YYYY-MM-DD | null}
+**Completed**: {YYYY-MM-DD | null}
+**Source**: {prd | feature-request}
 
 ---
 

@@ -1,68 +1,34 @@
 # Terminology Guide
 
-## CRITICAL: How to Use These Terms
+## CRITICAL: Expand Abbreviations
 
 **When communicating with user:**
-- ALWAYS use full term with abbreviation in brackets
-- Example: "Start a supervisor session in browser (SSB)"
-- Example: "Check the project directory (PD)"
-
-**User will use abbreviations only:**
-- User: "Start SSB" → You understand: "Start supervisor session in browser"
-- User: "Check PD" → You: "Checking project directory (PD) at /path/..."
-
-**YOU must expand abbreviations when responding.**
+- ALWAYS use full term with abbreviation: "supervisor session in browser (SSB)"
+- User: "Start SSB" → You: "Starting supervisor session in browser (SSB)"
 
 ---
 
 ## Official Terms
 
-### Browser Project (BP)
-**What**: Configured project in Claude.ai with MCP server, GitHub repo, custom instructions
-**Example**: "The Consilio browser project (BP) has GitHub integration"
-
-### Supervisor Session Browser (SSB)
-**What**: One chat session within a browser project (BP)
-**Example**: "Start a new supervisor session in browser (SSB) for authentication work"
-
-### Supervisor Session CLI (SSC)
-**What**: Claude Code CLI session running in terminal
-**Example**: "Open a supervisor session in CLI (SSC) in the consilio-s directory"
-
-### Project Directory (PD)
-**What**: Local folder containing code, .bmad/, all project files
-**Example**: "Navigate to the project directory (PD) at /home/samuel/sv/consilio-s/"
-
-### Project-Supervisor (PS)
-**What**: Claude instance supervising a specific product/service
-**Example**: "The Consilio project-supervisor (PS) spawned implementation agents"
-
-**There are multiple PSes:**
-- Consilio PS (manages Consilio service)
-- Odin PS (manages Odin service)
-- OpenHorizon PS (manages OpenHorizon service)
-- Health-Agent PS (manages Health-Agent service)
-
-### Meta-Supervisor (MS)
-**What**: Claude instance managing supervisor infrastructure
-**Example**: "The meta-supervisor (MS) provides MCP tools to all project-supervisors"
-
-### Service
-**What**: The actual product/platform being developed
-**Example**: "Consilio is a consultation management service"
+| Abbr | Full Term | Meaning |
+|------|-----------|---------|
+| **BP** | Browser Project | Configured Claude.ai project with MCP server |
+| **SSB** | Supervisor Session Browser | One chat session within BP |
+| **SSC** | Supervisor Session CLI | Claude Code CLI session |
+| **PD** | Project Directory | Local folder with code and .bmad/ |
+| **PS** | Project-Supervisor | Claude instance managing specific service |
+| **MS** | Meta-Supervisor | Claude instance managing infrastructure |
 
 ---
 
-## Quick Reference
+## Examples
 
-| User Says | You Understand | You Respond With |
-|-----------|----------------|------------------|
-| SSB | Supervisor session in browser | "supervisor session in browser (SSB)" |
-| SSC | Supervisor session in CLI | "supervisor session in CLI (SSC)" |
-| BP | Browser project | "browser project (BP)" |
-| PD | Project directory | "project directory (PD)" |
-| PS | Project-supervisor | "project-supervisor (PS)" |
-| MS | Meta-supervisor | "meta-supervisor (MS)" |
+**Browser Project (BP)**: "The Consilio browser project (BP) has GitHub integration"
+**SSB**: "Start a supervisor session in browser (SSB) for auth work"
+**SSC**: "Open supervisor session in CLI (SSC) in consilio-s/"
+**PD**: "Navigate to project directory (PD) at /home/samuel/sv/consilio-s/"
+**PS**: "The Consilio project-supervisor (PS) spawned agents"
+**MS**: "The meta-supervisor (MS) provides MCP tools"
 
 ---
 
@@ -70,25 +36,14 @@
 
 ```
 Meta-Supervisor (MS)
-├── Provides infrastructure
-├── Serves MCP tools
-└── Updates all PSes
+├── Infrastructure, MCP tools, updates PSes
 
 Project-Supervisor (PS) - Consilio
-├── Manages Consilio Service
-├── Works in Consilio Project Directory (PD)
-├── Accessible via Consilio Browser Project (BP)
-└── Calls MS's MCP tools
+├── Manages Service, works in PD, calls MS tools
 ```
 
 ---
 
-## Usage Examples
+**Complete examples**: `/home/samuel/sv/docs/guides/terminology-usage-examples.md`
 
-**For complete usage examples and scenarios:**
-- See: `/home/samuel/sv/docs/guides/terminology-usage-examples.md`
-
-**Remember:**
-✅ Always expand abbreviations when responding
-✅ User can use abbreviations alone
-✅ Be consistent across all communications
+**Remember**: Always expand abbreviations when responding.
