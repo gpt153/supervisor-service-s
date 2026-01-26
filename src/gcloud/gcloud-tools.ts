@@ -566,6 +566,245 @@ export const gcloudListProjectsTool: ToolDefinition = {
   },
 };
 
+// ============================================================================
+// OAuth Management Tools
+// ============================================================================
+
+/**
+ * List OAuth brands (consent screens)
+ */
+export const gcloudListOAuthBrandsTool: ToolDefinition = {
+  name: 'gcloud-list-oauth-brands',
+  description: 'List OAuth brands (consent screens) for a GCloud project',
+  inputSchema: {
+    type: 'object',
+    properties: {
+      project: {
+        type: 'string',
+        description: 'GCloud project name (e.g., odin, openhorizon)',
+      },
+    },
+    required: ['project'],
+  },
+  handler: async (params, context: ProjectContext) => {
+    try {
+      const gcloud = await getGCloud();
+      const brands = await gcloud.manager.listOAuthBrands(params.project);
+      return {
+        success: true,
+        count: brands.length,
+        brands,
+      };
+    } catch (error) {
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Unknown error',
+      };
+    }
+  },
+};
+
+/**
+ * Create OAuth brand (consent screen)
+ */
+export const gcloudCreateOAuthBrandTool: ToolDefinition = {
+  name: 'gcloud-create-oauth-brand',
+  description: 'Create an OAuth brand (consent screen) for a GCloud project',
+  inputSchema: {
+    type: 'object',
+    properties: {
+      project: {
+        type: 'string',
+        description: 'GCloud project name',
+      },
+      applicationTitle: {
+        type: 'string',
+        description: 'Application title shown on consent screen',
+      },
+      supportEmail: {
+        type: 'string',
+        description: 'Support email address',
+      },
+    },
+    required: ['project', 'applicationTitle', 'supportEmail'],
+  },
+  handler: async (params, context: ProjectContext) => {
+    try {
+      const gcloud = await getGCloud();
+      const brand = await gcloud.manager.createOAuthBrand(params.project, {
+        applicationTitle: params.applicationTitle,
+        supportEmail: params.supportEmail,
+      });
+      return {
+        success: true,
+        brand,
+      };
+    } catch (error) {
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Unknown error',
+      };
+    }
+  },
+};
+
+/**
+ * List OAuth clients
+ */
+export const gcloudListOAuthClientsTool: ToolDefinition = {
+  name: 'gcloud-list-oauth-clients',
+  description: 'List OAuth clients for a brand. Returns client IDs and secrets.',
+  inputSchema: {
+    type: 'object',
+    properties: {
+      project: {
+        type: 'string',
+        description: 'GCloud project name',
+      },
+      brandId: {
+        type: 'string',
+        description: 'Optional brand ID (uses first brand if not specified)',
+      },
+    },
+    required: ['project'],
+  },
+  handler: async (params, context: ProjectContext) => {
+    try {
+      const gcloud = await getGCloud();
+      const clients = await gcloud.manager.listOAuthClients(params.project, params.brandId);
+      return {
+        success: true,
+        count: clients.length,
+        clients,
+      };
+    } catch (error) {
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Unknown error',
+      };
+    }
+  },
+};
+
+/**
+ * Create OAuth client
+ */
+export const gcloudCreateOAuthClientTool: ToolDefinition = {
+  name: 'gcloud-create-oauth-client',
+  description: 'Create an OAuth 2.0 client. Returns client ID and secret.',
+  inputSchema: {
+    type: 'object',
+    properties: {
+      project: {
+        type: 'string',
+        description: 'GCloud project name',
+      },
+      displayName: {
+        type: 'string',
+        description: 'Display name for the OAuth client (e.g., "Production Client", "Development Client")',
+      },
+      brandId: {
+        type: 'string',
+        description: 'Optional brand ID (uses first brand if not specified)',
+      },
+    },
+    required: ['project', 'displayName'],
+  },
+  handler: async (params, context: ProjectContext) => {
+    try {
+      const gcloud = await getGCloud();
+      const client = await gcloud.manager.createOAuthClient(params.project, {
+        displayName: params.displayName,
+        brandId: params.brandId,
+      });
+      return {
+        success: true,
+        client,
+        reminder: 'IMPORTANT: Store client_id and secret in vault immediately using mcp__meta__set_secret',
+      };
+    } catch (error) {
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Unknown error',
+      };
+    }
+  },
+};
+
+/**
+ * Get OAuth client (retrieve credentials)
+ */
+export const gcloudGetOAuthClientTool: ToolDefinition = {
+  name: 'gcloud-get-oauth-client',
+  description: 'Get OAuth client with secret (for retrieving credentials)',
+  inputSchema: {
+    type: 'object',
+    properties: {
+      project: {
+        type: 'string',
+        description: 'GCloud project name',
+      },
+      clientName: {
+        type: 'string',
+        description: 'Full client name (format: projects/PROJECT/brands/BRAND/identityAwareProxyClients/CLIENT_ID)',
+      },
+    },
+    required: ['project', 'clientName'],
+  },
+  handler: async (params, context: ProjectContext) => {
+    try {
+      const gcloud = await getGCloud();
+      const client = await gcloud.manager.getOAuthClient(params.project, params.clientName);
+      return {
+        success: true,
+        client,
+      };
+    } catch (error) {
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Unknown error',
+      };
+    }
+  },
+};
+
+/**
+ * Delete OAuth client
+ */
+export const gcloudDeleteOAuthClientTool: ToolDefinition = {
+  name: 'gcloud-delete-oauth-client',
+  description: 'Delete an OAuth client',
+  inputSchema: {
+    type: 'object',
+    properties: {
+      project: {
+        type: 'string',
+        description: 'GCloud project name',
+      },
+      clientName: {
+        type: 'string',
+        description: 'Full client name to delete',
+      },
+    },
+    required: ['project', 'clientName'],
+  },
+  handler: async (params, context: ProjectContext) => {
+    try {
+      const gcloud = await getGCloud();
+      await gcloud.manager.deleteOAuthClient(params.project, params.clientName);
+      return {
+        success: true,
+        message: `Deleted OAuth client: ${params.clientName}`,
+      };
+    } catch (error) {
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Unknown error',
+      };
+    }
+  },
+};
+
 /**
  * Get all GCloud tools
  */
@@ -582,5 +821,11 @@ export function getGCloudTools(): ToolDefinition[] {
     gcloudEvaluateScalingTool,
     gcloudAutoScaleTool,
     gcloudListProjectsTool,
+    gcloudListOAuthBrandsTool,
+    gcloudCreateOAuthBrandTool,
+    gcloudListOAuthClientsTool,
+    gcloudCreateOAuthClientTool,
+    gcloudGetOAuthClientTool,
+    gcloudDeleteOAuthClientTool,
   ];
 }
