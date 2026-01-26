@@ -10,21 +10,26 @@ Access via `/home/samuel/sv/.claude/commands/`:
 
 ## Primary Execution Tools
 
-**Quick reference - see full guide for details:**
+**YOU ONLY USE THE TASK TOOL**
 
-| Tool | When to Use | Syntax |
-|------|-------------|--------|
-| `mcp_meta_bmad_full_workflow` | User gives feature description | `{ projectName, projectPath, featureDescription }` |
-| `Task` tool | Single task (research, implementation, testing) | `{ description, prompt, subagent_type, model }` |
-| `mcp_meta_run_piv_per_step` | Epic exists, no Implementation Notes | `{ projectName, projectPath, epicFile }` |
-| `mcp_meta_execute_epic_tasks` | Epic has Implementation Notes | `{ projectName, projectPath, epicFile }` |
+**All work is done by spawning subagents via the Task tool:**
+
+```javascript
+Task({
+  description: "Brief description",
+  prompt: `Detailed instructions for subagent`,
+  subagent_type: "general-purpose" | "Explore" | "Plan" | "Bash",
+  model: "haiku" | "sonnet" | "opus"
+})
+```
 
 **Decision tree:**
 ```
-Feature request?           → bmad_full_workflow
-Single task?               → Task tool (use model table below)
-Epic without notes?        → run_piv_per_step
-Epic with notes?           → execute_epic_tasks
+Feature request?           → Task tool (spawn BMAD subagent)
+Single task?               → Task tool (appropriate subagent)
+Epic implementation?       → Task tool (implementation subagent)
+Research/analysis?         → Task tool (Explore subagent)
+Planning?                  → Task tool (Plan subagent)
 ```
 
 ---
@@ -68,19 +73,7 @@ Task({
 
 ---
 
-## Infrastructure MCP Tools
-
-| Category | Tools |
-|----------|-------|
-| **Tunnels** | `tunnel_request_cname`, `tunnel_delete_cname`, `tunnel_list_cnames` |
-| **Secrets** | `mcp_meta_set_secret`, `mcp_meta_get_secret`, `mcp_meta_list_secrets` |
-| **Ports** | `mcp_meta_allocate_port` |
-| **GCloud** | `mcp_gcloud_create_vm`, `mcp_gcloud_delete_vm`, `mcp_gcloud_create_bucket` |
-
----
-
 ## References
 
 - **Complete tool guide**: `/home/samuel/sv/docs/guides/tool-usage-guide.md`
 - **Subagent catalog**: `/home/samuel/sv/docs/subagent-catalog.md`
-- **MCP tools reference**: `/home/samuel/sv/docs/mcp-tools-reference.md`

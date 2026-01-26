@@ -20,7 +20,7 @@
 ## FORBIDDEN: Manual Infrastructure
 
 - ❌ NEVER: `cloudflared`, `gcloud`, manual SQL, .env before vault
-- ✅ ONLY use MCP tools: `tunnel_*`, `mcp_meta_set_secret`, `mcp_gcloud_*`
+- ✅ Infrastructure managed by backend services (tunnels, secrets, ports, gcloud)
 
 **Secrets rule**: Vault FIRST, .env SECOND. Never reverse order.
 
@@ -30,10 +30,10 @@
 
 **Decision tree:**
 ```
-User gives feature description?  → mcp_meta_bmad_full_workflow
-Need single task?                 → Task tool (with hardcoded model)
-Epic exists with notes?           → mcp_meta_execute_epic_tasks
-Epic exists without notes?        → mcp_meta_run_piv_per_step
+User gives feature request?      → Task tool (BMAD workflow subagent)
+Need single task?                 → Task tool (appropriate subagent)
+Epic needs implementation?        → Task tool (implementation subagent)
+Need research/analysis?           → Task tool (Explore or general-purpose)
 ```
 
 **Model selection**: Hardcoded based on task type (see 04-tools.md for table).

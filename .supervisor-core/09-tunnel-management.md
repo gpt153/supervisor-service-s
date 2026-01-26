@@ -4,13 +4,13 @@
 
 ---
 
-## MCP Tools
+## Tunnel Service
 
-```javascript
-tunnel_request_cname({ subdomain: "api", targetPort: 5000 })  // → api.153.se
-tunnel_delete_cname({ hostname: "api.153.se" })
-tunnel_list_cnames()  // Your CNAMEs only
-```
+**Backend service manages public URLs:**
+
+- Request CNAME: subdomain + target port → public URL (e.g., api.153.se)
+- Delete CNAME: remove public URL
+- List CNAMEs: view your project's active URLs
 
 ---
 
@@ -32,9 +32,9 @@ tunnel_list_cnames()  // Your CNAMEs only
 ## Quick Deployment
 
 1. Verify port in YOUR range
-2. Allocate: `mcp_meta_allocate_port`
+2. Allocate port via meta-supervisor
 3. Start: `docker compose up -d`
-4. CNAME: `tunnel_request_cname`
+4. Request CNAME via tunnel service
 5. Commit changes
 
 ---

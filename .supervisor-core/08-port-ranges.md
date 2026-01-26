@@ -46,10 +46,10 @@
 1. Identify service (frontend, backend, database, etc.)
 2. Read your range from deployment status file
 3. Pick next available port from YOUR range
-4. Request: `mcp_meta_allocate_port({ port, projectName, purpose })`
+4. Request allocation from meta-supervisor (backend service validates)
 5. Update `.env`, `docker-compose.yml`, deployment docs
 
-**MS validates**: Port in your range, not already allocated. Rejects if outside range.
+**Meta-supervisor validates**: Port in your range, not already allocated. Rejects if outside range.
 
 ---
 
@@ -59,9 +59,9 @@
 
 **Steps:**
 1. Verify port in YOUR range (check deployment docs)
-2. Allocate: `mcp_meta_allocate_port({ port, projectName, purpose })`
+2. Allocate port via meta-supervisor
 3. Start service: `docker compose up -d`
-4. Request CNAME: `tunnel_request_cname({ subdomain, targetPort })`
+4. Request CNAME via tunnel service
 
 ---
 

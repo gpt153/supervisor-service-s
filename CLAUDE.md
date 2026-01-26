@@ -19,7 +19,7 @@
   - /home/samuel/sv/supervisor-service-s/.supervisor-meta/03-patterns.md
   - /home/samuel/sv/supervisor-service-s/.supervisor-meta/04-port-allocations.md
   - /home/samuel/sv/supervisor-service-s/.supervisor-specific/02-deployment-status.md -->
-<!-- Generated: 2026-01-25T16:42:55.183Z -->
+<!-- Generated: 2026-01-26T20:46:50.675Z -->
 
 # Supervisor Identity
 
@@ -43,7 +43,7 @@
 ## FORBIDDEN: Manual Infrastructure
 
 - ❌ NEVER: `cloudflared`, `gcloud`, manual SQL, .env before vault
-- ✅ ONLY use MCP tools: `tunnel_*`, `mcp_meta_set_secret`, `mcp_gcloud_*`
+- ✅ Infrastructure managed by backend services (tunnels, secrets, ports, gcloud)
 
 **Secrets rule**: Vault FIRST, .env SECOND. Never reverse order.
 
@@ -53,10 +53,10 @@
 
 **Decision tree:**
 ```
-User gives feature description?  → mcp_meta_bmad_full_workflow
-Need single task?                 → Task tool (with hardcoded model)
-Epic exists with notes?           → mcp_meta_execute_epic_tasks
-Epic exists without notes?        → mcp_meta_run_piv_per_step
+User gives feature request?      → Task tool (BMAD workflow subagent)
+Need single task?                 → Task tool (appropriate subagent)
+Epic needs implementation?        → Task tool (implementation subagent)
+Need research/analysis?           → Task tool (Explore or general-purpose)
 ```
 
 **Model selection**: Hardcoded based on task type (see 04-tools.md for table).
@@ -130,6 +130,27 @@ Epic exists without notes?        → mcp_meta_run_piv_per_step
 
 ---
 
+## Validation Before Commit (MANDATORY)
+
+**Before EVERY commit for epic work:**
+1. ✅ Spawn `validate-acceptance-criteria` subagent
+2. ✅ Wait for validation report
+3. ✅ Only commit if ALL acceptance criteria pass
+4. ✅ Validation automatically updates PRD (version, changelog, status)
+5. ❌ NEVER commit epic work without validation
+
+**Validation report location**: `.bmad/features/{feature}/reports/validation-epic-{NNN}-*.md`
+
+**If validation fails**:
+- Spawn fix subagent with failure details
+- Re-validate after fixes
+- Repeat until pass (max 3 attempts)
+- Create handoff if persistently failing
+
+**Why mandatory**: Validation triggers automatic PRD updates, keeping documentation current
+
+---
+
 ## References
 
 **Complete workflow guide**: `/home/samuel/sv/docs/guides/ps-workflows.md`
@@ -193,21 +214,26 @@ Access via `/home/samuel/sv/.claude/commands/`:
 
 ## Primary Execution Tools
 
-**Quick reference - see full guide for details:**
+**YOU ONLY USE THE TASK TOOL**
 
-| Tool | When to Use | Syntax |
-|------|-------------|--------|
-| `mcp_meta_bmad_full_workflow` | User gives feature description | `{ projectName, projectPath, featureDescription }` |
-| `Task` tool | Single task (research, implementation, testing) | `{ description, prompt, subagent_type, model }` |
-| `mcp_meta_run_piv_per_step` | Epic exists, no Implementation Notes | `{ projectName, projectPath, epicFile }` |
-| `mcp_meta_execute_epic_tasks` | Epic has Implementation Notes | `{ projectName, projectPath, epicFile }` |
+**All work is done by spawning subagents via the Task tool:**
+
+```javascript
+Task({
+  description: "Brief description",
+  prompt: `Detailed instructions for subagent`,
+  subagent_type: "general-purpose" | "Explore" | "Plan" | "Bash",
+  model: "haiku" | "sonnet" | "opus"
+})
+```
 
 **Decision tree:**
 ```
-Feature request?           → bmad_full_workflow
-Single task?               → Task tool (use model table below)
-Epic without notes?        → run_piv_per_step
-Epic with notes?           → execute_epic_tasks
+Feature request?           → Task tool (spawn BMAD subagent)
+Single task?               → Task tool (appropriate subagent)
+Epic implementation?       → Task tool (implementation subagent)
+Research/analysis?         → Task tool (Explore subagent)
+Planning?                  → Task tool (Plan subagent)
 ```
 
 ---
@@ -251,22 +277,10 @@ Task({
 
 ---
 
-## Infrastructure MCP Tools
-
-| Category | Tools |
-|----------|-------|
-| **Tunnels** | `tunnel_request_cname`, `tunnel_delete_cname`, `tunnel_list_cnames` |
-| **Secrets** | `mcp_meta_set_secret`, `mcp_meta_get_secret`, `mcp_meta_list_secrets` |
-| **Ports** | `mcp_meta_allocate_port` |
-| **GCloud** | `mcp_gcloud_create_vm`, `mcp_gcloud_delete_vm`, `mcp_gcloud_create_bucket` |
-
----
-
 ## References
 
 - **Complete tool guide**: `/home/samuel/sv/docs/guides/tool-usage-guide.md`
 - **Subagent catalog**: `/home/samuel/sv/docs/subagent-catalog.md`
-- **MCP tools reference**: `/home/samuel/sv/docs/mcp-tools-reference.md`
 
 # Autonomous Supervision Protocol
 
@@ -300,21 +314,38 @@ Task({
 
 **User says "Continue building":**
 1. Find next epic from `.bmad/features/{feature}/epics/`
-2. Check for Implementation Notes:
-   - Has numbered steps? → `mcp_meta_execute_epic_tasks`
-   - No steps? → `mcp_meta_run_piv_per_step`
-3. Monitor → Report when complete → Start next epic
+2. Spawn implementation subagent via Task tool
+3. **MANDATORY: Spawn validation subagent**
+4. **ONLY if validation passes**: Mark epic complete, update PRD
+5. Monitor → Report when complete → Start next epic
+
+**CRITICAL: Validation is NON-NEGOTIABLE**
+- ✅ MUST spawn `validate-acceptance-criteria` after EVERY epic implementation
+- ✅ MUST wait for validation to pass before marking complete
+- ✅ Validation automatically updates PRD (version bump, changelog, epic status)
+- ❌ NEVER mark epic complete without validation
+- ❌ NEVER commit without validation passing
+- ❌ If validation fails: Spawn fix subagent, retry validation (max 3 attempts)
 
 **User says "Implement [feature]":**
 ```javascript
-mcp_meta_bmad_full_workflow({
-  projectName: "project",
-  projectPath: "/path",
-  featureDescription: "[feature]"
+Task({
+  description: "Implement feature via BMAD",
+  prompt: `Feature: [feature]
+
+  Use BMAD workflow to:
+  1. Analyze feature request
+  2. Create epic with implementation notes
+  3. Execute implementation tasks
+
+  Project: [projectName]
+  Path: [projectPath]`,
+  subagent_type: "general-purpose",
+  model: "sonnet"
 })
 ```
 
-**If tool fails**: Auto-retries 3 times, reports error if still failing
+**If subagent fails**: Auto-retries 3 times, reports error if still failing
 
 ---
 
@@ -361,12 +392,14 @@ Last activity: {timestamp}
 
 ---
 
-## Primary Tools
+## Primary Tool
 
-**Feature request**: `mcp_meta_bmad_full_workflow`
-**Single task**: `Task` tool (with hardcoded model - see 04-tools.md)
-**Epic with notes**: `mcp_meta_execute_epic_tasks`
-**Epic without notes**: `mcp_meta_run_piv_per_step`
+**ALL WORK USES TASK TOOL**
+
+**Feature request**: Task tool with BMAD subagent
+**Single task**: Task tool with appropriate subagent
+**Epic implementation**: Task tool with implementation subagent
+**Research**: Task tool with Explore subagent
 
 ---
 
@@ -554,10 +587,10 @@ After updating, regenerate CLAUDE.md:
 1. Identify service (frontend, backend, database, etc.)
 2. Read your range from deployment status file
 3. Pick next available port from YOUR range
-4. Request: `mcp_meta_allocate_port({ port, projectName, purpose })`
+4. Request allocation from meta-supervisor (backend service validates)
 5. Update `.env`, `docker-compose.yml`, deployment docs
 
-**MS validates**: Port in your range, not already allocated. Rejects if outside range.
+**Meta-supervisor validates**: Port in your range, not already allocated. Rejects if outside range.
 
 ---
 
@@ -567,9 +600,9 @@ After updating, regenerate CLAUDE.md:
 
 **Steps:**
 1. Verify port in YOUR range (check deployment docs)
-2. Allocate: `mcp_meta_allocate_port({ port, projectName, purpose })`
+2. Allocate port via meta-supervisor
 3. Start service: `docker compose up -d`
-4. Request CNAME: `tunnel_request_cname({ subdomain, targetPort })`
+4. Request CNAME via tunnel service
 
 ---
 
@@ -583,13 +616,13 @@ After updating, regenerate CLAUDE.md:
 
 ---
 
-## MCP Tools
+## Tunnel Service
 
-```javascript
-tunnel_request_cname({ subdomain: "api", targetPort: 5000 })  // → api.153.se
-tunnel_delete_cname({ hostname: "api.153.se" })
-tunnel_list_cnames()  // Your CNAMEs only
-```
+**Backend service manages public URLs:**
+
+- Request CNAME: subdomain + target port → public URL (e.g., api.153.se)
+- Delete CNAME: remove public URL
+- List CNAMEs: view your project's active URLs
 
 ---
 
@@ -611,9 +644,9 @@ tunnel_list_cnames()  // Your CNAMEs only
 ## Quick Deployment
 
 1. Verify port in YOUR range
-2. Allocate: `mcp_meta_allocate_port`
+2. Allocate port via meta-supervisor
 3. Start: `docker compose up -d`
-4. CNAME: `tunnel_request_cname`
+4. Request CNAME via tunnel service
 5. Commit changes
 
 ---
@@ -639,8 +672,8 @@ tunnel_list_cnames()  // Your CNAMEs only
 
 **When you receive or create ANY secret:**
 
-1. ✅ **FIRST**: Vault → `mcp_meta_set_secret`
-2. ✅ **THEN**: .env file
+1. ✅ **FIRST**: Store in vault via meta-supervisor
+2. ✅ **THEN**: Add to .env file
 
 **NO EXCEPTIONS.** Vault is source of truth, .env is disposable.
 
@@ -648,20 +681,18 @@ tunnel_list_cnames()  // Your CNAMEs only
 
 ## Workflow
 
-```javascript
-// Step 1: FIRST - Store in vault
-mcp_meta_set_secret({
-  keyPath: 'project/{project}/{secret-name}',
-  value: 'actual-value',
-  description: 'Clear explanation (>10 chars)'
-})
+**Steps:**
 
-// Step 2: SECOND - Add to .env
-Edit .env: SECRET_KEY=actual-value
+1. **FIRST**: Store in vault
+   - Key path: `project/{project}/{secret-name}`
+   - Include clear description
+   - Meta-supervisor handles encryption
 
-// Step 3: Verify
-mcp_meta_get_secret({ keyPath: 'project/{project}/{secret-name}' })
-```
+2. **SECOND**: Add to .env file
+   - Add `SECRET_KEY=actual-value`
+   - Never commit .env to git
+
+3. **Verify**: Confirm secret stored in vault
 
 ---
 

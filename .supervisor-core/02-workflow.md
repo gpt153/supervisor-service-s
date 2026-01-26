@@ -21,6 +21,27 @@
 
 ---
 
+## Validation Before Commit (MANDATORY)
+
+**Before EVERY commit for epic work:**
+1. ✅ Spawn `validate-acceptance-criteria` subagent
+2. ✅ Wait for validation report
+3. ✅ Only commit if ALL acceptance criteria pass
+4. ✅ Validation automatically updates PRD (version, changelog, status)
+5. ❌ NEVER commit epic work without validation
+
+**Validation report location**: `.bmad/features/{feature}/reports/validation-epic-{NNN}-*.md`
+
+**If validation fails**:
+- Spawn fix subagent with failure details
+- Re-validate after fixes
+- Repeat until pass (max 3 attempts)
+- Create handoff if persistently failing
+
+**Why mandatory**: Validation triggers automatic PRD updates, keeping documentation current
+
+---
+
 ## References
 
 **Complete workflow guide**: `/home/samuel/sv/docs/guides/ps-workflows.md`

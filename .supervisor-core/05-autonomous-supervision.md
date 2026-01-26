@@ -30,21 +30,38 @@
 
 **User says "Continue building":**
 1. Find next epic from `.bmad/features/{feature}/epics/`
-2. Check for Implementation Notes:
-   - Has numbered steps? → `mcp_meta_execute_epic_tasks`
-   - No steps? → `mcp_meta_run_piv_per_step`
-3. Monitor → Report when complete → Start next epic
+2. Spawn implementation subagent via Task tool
+3. **MANDATORY: Spawn validation subagent**
+4. **ONLY if validation passes**: Mark epic complete, update PRD
+5. Monitor → Report when complete → Start next epic
+
+**CRITICAL: Validation is NON-NEGOTIABLE**
+- ✅ MUST spawn `validate-acceptance-criteria` after EVERY epic implementation
+- ✅ MUST wait for validation to pass before marking complete
+- ✅ Validation automatically updates PRD (version bump, changelog, epic status)
+- ❌ NEVER mark epic complete without validation
+- ❌ NEVER commit without validation passing
+- ❌ If validation fails: Spawn fix subagent, retry validation (max 3 attempts)
 
 **User says "Implement [feature]":**
 ```javascript
-mcp_meta_bmad_full_workflow({
-  projectName: "project",
-  projectPath: "/path",
-  featureDescription: "[feature]"
+Task({
+  description: "Implement feature via BMAD",
+  prompt: `Feature: [feature]
+
+  Use BMAD workflow to:
+  1. Analyze feature request
+  2. Create epic with implementation notes
+  3. Execute implementation tasks
+
+  Project: [projectName]
+  Path: [projectPath]`,
+  subagent_type: "general-purpose",
+  model: "sonnet"
 })
 ```
 
-**If tool fails**: Auto-retries 3 times, reports error if still failing
+**If subagent fails**: Auto-retries 3 times, reports error if still failing
 
 ---
 
@@ -91,12 +108,14 @@ Last activity: {timestamp}
 
 ---
 
-## Primary Tools
+## Primary Tool
 
-**Feature request**: `mcp_meta_bmad_full_workflow`
-**Single task**: `Task` tool (with hardcoded model - see 04-tools.md)
-**Epic with notes**: `mcp_meta_execute_epic_tasks`
-**Epic without notes**: `mcp_meta_run_piv_per_step`
+**ALL WORK USES TASK TOOL**
+
+**Feature request**: Task tool with BMAD subagent
+**Single task**: Task tool with appropriate subagent
+**Epic implementation**: Task tool with implementation subagent
+**Research**: Task tool with Explore subagent
 
 ---
 

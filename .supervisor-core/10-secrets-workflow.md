@@ -8,8 +8,8 @@
 
 **When you receive or create ANY secret:**
 
-1. ✅ **FIRST**: Vault → `mcp_meta_set_secret`
-2. ✅ **THEN**: .env file
+1. ✅ **FIRST**: Store in vault via meta-supervisor
+2. ✅ **THEN**: Add to .env file
 
 **NO EXCEPTIONS.** Vault is source of truth, .env is disposable.
 
@@ -17,20 +17,18 @@
 
 ## Workflow
 
-```javascript
-// Step 1: FIRST - Store in vault
-mcp_meta_set_secret({
-  keyPath: 'project/{project}/{secret-name}',
-  value: 'actual-value',
-  description: 'Clear explanation (>10 chars)'
-})
+**Steps:**
 
-// Step 2: SECOND - Add to .env
-Edit .env: SECRET_KEY=actual-value
+1. **FIRST**: Store in vault
+   - Key path: `project/{project}/{secret-name}`
+   - Include clear description
+   - Meta-supervisor handles encryption
 
-// Step 3: Verify
-mcp_meta_get_secret({ keyPath: 'project/{project}/{secret-name}' })
-```
+2. **SECOND**: Add to .env file
+   - Add `SECRET_KEY=actual-value`
+   - Never commit .env to git
+
+3. **Verify**: Confirm secret stored in vault
 
 ---
 
