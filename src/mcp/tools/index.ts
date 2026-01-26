@@ -27,6 +27,7 @@ import { getPerStepPIVTools } from './piv-per-step-tool.js';
 import { getPIVPhaseTools } from './piv-phase-tools.js';
 import { getBMADTools } from './bmad-tools.js';
 import { getBMADFullWorkflowTools } from './bmad-full-workflow.js';
+import { getPRDStalenessTools } from './prd-staleness-tools.js';
 
 const execAsync = promisify(exec);
 
@@ -410,6 +411,9 @@ export function getAllTools(): ToolDefinition[] {
 
     // UI-First Development Workflow tools
     ...uiTools,
+
+    // PRD staleness monitoring tools
+    ...getPRDStalenessTools(),
   ];
 }
 
