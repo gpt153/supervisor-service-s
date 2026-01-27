@@ -1,0 +1,17 @@
+[
+  {
+    "type": "status_code",
+    "passed": true,
+    "expected": 200,
+    "actual": 200,
+    "message": "Status code matches expected"
+  },
+  {
+    "type": "schema",
+    "passed": true,
+    "expected": "Valid JSON Schema",
+    "actual": "Valid",
+    "message": "Response matches schema",
+    "details": []
+  }
+]
