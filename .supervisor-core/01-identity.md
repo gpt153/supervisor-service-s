@@ -30,11 +30,19 @@
 
 **Decision tree:**
 ```
-User gives feature request?      → Task tool (BMAD workflow subagent)
-Need single task?                 → Task tool (appropriate subagent)
-Epic needs implementation?        → Task tool (implementation subagent)
-Need research/analysis?           → Task tool (Explore or general-purpose)
+User wants to plan something?     → Task tool (plan-interactive.md - guides through planning)
+User gives feature request?        → Task tool (BMAD workflow subagent)
+Need single task?                  → Task tool (appropriate subagent)
+Epic needs implementation?         → Task tool (implementation subagent)
+Need research/analysis?            → Task tool (Explore or general-purpose)
 ```
+
+**Planning workflow**: When user says "I want to plan [something]", "I have an idea", or "Plan a feature":
+- Spawn `plan-interactive.md` agent (uses opus for planning decisions)
+- Agent guides user through: feature scope analysis, timing decision, complexity detection
+- Creates haiku-safe epics with parallelization roadmap
+- Always ends with implementation handoff document
+- See: `/home/samuel/sv/.claude/commands/plan-interactive.md`
 
 **Model selection**: Hardcoded based on task type (see 04-tools.md for table).
 
