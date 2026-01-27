@@ -185,6 +185,44 @@ export class IngressManager {
   }
 
   /**
+   * Regenerate config from CNAME database (recovery/sync)
+   */
+  regenerateFromCNAMEs(cnames: Array<{ full_hostname: string; target_service: string }>): void {
+    const config = this.readConfig();
+
+    // Keep tunnel ID and credentials
+    const tunnelId = config.tunnel;
+    const credentialsFile = config['credentials-file'];
+
+    // Rebuild ingress rules from CNAMEs
+    const ingressRules: IngressRule[] = cnames.map(cname => ({
+      hostname: cname.full_hostname,
+      service: cname.target_service,
+      originRequest: {
+        noTLSVerify: true
+      }
+    }));
+
+    // Add catch-all rule at end
+    ingressRules.push({
+      service: 'http_status:404'
+    });
+
+    // Create new config
+    const newConfig: IngressConfig = {
+      tunnel: tunnelId,
+      'credentials-file': credentialsFile,
+      ingress: ingressRules
+    };
+
+    // Write atomically
+    this.writeConfig(newConfig);
+    this.backupConfig();
+
+    console.log(`✅ Config regenerated with ${cnames.length} CNAME(s)`);
+  }
+
+  /**
    * Reload tunnel (trigger config reload)
    */
   async reloadTunnel(location: 'host' | 'container' = 'host'): Promise<boolean> {

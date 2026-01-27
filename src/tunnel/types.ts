@@ -63,8 +63,8 @@ export interface DockerNetwork {
 }
 
 export interface IngressRule {
-  hostname: string;
-  service: string;  // "http://localhost:3105" or "http://container:3105"
+  hostname?: string;  // Catch-all rule doesn't have hostname
+  service: string;  // "http://localhost:3105" or "http://container:3105" or "http_status:404"
   originRequest?: {
     noTLSVerify?: boolean;
   };
