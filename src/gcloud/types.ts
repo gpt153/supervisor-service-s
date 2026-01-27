@@ -109,6 +109,7 @@ export interface GCloudProject {
   monitoring: any; // Monitoring API client
   storage?: any; // Storage API client
   run?: any; // Cloud Run API client
+  iap?: any; // IAP API client for OAuth management
 }
 
 /**
@@ -143,4 +144,40 @@ export interface GCloudOperationResult {
   message: string;
   data?: any;
   error?: string;
+}
+
+/**
+ * OAuth Brand (Consent Screen)
+ */
+export interface OAuthBrand {
+  name: string; // Format: projects/{project_number}/brands/{brand_id}
+  supportEmail: string;
+  applicationTitle: string;
+  orgInternalOnly?: boolean;
+}
+
+/**
+ * OAuth Client
+ */
+export interface OAuthClient {
+  name: string; // Format: projects/{project_number}/brands/{brand_id}/identityAwareProxyClients/{client_id}
+  secret: string;
+  displayName: string;
+  clientId?: string; // Extracted from name
+}
+
+/**
+ * Create OAuth Brand options
+ */
+export interface CreateOAuthBrandOptions {
+  applicationTitle: string;
+  supportEmail: string;
+}
+
+/**
+ * Create OAuth Client options
+ */
+export interface CreateOAuthClientOptions {
+  displayName: string;
+  brandId?: string; // Optional - will use first brand if not specified
 }

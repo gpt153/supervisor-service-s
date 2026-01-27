@@ -41,3 +41,18 @@ export {
   getServiceHealth,
   getProjectStatistics,
 } from './queries.js';
+
+// Evidence queries
+export {
+  insertEvidence,
+  updateEvidence,
+  getEvidenceById,
+  queryEvidenceByEpic,
+  queryEvidenceByType,
+  queryEvidenceByStatus,
+  queryEvidenceByDateRange,
+  getEvidenceCountByEpic,
+  deleteEvidence,
+  hardDeleteEvidence,
+  getEpicStatistics,
+} from './queries/evidence.js';

@@ -8,13 +8,18 @@
 import { CLIAdapter } from './CLIAdapter.js';
 import type { AgentRequest, AdapterConfig, AgentResult } from './types.js';
 import { ClaudeKeyManager } from './ClaudeKeyManager.js';
+import { spawn } from 'child_process';
+import { promisify } from 'util';
+import { writeFile, unlink } from 'fs/promises';
+import { tmpdir } from 'os';
+import { join } from 'path';
 
 /**
  * Default configuration for Claude CLI
  */
 const DEFAULT_CONFIG: AdapterConfig = {
   enabled: true,
-  cliCommand: 'claude',
+  cliCommand: '/home/samuel/.local/bin/claude',
   defaultTimeout: 120000, // 120 seconds (Claude agents take 60-90s typically)
   quotaLimit: 1000, // Conservative estimate (Claude Pro subscription)
   quotaResetHours: 24,
@@ -41,15 +46,7 @@ export class ClaudeCLIAdapter extends CLIAdapter {
 
   /**
    * Execute using Claude Code CLI (uses user's logged-in session token)
-   */
-  async execute(request: AgentRequest): Promise<AgentResult> {
-    // Claude Code CLI uses the user's authentication token from ~/.claude/
-    // No API key needed - just execute
-    return await super.execute(request);
-  }
-
-  /**
-   * Execute Claude CLI - override to use stdin for large prompts
+   * For large prompts, uses stdin to avoid command line limits
    */
   async execute(request: AgentRequest): Promise<AgentResult> {
     // Check if API key is available in environment
@@ -69,26 +66,99 @@ export class ClaudeCLIAdapter extends CLIAdapter {
 
   /**
    * Execute Claude CLI with stdin for large prompts
+   * Uses spawn() instead of shell pipes to prevent orphaned processes
    */
   private async executeWithStdin(request: AgentRequest): Promise<AgentResult> {
     const startTime = Date.now();
 
     try {
       const timeout = request.timeout ?? this.config.defaultTimeout;
+      const env = await this.getEnvironment();
 
-      // Build command without -p flag (will use stdin)
-      const command = `echo ${this.escapeShellArg(request.prompt)} | ${this.config.cliCommand} --dangerously-skip-permissions`;
-
-      const { stdout, stderr } = await this.executeCommand(command, {
+      // Spawn Claude process directly (no shell pipes)
+      const proc = spawn(this.config.cliCommand, ['--dangerously-skip-permissions'], {
         cwd: request.cwd,
-        timeout,
+        env,
+        stdio: ['pipe', 'pipe', 'pipe'],
+        detached: true, // Create new process group for proper cleanup
       });
+
+      // Set up timeout with SIGKILL (force kill)
+      let timeoutId: NodeJS.Timeout | null = null;
+      let timedOut = false;
+
+      const timeoutPromise = new Promise<never>((_, reject) => {
+        timeoutId = setTimeout(() => {
+          timedOut = true;
+          // Kill entire process group to ensure all child processes die
+          if (proc.pid) {
+            try {
+              // Kill entire process group (negative PID)
+              process.kill(-proc.pid, 'SIGKILL');
+            } catch (err) {
+              // Process group kill failed, try killing just the child
+              try {
+                proc.kill('SIGKILL');
+              } catch {
+                console.warn('[ClaudeCLIAdapter] Failed to kill process:', err);
+              }
+            }
+          } else {
+            // PID not available, try killing the process directly
+            try {
+              proc.kill('SIGKILL');
+            } catch {
+              console.warn('[ClaudeCLIAdapter] Failed to kill process (no PID)');
+            }
+          }
+          reject(new Error(`Command timed out after ${timeout}ms`));
+        }, timeout);
+      });
+
+      // Write prompt to stdin and close
+      proc.stdin.write(request.prompt);
+      proc.stdin.end();
+
+      // Collect output
+      let stdout = '';
+      let stderr = '';
+
+      proc.stdout.on('data', (data) => {
+        stdout += data.toString();
+      });
+
+      proc.stderr.on('data', (data) => {
+        stderr += data.toString();
+      });
+
+      // Wait for process to exit or timeout
+      const exitPromise = new Promise<number>((resolve, reject) => {
+        proc.on('exit', (code) => {
+          if (timeoutId) clearTimeout(timeoutId);
+          resolve(code ?? 0);
+        });
+        proc.on('error', (err) => {
+          if (timeoutId) clearTimeout(timeoutId);
+          reject(err);
+        });
+      });
+
+      // Race between completion and timeout
+      const exitCode = await Promise.race([exitPromise, timeoutPromise]);
+
+      if (timedOut) {
+        throw new Error(`Command timed out after ${timeout}ms`);
+      }
 
       const duration = Date.now() - startTime;
       const output = this.parseOutput(stdout, request.outputFormat ?? 'json');
 
       if (stderr && this.isErrorOutput(stderr)) {
         return this.createErrorResult(stderr, duration);
+      }
+
+      if (exitCode !== 0) {
+        return this.createErrorResult(`Process exited with code ${exitCode}`, duration);
       }
 
       return {

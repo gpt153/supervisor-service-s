@@ -28,6 +28,13 @@ export class CodexCLIAdapter extends CLIAdapter {
   }
 
   /**
+   * Initialize (Codex uses OpenAI API key from environment)
+   */
+  async initialize(): Promise<void> {
+    console.log(`[CodexCLIAdapter] ✅ Codex CLI ready (uses OpenAI API key from environment)`);
+  }
+
+  /**
    * Build Codex CLI command
    *
    * Format: codex exec "<prompt>" --json

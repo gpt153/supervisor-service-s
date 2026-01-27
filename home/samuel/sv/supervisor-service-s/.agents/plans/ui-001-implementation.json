@@ -1,0 +1,97 @@
+{
+  "epicId": "ui-001",
+  "projectName": "supervisor-service-s",
+  "generated": "2026-01-22T21:11:36.582Z",
+  "approach": "## Solution Approach for Requirements Analysis Engine\n\nParse .bmad/epics/*.md files to extract acceptance criteria, user stories, and UI requirements. Identify required UI elements (forms, buttons, lists), detect user flows, extract data requirements, and output structured UI requirements spec as JSONB stored in ui_requirements table.\n\n### Technical Approach\n\nThis feature will be implemented using the existing tech stack:\n- TypeScript\n\n### Code Conventions\n\n- Files: PascalCase\n- Classes: PascalCase\n- Functions: camelCase\n\n### Integration Points\n\n- API Endpoints (api): REST API endpoints for external communication\n- Service Layer (service): Business logic and service integrations\n",
+  "phases": [
+    {
+      "name": "Setup",
+      "description": "Create necessary types and structure",
+      "tasks": [
+        {
+          "id": "ui-001-setup-1",
+          "title": "Define TypeScript interfaces and types",
+          "description": "Create type definitions for new features",
+          "files": [
+            "src/types/ui-001.ts"
+          ],
+          "prescriptiveInstructions": "Create TypeScript type definitions for Requirements Analysis Engine.\n\nFollow these conventions:\n- Use PascalCase for interface names\n- Use SCREAMING_SNAKE_CASE for type constants\n- Export all public types\n\nStructure:\n1. Define main interfaces\n2. Define supporting types\n3. Export all types\n\nExample structure:\n```typescript\nexport interface MainType {\n  // Properties based on epic requirements\n}\n\nexport type SupportingType = string | number;\n\nexport const CONSTANT_VALUE = 'value' as const;\n```",
+          "validations": [
+            {
+              "description": "TypeScript compilation succeeds",
+              "command": "npm run build",
+              "expectedOutput": "no errors",
+              "failureAction": "retry"
+            }
+          ],
+          "estimatedMinutes": 15
+        }
+      ],
+      "dependencies": []
+    },
+    {
+      "name": "Core Implementation",
+      "description": "Implement main feature functionality",
+      "tasks": [
+        {
+          "id": "ui-001-core-1",
+          "title": "Implement core functionality",
+          "description": "Parse .bmad/epics/*.md files to extract acceptance criteria, user stories, and UI requirements. Identify required UI elements (forms, buttons, lists), detect user flows, extract data requirements, and output structured UI requirements spec as JSONB stored in ui_requirements table.",
+          "files": [
+            "src/ui-001.ts"
+          ],
+          "prescriptiveInstructions": "Implement Requirements Analysis Engine.\n\nRequirements:\nParse .bmad/epics/*.md files to extract acceptance criteria, user stories, and UI requirements. Identify required UI elements (forms, buttons, lists), detect user flows, extract data requirements, and output structured UI requirements spec as JSONB stored in ui_requirements table.\n\nFollow these conventions:\n- File naming: PascalCase\n- Function naming: camelCase\n- Class naming: PascalCase\n\nIntegration points:\n- API Endpoints (api)\n- Service Layer (service)\n\nImplementation steps:\n1. Import required dependencies\n2. Define class/function structure\n3. Implement core logic\n4. Handle error cases\n5. Add JSDoc comments\n\nEnsure:\n- Type safety with TypeScript\n- Error handling\n- Clear function documentation",
+          "validations": [
+            {
+              "description": "Code compiles without errors",
+              "command": "npm run lint",
+              "expectedOutput": "no errors",
+              "failureAction": "retry"
+            }
+          ],
+          "estimatedMinutes": 60
+        }
+      ],
+      "dependencies": [
+        "Setup"
+      ]
+    }
+  ],
+  "overallValidation": [
+    {
+      "description": "Full build succeeds",
+      "command": "npm run build",
+      "expectedOutput": "Build completed successfully",
+      "failureAction": "retry"
+    },
+    {
+      "description": "Linting passes",
+      "command": "npm run lint",
+      "expectedOutput": "No linting errors",
+      "failureAction": "retry"
+    }
+  ],
+  "acceptanceCriteria": [
+    "ui_requirements table exists and stores JSONB specs",
+    "ui_analyze_epic MCP tool successfully parses epic files",
+    "All acceptance criteria extracted from epic (100% coverage)",
+    "UI requirements spec stored in database",
+    "Returned spec includes: AC with UI elements, user flows, data needs, navigation",
+    "All TypeScript compiles without errors",
+    "Database migration runs successfully",
+    "Error handling for invalid epic format",
+    "Validation for epic file existence",
+    "Unit test coverage >80%",
+    "JSDoc comments on all public methods"
+  ],
+  "notes": [
+    "Follow PascalCase file naming convention",
+    "Use PascalCase for class names",
+    "Follow PascalCase for file names and PascalCase for class names",
+    "Consider integration with existing api, service layers",
+    "Define TypeScript interfaces for new types",
+    "Maintain strict type safety",
+    "Existing pattern: Files use PascalCase naming convention",
+    "Existing pattern: Strong typing with TypeScript interfaces and types"
+  ]
+}

@@ -28,10 +28,30 @@ type TaskType =
   | 'security'
   | 'integration';
 
+// Tiered timeout strategy based on task complexity
+// Research and validation are quick (10 min)
+// Implementation and testing need more time (30 min)
+// Planning and fixes are in between (15-20 min)
+const TIMEOUT_BY_TASK_TYPE: Record<TaskType, number> = {
+  research: 10 * 60 * 1000,        // 10 minutes - quick codebase exploration
+  planning: 15 * 60 * 1000,        // 15 minutes - create implementation plans
+  implementation: 30 * 60 * 1000,  // 30 minutes - write code, tests, docs
+  testing: 30 * 60 * 1000,         // 30 minutes - run full test suites
+  validation: 10 * 60 * 1000,      // 10 minutes - validate implementation
+  documentation: 10 * 60 * 1000,   // 10 minutes - write docs
+  fix: 20 * 60 * 1000,             // 20 minutes - debug and fix issues
+  deployment: 15 * 60 * 1000,      // 15 minutes - deploy to production
+  review: 10 * 60 * 1000,          // 10 minutes - code review
+  security: 15 * 60 * 1000,        // 15 minutes - security analysis
+  integration: 20 * 60 * 1000,     // 20 minutes - integrate components
+};
+
 interface SpawnSubagentParams {
   task_type: TaskType;
   description: string;
   context?: {
+    project_path?: string;        // CRITICAL: Target project directory (e.g., /home/samuel/sv/health-agent-s)
+    project_name?: string;         // Target project name (e.g., "health-agent")
     epic_id?: string;
     plan_file?: string;
     files_to_review?: string[];
@@ -85,32 +105,64 @@ async function queryOdin(
 
     const recommendation = JSON.parse(stdout);
 
-    // Map Odin response to our format
+    // FORCE Claude-only: Override if Odin recommends non-Claude
+    if (recommendation.service === 'gemini' || recommendation.service === 'codex') {
+      console.log(`[Odin Query] Odin recommended ${recommendation.service}, overriding to Claude for Task tool compatibility`);
+
+      // Map complexity to Claude model
+      if (complexity === 'simple') {
+        return {
+          service: 'claude',
+          model: 'claude-3-5-haiku-20241022',
+          cli_command: 'claude-code',
+          estimated_cost: '$0.0010',
+          reason: `Odin recommended ${recommendation.service}, overridden to Claude Haiku for Task tool`
+        };
+      } else if (complexity === 'complex') {
+        return {
+          service: 'claude',
+          model: 'claude-opus-4-5-20251101',
+          cli_command: 'claude-code',
+          estimated_cost: '$0.0150',
+          reason: `Odin recommended ${recommendation.service}, overridden to Claude Opus for Task tool`
+        };
+      } else {
+        return {
+          service: 'claude',
+          model: 'claude-sonnet-4-5-20250929',
+          cli_command: 'claude-code',
+          estimated_cost: '$0.0030',
+          reason: `Odin recommended ${recommendation.service}, overridden to Claude Sonnet for Task tool`
+        };
+      }
+    }
+
+    // Odin recommended Claude - use it
     return {
-      service: recommendation.service as 'gemini' | 'codex' | 'claude' | 'claude-max',
+      service: recommendation.service as 'claude' | 'claude-max',
       model: recommendation.model,
-      cli_command: recommendation.cli_command,
+      cli_command: 'claude-code',
       estimated_cost: recommendation.estimated_cost,
       reason: recommendation.reason
     };
   } catch (error) {
-    console.warn('[Odin Query] Failed, using fallback heuristics:', error);
-    // Fallback: Intelligent heuristics
+    console.warn('[Odin Query] Failed, using Claude-only fallback heuristics:', error);
+    // Fallback: Claude models only (for Task tool compatibility)
     if (complexity === 'simple' || taskType === 'testing' || taskType === 'validation') {
       return {
-        service: 'gemini',
-        model: 'gemini-2.5-flash-lite',
-        cli_command: 'scripts/ai/gemini_agent.sh',
-        estimated_cost: '$0.0000',
-        reason: 'Simple task, using free Gemini Flash (fallback)'
+        service: 'claude',
+        model: 'claude-3-5-haiku-20241022',  // Haiku for simple tasks
+        cli_command: 'claude-code',
+        estimated_cost: '$0.0010',
+        reason: 'Simple task, using Claude Haiku (fallback)'
       };
     }
 
     if (complexity === 'complex' || taskType === 'planning') {
       return {
         service: 'claude',
-        model: 'claude-opus-4-5-20251101',
-        cli_command: 'scripts/ai/claude_agent.sh',
+        model: 'claude-opus-4-5-20251101',  // Opus for complex tasks
+        cli_command: 'claude-code',
         estimated_cost: '$0.0150',
         reason: 'Complex task requiring deep reasoning (fallback)'
       };
@@ -119,8 +171,8 @@ async function queryOdin(
     // Medium complexity
     return {
       service: 'claude',
-      model: 'claude-sonnet-4-5-20250929',
-      cli_command: 'scripts/ai/claude_agent.sh',
+      model: 'claude-sonnet-4-5-20250929',  // Sonnet for medium tasks
+      cli_command: 'claude-code',
       estimated_cost: '$0.0030',
       reason: 'Medium complexity, using Claude Sonnet (fallback)'
     };
@@ -374,38 +426,47 @@ async function spawnAgent(
     console.warn(`[Subagent Spawner] ⚠️  Failed to record spawn in database:`, error);
   }
 
-  // Execute agent using MultiAgentExecutor
-  console.log(`[Subagent Spawner] 🚀 Executing agent...`);
+  // Return instructions for MS to execute via Task tool
+  // The MCP tool can't call Task tool directly (only available in Claude conversations)
+  // So we return instructions + metadata for MS to spawn via Task tool
+  console.log(`[Subagent Spawner] 📄 Preparing for Claude Code Task tool execution...`);
   const startTime = Date.now();
 
   try {
-    const executor = new MultiAgentExecutor();
-
-    // Initialize adapters (load API keys from vault)
-    await executor.initialize();
-
-    // Map Odin service to AgentType
-    let agentType: 'gemini' | 'claude' | 'codex';
-    if (recommendation.service === 'claude' || recommendation.service === 'claude-max') {
-      agentType = 'claude';
-    } else if (recommendation.service === 'gemini') {
-      agentType = 'gemini';
+    // Map Odin recommendation to Claude Code model parameter
+    let claudeModel: 'sonnet' | 'opus' | 'haiku';
+    if (recommendation.service === 'claude-max' || recommendation.model.includes('opus')) {
+      claudeModel = 'opus';
+    } else if (recommendation.model.includes('haiku') || recommendation.service === 'gemini') {
+      claudeModel = 'haiku';  // Use haiku for simple/free tasks
     } else {
-      agentType = 'codex';
+      claudeModel = 'sonnet';  // Default to sonnet for medium complexity
     }
 
-    // Execute the task
-    const result = await executor.executeWithAgent(
-      {
-        prompt: instructions,
-        cwd: projectPath,
-        timeout: 600000, // 10 minutes
-        outputFormat: 'text',
-      },
-      agentType
-    );
+    // Get max turns based on task type
+    const timeout = TIMEOUT_BY_TASK_TYPE[taskType] || 10 * 60 * 1000;
+    const maxTurns = Math.ceil(timeout / (2 * 60 * 1000));  // Estimate: 2 minutes per turn
+
+    console.log(`[Subagent Spawner] ✅ Instructions prepared for Task tool`);
+    console.log(`[Subagent Spawner]    Recommended model: ${claudeModel}`);
+    console.log(`[Subagent Spawner]    Max turns: ${maxTurns}`);
+    console.log(`[Subagent Spawner]    Instructions file: ${instructionsPath}`);
 
     const duration = Date.now() - startTime;
+
+    // Return success with metadata for MS to spawn via Task tool
+    const result = {
+      success: true,
+      output: `Instructions prepared. MS should now call Task tool with model="${claudeModel}", max_turns=${maxTurns}.`,
+      error: undefined,
+      // Additional metadata for Task tool execution
+      task_tool_params: {
+        model: claudeModel,
+        max_turns: maxTurns,
+        instructions_file: instructionsPath,
+        project_path: projectPath
+      }
+    };
 
     console.log(`[Subagent Spawner] ${result.success ? '✅' : '❌'} Execution ${result.success ? 'completed' : 'failed'}`);
     console.log(`[Subagent Spawner]    Duration: ${duration}ms`);
@@ -452,6 +513,7 @@ async function spawnAgent(
       error: result.error,
       duration_ms: duration,
       output_file: outputFile,
+      task_tool_params: result.task_tool_params,
     };
   } catch (error) {
     const duration = Date.now() - startTime;
@@ -648,9 +710,38 @@ export const spawnSubagentTool: ToolDefinition = {
     try {
       const typedParams = params as SpawnSubagentParams;
 
-      // Get project path from context or cwd
-      const projectPath = context?.project?.path || process.cwd();
-      const projectName = context?.project?.name || path.basename(projectPath);
+      // DEBUG: Log what we received
+      console.log('[Spawn] Received context:', JSON.stringify({
+        hasContext: !!context,
+        contextProject: context?.project,
+        paramsContext: typedParams.context
+      }, null, 2));
+
+      // Get project path with robust fallback chain
+      // CRITICAL: Never use process.cwd() as it returns supervisor-service-s (where MCP server runs)
+      let projectPath: string;
+      let projectName: string;
+
+      if (typedParams.context?.project_path) {
+        // Option 1: Explicit project_path in context parameter (most reliable for internal tool calls)
+        projectPath = typedParams.context.project_path;
+        projectName = typedParams.context.project_name || path.basename(projectPath);
+        console.log(`[Spawn] Using explicit project_path: ${projectPath}`);
+      } else if (context?.project?.path) {
+        // Option 2: ProjectContext from MCP routing (for direct PS calls via /mcp/project-name)
+        projectPath = context.project.path;
+        projectName = context.project.name || path.basename(projectPath);
+        console.log(`[Spawn] Using ProjectContext path: ${projectPath} (from ${context.project.name} endpoint)`);
+      } else {
+        // No valid project context - fail fast with clear error message
+        return {
+          content: [{
+            type: 'text',
+            text: `❌ No project context available. This tool requires either:\n\n1. ProjectContext from MCP routing (call via /mcp/project-name endpoint), OR\n2. Explicit project_path in context parameter:\n\ncontext: { project_path: "/path/to/project", project_name: "project-name" }\n\nNever calls this tool without project context, as it will execute in the wrong directory.`
+          }],
+          isError: true
+        };
+      }
 
       console.log(`\n=== Spawning Subagent ===`);
       console.log(`Task Type: ${typedParams.task_type}`);
@@ -739,8 +830,9 @@ export const spawnSubagentTool: ToolDefinition = {
             output_file: executionResult.output_file,
             output: executionResult.output,
             error: executionResult.error,
+            task_tool_params: executionResult.task_tool_params,
             message: executionResult.success
-              ? `✅ Subagent executed successfully. Agent ID: ${executionResult.agent_id}`
+              ? `✅ Instructions prepared for Task tool execution. Model: ${executionResult.task_tool_params?.model}, Max turns: ${executionResult.task_tool_params?.max_turns}`
               : `❌ Subagent execution failed. Error: ${executionResult.error}`
           }, null, 2)
         }],

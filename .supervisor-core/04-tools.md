@@ -3,59 +3,97 @@
 ## Shared Commands
 
 Access via `/home/samuel/sv/.claude/commands/`:
+- **Analysis/Planning**: `analyze.md`, `create-epic.md`, `create-adr.md`, `plan-feature.md`
+- **Supervision**: `supervision/supervise.md`, `supervision/piv-supervise.md`
 
-### Analysis and Planning
-- `analyze.md` - Analyst agent for codebase analysis
-- `create-epic.md` - PM agent for epic creation
-- `create-adr.md` - Architect agent for ADR creation
-- `plan-feature.md` - Meta-orchestrator for feature planning
+---
 
-### Supervision
-- `supervision/supervise.md` - Full project supervision
-- `supervision/piv-supervise.md` - PIV-specific supervision
-- `supervision/prime-supervisor.md` - Context priming
+## Primary Execution Tools
 
-## Subagent Spawning (Primary Tool)
+**YOU ONLY USE THE TASK TOOL**
 
-**CRITICAL: Use this for ALL execution tasks.**
+**All work is done by spawning subagents via the Task tool:**
 
-```
-mcp_meta_spawn_subagent({
-  task_type: "implementation",  // research, planning, testing, validation, documentation, fix, deployment, review
-  description: "What to do",
-  context: { /* optional */ }
+```javascript
+Task({
+  description: "Brief description",
+  prompt: `Detailed instructions for subagent`,
+  subagent_type: "general-purpose" | "Explore" | "Plan" | "Bash",
+  model: "haiku" | "sonnet" | "opus"
 })
 ```
 
-**Automatically handles**:
-- Queries Odin for optimal AI service
-- Selects appropriate subagent template
-- Spawns agent with best model
-- Tracks usage and cost
+**Decision tree:**
+```
+Feature request?           → Task tool (spawn BMAD subagent)
+Single task?               → Task tool (appropriate subagent)
+Epic implementation?       → Task tool (implementation subagent)
+Research/analysis?         → Task tool (Explore subagent)
+Planning?                  → Task tool (Plan subagent)
+```
 
-**Common task types**: research, planning, implementation, testing, validation, documentation, fix, deployment, review
+---
 
-**Full catalog**: `/home/samuel/sv/docs/subagent-catalog.md`
+## Model Selection Strategy
+
+**CRITICAL: Use Haiku for implementation to conserve tokens**
+
+| Task Type | Model | Subagent Type | Requirements |
+|-----------|-------|---------------|--------------|
+| **Implementation** (with plan) | `haiku` | `general-purpose` | Detailed epic with file paths, numbered steps |
+| **Research/Exploration** | `sonnet` | `Explore` | Open-ended investigation |
+| **Planning/Architecture** | `opus` | `Plan` | Complex decisions, system design |
+| **Testing/Validation** | `haiku` | `general-purpose` | Clear test instructions |
+
+**Spawn pattern:**
+```javascript
+// Implementation with clear plan
+Task({
+  description: "Implement feature X",
+  prompt: `[Detailed context from epic/handoff]`,
+  subagent_type: "general-purpose",
+  model: "haiku"  // Fast, cheap execution
+})
+
+// Research/exploration
+Task({
+  description: "Analyze codebase for X",
+  prompt: `[Question to investigate]`,
+  subagent_type: "Explore",
+  model: "sonnet"  // Needs reasoning
+})
+```
+
+**Planning quality for Haiku success:**
+- ✅ Exact file paths and line numbers
+- ✅ Numbered implementation steps
+- ✅ Code snippets showing what to change
+- ✅ Test commands to verify
+- ❌ No architectural decisions left
 
 ---
 
 ## Infrastructure MCP Tools
 
-**Use for infrastructure operations (NEVER manual bash commands):**
+**Project-supervisors (PSes) have autonomous access to MCP tools via meta-supervisor:**
 
-| Category | Tools |
-|----------|-------|
-| **Tunnels** | `tunnel_request_cname`, `tunnel_delete_cname`, `tunnel_list_cnames` |
-| **Secrets** | `mcp_meta_set_secret`, `mcp_meta_get_secret`, `mcp_meta_list_secrets` |
-| **Ports** | `mcp_meta_allocate_port` |
-| **GCloud** | `mcp_gcloud_create_vm`, `mcp_gcloud_delete_vm`, `mcp_gcloud_create_bucket` |
+| Category | Count | Primary Tools |
+|----------|-------|----------------|
+| **GCloud VM** | 11 | Create/list/start/stop/delete VMs, health monitoring, auto-scaling |
+| **GCloud OAuth** | 6 | Create OAuth brands/clients, credential management |
+| **Tunnels** | 3 | `tunnel_request_cname`, `tunnel_delete_cname`, `tunnel_list_cnames` |
+| **Secrets** | 3 | `mcp_meta_set_secret`, `mcp_meta_get_secret`, `mcp_meta_list_secrets` |
+| **Ports** | 3 | `mcp_meta_allocate_port`, `mcp_meta_get_port`, `mcp_meta_list_ports` |
 
-**Full reference**: `/home/samuel/sv/docs/mcp-tools-reference.md`
+**GCloud capabilities**: VM management across 3 projects (odin, odin3, openhorizon), OAuth 2.0 credential creation, auto-scaling, health monitoring, cross-project support.
 
 ---
 
-## External Integrations
+## References
 
-- **PostgreSQL**: Issue tracking and metrics
-- **GitHub**: Issue synchronization (future)
-- **Prometheus**: Metrics export (future)
+- **Complete tool guide**: `/home/samuel/sv/docs/guides/tool-usage-guide.md`
+- **Subagent catalog**: `/home/samuel/sv/docs/subagent-catalog.md`
+- **GCloud VM management**: `/home/samuel/sv/supervisor-service-s/docs/gcloud-quickstart.md`
+- **GCloud OAuth management**: `/home/samuel/sv/supervisor-service-s/docs/gcloud-oauth-management.md`
+- **GCloud examples**: `/home/samuel/sv/supervisor-service-s/docs/gcloud-ps-examples.md`
+- **Full GCloud status**: `/home/samuel/sv/supervisor-service-s/docs/gcloud-full-status.md`

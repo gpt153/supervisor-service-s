@@ -16,6 +16,7 @@ import { IngressManager } from './IngressManager.js';
 import { DockerNetworkIntel } from './DockerNetworkIntel.js';
 import { DomainDiscovery } from './DomainDiscovery.js';
 import { CNAMEManager } from './CNAMEManager.js';
+import { PortAllocationSync } from './PortAllocationSync.js';
 import { CloudflareManager } from '../cloudflare/CloudflareManager.js';
 import type { PortManager } from '../ports/PortManager.js';
 import type { SecretsManager } from '../secrets/SecretsManager.js';
@@ -35,6 +36,7 @@ export class TunnelManager {
   private dockerIntel!: DockerNetworkIntel;
   private domainDiscovery!: DomainDiscovery;
   private cnameManager!: CNAMEManager;
+  private portAllocationSync!: PortAllocationSync;
   private cloudflareManager!: CloudflareManager;
   private portManager: PortManager;
   private secretsManager: SecretsManager;
@@ -96,6 +98,18 @@ export class TunnelManager {
       this.ingressManager = new IngressManager('/etc/cloudflared/config.yml');
       console.log('✓ Ingress manager initialized');
 
+      // Step 5b: Sync config with database (recovery from manual edits)
+      const existingCNAMEs = this.database.listCNAMEs();
+      if (existingCNAMEs.length > 0) {
+        console.log(`Syncing config with ${existingCNAMEs.length} CNAME(s) from database...`);
+        this.ingressManager.regenerateFromCNAMEs(
+          existingCNAMEs.map(c => ({
+            full_hostname: c.full_hostname,
+            target_service: c.target_service
+          }))
+        );
+      }
+
       // Step 6: Initialize CNAME Manager
       this.cnameManager = new CNAMEManager(
         this.database,
@@ -112,7 +126,18 @@ export class TunnelManager {
       this.restartManager.setLocation(cloudflarednLocation === 'container' ? 'container' : 'host');
       console.log('✓ Restart manager initialized');
 
-      // Step 8: Initialize Health Monitor
+      // Step 8: Initialize Port Allocation Sync
+      this.portAllocationSync = new PortAllocationSync(
+        this.portManager,
+        this.ingressManager,
+        this.database,
+        this.dockerIntel,
+        { syncIntervalMinutes: 5 }
+      );
+      this.portAllocationSync.start();
+      console.log('✓ Port allocation sync started');
+
+      // Step 9: Initialize Health Monitor
       this.healthMonitor = new HealthMonitor(this.database);
 
       // Set up health monitor event listeners
@@ -147,6 +172,10 @@ export class TunnelManager {
 
     if (this.healthMonitor) {
       this.healthMonitor.stop();
+    }
+
+    if (this.portAllocationSync) {
+      this.portAllocationSync.stop();
     }
 
     if (this.dockerIntel) {
@@ -229,6 +258,26 @@ export class TunnelManager {
   async refreshDomains(): Promise<void> {
     this.ensureInitialized();
     await this.domainDiscovery.discoverDomains();
+  }
+
+  /**
+   * Sync port allocations with ingress rules (manual trigger)
+   */
+  async syncPortAllocations(): Promise<void> {
+    this.ensureInitialized();
+    await this.portAllocationSync.syncNow();
+  }
+
+  /**
+   * Check if port needs ingress rule
+   */
+  async checkPortIngress(port: number, projectName: string): Promise<{
+    needsIngress: boolean;
+    hasIngress: boolean;
+    recommendation?: string;
+  }> {
+    this.ensureInitialized();
+    return await this.portAllocationSync.checkPort(port, projectName);
   }
 
   // ==================== Helper Methods ====================

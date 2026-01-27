@@ -241,7 +241,11 @@ const storeAccountCredentialsTool: ToolDefinition = {
       };
 
       const keyPath = `meta/${params.service}/credentials/${params.accountName}`;
-      await secretsManager.set(keyPath, JSON.stringify(credentials));
+      await secretsManager.set({
+        keyPath,
+        value: JSON.stringify(credentials),
+        description: `Credentials for ${params.service} account ${params.accountName}`,
+      });
 
       return {
         success: true,
@@ -282,7 +286,7 @@ const getAccountCredentialsTool: ToolDefinition = {
     try {
       const secretsManager = new SecretsManager();
       const keyPath = `meta/${params.service}/credentials/${params.accountName}`;
-      const value = await secretsManager.get(keyPath);
+      const value = await secretsManager.get({ keyPath });
 
       if (!value) {
         return {
@@ -331,21 +335,23 @@ const listAccountCredentialsTool: ToolDefinition = {
   handler: async (params, context: ProjectContext) => {
     try {
       const secretsManager = new SecretsManager();
-      const basePath = params.service ? `meta/${params.service}/credentials` : 'meta';
-      const secrets = await secretsManager.list(basePath);
+      const secrets = await secretsManager.list({ scope: 'meta' });
 
       const credentials = secrets
-        .filter(s => s.key_path.includes('/credentials/'))
+        .filter(s => {
+          const matchesService = !params.service || s.keyPath.startsWith(`meta/${params.service}/`);
+          return matchesService && s.keyPath.includes('/credentials/');
+        })
         .map(s => {
-          const parts = s.key_path.split('/');
+          const parts = s.keyPath.split('/');
           const service = parts[1]; // meta/<service>/credentials/<name>
           const accountName = parts[3];
 
           return {
             service,
             accountName,
-            keyPath: s.key_path,
-            createdAt: s.created_at,
+            keyPath: s.keyPath,
+            createdAt: s.lastAccessed,
           };
         });
 

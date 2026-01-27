@@ -1,9 +1,40 @@
-node_modules/
-dist/
+# Environment files
 .env
-*.log
-.DS_Store
+.env.local
+.env.production
+.env.development
+.env.*.local
+
+# Dependencies
+node_modules/
+
+# Build output
+dist/
+build/
 coverage/
+
+# Logs
+logs/
+*.log
+npm-debug.log*
+
+# Database
+data/
+*.db
+*.sqlite
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
 
 # Auto-generated instruction directories
 .claude-specific/
+
+# Process IDs
+*.pid

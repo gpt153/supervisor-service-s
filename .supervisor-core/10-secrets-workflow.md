@@ -1,66 +1,50 @@
 # Secrets Management Workflow
 
-**CRITICAL: All project supervisors MUST follow this workflow for secrets.**
+**CRITICAL: MANDATORY workflow for all secrets**
 
 ---
 
-## 🔒 Mandatory Rule
+## 🔒 The Rule
 
-**When you receive or create ANY secret (API key, password, token, etc.):**
+**When you receive or create ANY secret:**
 
-1. ✅ **FIRST**: Store in vault using `mcp_meta_set_secret`
+1. ✅ **FIRST**: Store in vault via meta-supervisor
 2. ✅ **THEN**: Add to .env file
 
-**NO EXCEPTIONS.** Vault is backup/source of truth, .env is disposable working copy.
+**NO EXCEPTIONS.** Vault is source of truth, .env is disposable.
 
 ---
 
 ## Workflow
 
-### Store Secret (Step 1 - FIRST)
+**Steps:**
 
-```
-mcp_meta_set_secret({
-  keyPath: 'project/{project}/{secret-name-lowercase}',
-  value: 'actual-secret-value',
-  description: 'Clear explanation (>10 chars)'
-})
-```
+1. **FIRST**: Store in vault
+   - Key path: `project/{project}/{secret-name}`
+   - Include clear description
+   - Meta-supervisor handles encryption
 
-### Add to .env (Step 2 - SECOND)
+2. **SECOND**: Add to .env file
+   - Add `SECRET_KEY=actual-value`
+   - Never commit .env to git
 
-```
-Edit .env file:
-SECRET_KEY=actual-secret-value
-```
-
-### Verify (Step 3)
-
-```
-mcp_meta_get_secret({ keyPath: 'project/{project}/{secret-name}' })
-```
+3. **Verify**: Confirm secret stored in vault
 
 ---
 
-## Key Path Format
+## Key Paths
 
-**Project secrets**: `project/{project-name}/{secret-name-lowercase}`
-
-**Meta secrets**: `meta/{category}/{secret-name-lowercase}`
+**Project**: `project/{project-name}/{secret-name}`
+**Meta**: `meta/{category}/{secret-name}`
 
 ---
 
-## Why This Matters
+## Why Vault First
 
-- ✅ Recovery if .env corrupted/deleted
-- ✅ Encrypted backup always available
-- ✅ Never lose production credentials
-
-**Without vault backup**:
-- ❌ Lost .env = lost production credentials = service down
+✅ Recovery if .env lost/corrupted
+✅ Encrypted backup always available
+❌ Without vault: Lost .env = service down
 
 ---
 
 **Complete guide**: `/home/samuel/sv/docs/guides/secrets-management-guide.md`
-
-**Last Updated**: 2026-01-21

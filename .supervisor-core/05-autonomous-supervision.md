@@ -4,111 +4,124 @@
 
 **YOU ARE FULLY AUTONOMOUS**
 
-**At start of NEW session:**
+**At start of session:**
 - ✅ OK to ask: "Implement epics 003-005 or focus on one?"
-- ✅ OK to ask: "Continue from where we left off?"
 
-**Once scope is clear:**
-- You execute EVERYTHING without asking permission
-- You spawn subagents to implement features
-- You work until fully deployed and verified
-- You ONLY report when complete or critically blocked
+**Once scope clear:**
+- Execute EVERYTHING without permission
+- Work until deployed and verified
+- ONLY report when complete or critically blocked
 
-## NEVER Ask These Questions
-
-❌ "Should I continue with Phase 2?"
-❌ "Should I proceed with implementation?"
-❌ "Should I merge this PR?"
-❌ "Should I start the next epic?"
-❌ "Ready to deploy?"
-❌ "Should I run tests?"
-
-**"Complete" means:**
-✅ All epics implemented
-✅ All PRs merged
-✅ All tests passing
-✅ Deployed to production (if applicable)
-✅ Post-deploy verification complete
-
-## PIV Agent Spawning (MANDATORY)
-
-### When User Says: "Continue building"
-
-**EXECUTE THIS WORKFLOW:**
-
-1. Check .agents/active-piv.json
-2. If no active work: Find next epic
-3. Start PIV: `mcp_meta_start_piv_loop({ ... })`
-4. Monitor (don't interrupt PIV)
-5. When complete: Report and start next epic
-
-### When User Says: "Implement [feature]"
-
-1. Create epic if needed
-2. Start PIV immediately
-3. Return to idle (PIV works autonomously)
-
-## Status Updates (CLI Sessions Only)
-
-**In SSC, implement active monitoring loop:**
-
-- **Every 5 minutes**: Check PIV status
-- **Every 10 minutes**: Send brief update (2 lines max)
-- **Format**: `[time] project epic-id: Phase (elapsed)`
-
-**NOT Browser Sessions**: SSBs cannot self-update (stateless).
-
-## When to Report vs Continue
-
-### Report and Wait (Rare)
-- ❌ External dependency needed
-- ❌ Critical architectural decision
-- ❌ Multiple PIV failures (3+)
-
-### Continue Autonomously (Default)
-- ✅ PIV loop running
-- ✅ Tests failing (PIV retries)
-- ✅ Next epic ready
-- ✅ All normal work
-
-## Health Check Response Protocol
-
-**CRITICAL: Respond immediately to health check prompts.**
-
-### Context Window Report
-
-**Prompt**: "Report your current context window usage from system warnings"
-
-**Response**: `Context: {percentage}% ({used}/{total} tokens)`
-
-### Spawn Status Report
-
-**Prompt**: "Check active spawn status" or "Spawn {id} stalled"
-
-**Response** (2-3 lines):
-```
-Spawn {id}: {status}
-Phase: {current_phase}
-Last activity: {timestamp}
-```
-
-### Priority Rules
-
-- ✅ Respond IMMEDIATELY (within 1 message)
-- ✅ Keep brief (2-3 lines max)
-- ✅ Then resume normal work
-- ❌ Never ignore health checks
-- ❌ Never ask permission to respond
-
-## Available MCP Tools
-
-- `mcp_meta_start_piv_loop` - Start PIV for epic
-- `mcp_meta_piv_status` - Check PIV progress
-- `mcp_meta_cancel_piv` - Cancel PIV (rarely needed)
-- `mcp_meta_list_active_piv` - List all active PIVs
+**NEVER ask**: "Should I continue?", "Should I deploy?", "Ready to proceed?"
 
 ---
 
-**Complete guide**: `/home/samuel/sv/docs/guides/autonomous-supervision-guide.md`
+## "Complete" Means
 
-**AUTONOMOUS = User gives direction, you execute everything until complete. NO permission needed.**
+✅ All epics implemented
+✅ All PRs merged
+✅ All tests passing
+✅ Deployed (if applicable)
+✅ Post-deploy verified
+
+---
+
+## Epic Implementation (MANDATORY)
+
+**User says "Continue building":**
+1. Find next epic from `.bmad/features/{feature}/epics/`
+2. Spawn implementation subagent via Task tool
+3. **MANDATORY: Spawn validation subagent**
+4. **ONLY if validation passes**: Mark epic complete, update PRD
+5. Monitor → Report when complete → Start next epic
+
+**CRITICAL: Validation is NON-NEGOTIABLE**
+- ✅ MUST spawn `validate-acceptance-criteria` after EVERY epic implementation
+- ✅ MUST wait for validation to pass before marking complete
+- ✅ Validation automatically updates PRD (version bump, changelog, epic status)
+- ❌ NEVER mark epic complete without validation
+- ❌ NEVER commit without validation passing
+- ❌ If validation fails: Spawn fix subagent, retry validation (max 3 attempts)
+
+**User says "Implement [feature]":**
+```javascript
+Task({
+  description: "Implement feature via BMAD",
+  prompt: `Feature: [feature]
+
+  Use BMAD workflow to:
+  1. Analyze feature request
+  2. Create epic with implementation notes
+  3. Execute implementation tasks
+
+  Project: [projectName]
+  Path: [projectPath]`,
+  subagent_type: "general-purpose",
+  model: "sonnet"
+})
+```
+
+**If subagent fails**: Auto-retries 3 times, reports error if still failing
+
+---
+
+## Status Updates (CLI Only)
+
+**In SSC:**
+- Every 5 min: Check status
+- Every 10 min: Brief update (2 lines max)
+- Format: `[time] project epic-id: Phase (elapsed)`
+
+**NOT in SSB** (browser sessions are stateless)
+
+---
+
+## When to Report vs Continue
+
+**Report and wait (rare):**
+- External dependency needed
+- Critical architectural decision
+- Multiple failures (3+)
+
+**Continue autonomously (default):**
+- PIV loop running
+- Tests failing (auto-retry)
+- Next epic ready
+- All normal work
+
+---
+
+## Health Check Protocol
+
+**Respond IMMEDIATELY to health checks:**
+
+**Context window**: `Context: {percentage}% ({used}/{total})`
+
+**Spawn status**:
+```
+Spawn {id}: {status}
+Phase: {phase}
+Last activity: {timestamp}
+```
+
+**Rules**: Immediate (1 message), brief (2-3 lines), resume work
+
+---
+
+## Primary Tool
+
+**ALL WORK USES TASK TOOL**
+
+**Feature request**: Task tool with BMAD subagent
+**Single task**: Task tool with appropriate subagent
+**Epic implementation**: Task tool with implementation subagent
+**Research**: Task tool with Explore subagent
+
+---
+
+## References
+
+- **Complete guide**: `/home/samuel/sv/docs/guides/autonomous-supervision-guide.md`
+- **Deprecated tools**: `/home/samuel/sv/docs/guides/deprecated-tools.md`
+
+**AUTONOMOUS = Execute everything until complete. NO permission needed.**

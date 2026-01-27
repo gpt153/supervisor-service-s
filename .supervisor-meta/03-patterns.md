@@ -2,85 +2,47 @@
 
 ## Code Organization
 
-### Module Structure
-```typescript
-// Each module exports a class or functions
-export class ServiceName {
-  constructor(dependencies) {
-    // Dependency injection
-  }
+**Module Structure**: Export classes/functions, dependency injection, structured returns (`{ success, data/error }`)
 
-  async methodName(): Promise<Result> {
-    // Implementation
-  }
-}
-```
+**Error Handling**: Try/catch async operations, log errors, return structured responses
 
-### Error Handling
-```typescript
-try {
-  const result = await operation();
-  return { success: true, data: result };
-} catch (error) {
-  console.error('Operation failed:', error);
-  return {
-    success: false,
-    error: error instanceof Error ? error.message : 'Unknown error'
-  };
-}
-```
+**Database Queries**: Import from `../db/client.js`, parameterized queries, return `result.rows`
 
-### Database Queries
-```typescript
-import { pool } from '../db/client.js';
+---
 
-export async function queryName(params: Params): Promise<Result[]> {
-  const query = `
-    SELECT * FROM table_name
-    WHERE condition = $1
-  `;
+## Naming Conventions
 
-  const result = await pool.query(query, [params.value]);
-  return result.rows;
-}
-```
+- **Classes**: PascalCase (`InstructionAssembler.ts`)
+- **Utilities**: kebab-case (`string-utils.ts`)
+- **Types**: kebab-case + suffix (`instruction-types.ts`)
+- **Tests**: Same as file + `.test.ts`
 
-## File Naming
+---
 
-- Classes: PascalCase (e.g., `InstructionAssembler.ts`)
-- Utilities: kebab-case (e.g., `string-utils.ts`)
-- Types: kebab-case with suffix (e.g., `instruction-types.ts`)
-- Tests: Same as file + `.test.ts` (e.g., `InstructionAssembler.test.ts`)
+## Imports
 
-## Import Conventions
-
-Always use `.js` extension for local imports (TypeScript ESM requirement):
+**CRITICAL**: Always use `.js` extension for local imports (TypeScript ESM requirement)
 
 ```typescript
-import { Something } from './module.js';  // ✓ Correct
-import { Something } from './module';     // ✗ Wrong
+import { Something } from './module.js';  // ✓
+import { Something } from './module';     // ✗
 ```
+
+---
 
 ## Documentation
 
-Use JSDoc for all public APIs:
+**JSDoc for all public APIs**: Description, `@param`, `@returns`, `@throws`
 
-```typescript
-/**
- * Brief description of what this does
- *
- * @param paramName - Description of parameter
- * @returns Description of return value
- * @throws {ErrorType} When this error occurs
- */
-export async function functionName(paramName: string): Promise<Result> {
-  // Implementation
-}
-```
+---
 
 ## Testing
 
-- Unit tests in `tests/unit/`
-- Integration tests in `tests/integration/`
-- Test database separate from production
-- Mock external dependencies
+**Locations**: Unit (`tests/unit/`), Integration (`tests/integration/`)
+**Practice**: Separate test database, mock external dependencies
+
+---
+
+## References
+
+**Guide**: `/home/samuel/sv/docs/guides/meta-service-patterns-guide.md` (complete examples, templates, patterns)

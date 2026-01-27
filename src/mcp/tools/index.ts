@@ -23,6 +23,11 @@ import { getSubscriptionOptimizationTools } from './subscription-optimization-to
 import { getAPIKeyAutomationTools } from './api-key-automation-tools.js';
 import { spawnSubagentTool } from './spawn-subagent-tool.js';
 import { uiTools } from './ui-tools.js';
+import { getPerStepPIVTools } from './piv-per-step-tool.js';
+import { getPIVPhaseTools } from './piv-phase-tools.js';
+import { getBMADTools } from './bmad-tools.js';
+import { getBMADFullWorkflowTools } from './bmad-full-workflow.js';
+import { getPRDStalenessTools } from './prd-staleness-tools.js';
 
 const execAsync = promisify(exec);
 
@@ -370,8 +375,18 @@ export function getAllTools(): ToolDefinition[] {
     // GCloud integration tools
     ...getGCloudTools(),
 
-    // PIV loop tools
+    // PIV loop tools (monolithic)
     ...getPIVTools(),
+
+    // PIV per-step tools (granular control)
+    ...getPerStepPIVTools(),
+    ...getPIVPhaseTools(),
+
+    // BMAD epic implementation tools
+    ...getBMADTools(),
+
+    // BMAD full workflow orchestrator (all 4 phases)
+    ...getBMADFullWorkflowTools(),
 
     // Project context tools
     ...getProjectContextTools(),
@@ -396,6 +411,9 @@ export function getAllTools(): ToolDefinition[] {
 
     // UI-First Development Workflow tools
     ...uiTools,
+
+    // PRD staleness monitoring tools
+    ...getPRDStalenessTools(),
   ];
 }
 

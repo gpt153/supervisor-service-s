@@ -6,16 +6,13 @@
  * parsing outputs, and handling errors.
  */
 
-import { exec } from 'child_process';
-import { promisify } from 'util';
+import { spawn } from 'child_process';
 import type {
   AgentType,
   AgentRequest,
   AgentResult,
   AdapterConfig,
 } from './types.js';
-
-const execAsync = promisify(exec);
 
 /**
  * Abstract base class for CLI adapters
@@ -84,12 +81,15 @@ export abstract class CLIAdapter {
    * Check if CLI is installed and available
    */
   async checkAvailability(): Promise<boolean> {
-    try {
-      const { stdout } = await execAsync(`which ${this.config.cliCommand}`);
-      return stdout.trim().length > 0;
-    } catch {
-      return false;
-    }
+    return new Promise((resolve) => {
+      const child = spawn('which', [this.config.cliCommand]);
+      child.on('exit', (code) => {
+        resolve(code === 0);
+      });
+      child.on('error', () => {
+        resolve(false);
+      });
+    });
   }
 
   /**
@@ -140,42 +140,184 @@ export abstract class CLIAdapter {
   }
 
   /**
-   * Execute command with proper error handling
+   * Execute command with proper error handling using spawn() instead of exec()
+   * This provides better control over child processes and prevents orphaned processes
    */
   protected async executeCommand(
     command: string,
-    options: { cwd?: string; timeout?: number; env?: Record<string, string> }
+    options: { cwd?: string; timeout?: number; env?: Record<string, string>; stdin?: string }
   ): Promise<{ stdout: string; stderr: string }> {
-    try {
-      return await execAsync(command, {
+    return new Promise((resolve, reject) => {
+      // Parse command into program and args
+      const parts = this.parseCommand(command);
+      const program = parts[0];
+      const args = parts.slice(1);
+
+      // Spawn child process
+      const child = spawn(program, args, {
         cwd: options.cwd,
-        timeout: options.timeout,
-        env: options.env,
-        maxBuffer: 10 * 1024 * 1024, // 10MB buffer
+        env: options.env ?? process.env,
+        stdio: options.stdin ? ['pipe', 'pipe', 'pipe'] : ['ignore', 'pipe', 'pipe'],
+        detached: true, // Create new process group for proper cleanup
       });
-    } catch (error: any) {
-      // Handle timeout errors
-      if (error.killed && error.signal === 'SIGTERM') {
-        throw new Error(`Command timed out after ${options.timeout}ms`);
+
+      let stdout = '';
+      let stderr = '';
+      let timedOut = false;
+      let timeoutHandle: NodeJS.Timeout | null = null;
+
+      // Collect stdout (null check for TypeScript)
+      if (child.stdout) {
+        child.stdout.on('data', (data) => {
+          stdout += data.toString();
+        });
       }
-      throw error;
+
+      // Collect stderr (null check for TypeScript)
+      if (child.stderr) {
+        child.stderr.on('data', (data) => {
+          stderr += data.toString();
+        });
+      }
+
+      // Handle timeout with SIGKILL
+      if (options.timeout) {
+        timeoutHandle = setTimeout(() => {
+          timedOut = true;
+          // Use SIGKILL to ensure process dies immediately
+          // Also kill entire process group to prevent orphaned processes
+          if (child.pid) {
+            try {
+              // Kill entire process group (negative PID)
+              process.kill(-child.pid, 'SIGKILL');
+            } catch (err) {
+              // Process group kill failed, try killing just the child
+              try {
+                child.kill('SIGKILL');
+              } catch {
+                // Process already dead or cannot be killed
+                console.warn('[CLIAdapter] Failed to kill process:', err);
+              }
+            }
+          } else {
+            // PID not available, try killing the child directly
+            try {
+              child.kill('SIGKILL');
+            } catch {
+              console.warn('[CLIAdapter] Failed to kill process (no PID)');
+            }
+          }
+        }, options.timeout);
+      }
+
+      // Handle process exit
+      child.on('exit', (code, signal) => {
+        if (timeoutHandle) {
+          clearTimeout(timeoutHandle);
+        }
+
+        if (timedOut) {
+          reject(new Error(`Command timed out after ${options.timeout}ms`));
+        } else if (code !== 0 && code !== null) {
+          reject(new Error(`Command failed with exit code ${code}: ${stderr}`));
+        } else {
+          resolve({ stdout, stderr });
+        }
+      });
+
+      // Handle spawn errors
+      child.on('error', (error) => {
+        if (timeoutHandle) {
+          clearTimeout(timeoutHandle);
+        }
+        reject(error);
+      });
+
+      // Write stdin if provided
+      if (options.stdin && child.stdin) {
+        child.stdin.write(options.stdin);
+        child.stdin.end();
+      }
+    });
+  }
+
+  /**
+   * Parse command string into program and arguments
+   * Handles quoted strings and escaping
+   */
+  private parseCommand(command: string): string[] {
+    const parts: string[] = [];
+    let current = '';
+    let inQuote = false;
+    let quoteChar = '';
+    let escaping = false;
+
+    for (let i = 0; i < command.length; i++) {
+      const char = command[i];
+
+      if (escaping) {
+        current += char;
+        escaping = false;
+        continue;
+      }
+
+      if (char === '\\') {
+        escaping = true;
+        continue;
+      }
+
+      if (char === '"' || char === "'") {
+        if (!inQuote) {
+          inQuote = true;
+          quoteChar = char;
+        } else if (char === quoteChar) {
+          inQuote = false;
+          quoteChar = '';
+        } else {
+          current += char;
+        }
+        continue;
+      }
+
+      if (char === ' ' && !inQuote) {
+        if (current) {
+          parts.push(current);
+          current = '';
+        }
+        continue;
+      }
+
+      current += char;
     }
+
+    if (current) {
+      parts.push(current);
+    }
+
+    return parts;
   }
 
   /**
    * Check if stderr output indicates an error
    * Can be overridden by subclasses
+   *
+   * NOTE: Only treat stderr as error if it contains specific error patterns.
+   * Many CLI tools write informational messages or warnings to stderr
+   * that don't indicate task failure.
    */
   protected isErrorOutput(stderr: string): boolean {
-    const errorIndicators = [
-      'error:',
-      'error',
-      'failed',
-      'exception',
-      'fatal',
+    // Only treat as error if stderr contains these specific patterns
+    // (not just the words "error" or "failed" which could be in warnings)
+    const errorPatterns = [
+      /^Error:/im,           // Lines starting with "Error:"
+      /fatal error/i,        // Fatal errors
+      /exception:/i,         // Exception messages with colon
+      /command not found/i,  // Command execution failures
+      /permission denied/i,  // Permission errors
+      /cannot /i,            // "Cannot execute", "Cannot access", etc.
     ];
-    const lowerStderr = stderr.toLowerCase();
-    return errorIndicators.some((indicator) => lowerStderr.includes(indicator));
+
+    return errorPatterns.some((pattern) => pattern.test(stderr));
   }
 
   /**

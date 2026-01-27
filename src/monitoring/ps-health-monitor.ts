@@ -579,10 +579,11 @@ export class PSHealthMonitor {
 
   /**
    * Clear PS context via /clear command
+   * Uses C-m for better compatibility with Claude Code
    */
   private async clearContext(project: string): Promise<void> {
     const sessionName = `${project}-ps`;
-    const command = `tmux send-keys -t "${sessionName}" "/clear" Enter`;
+    const command = `tmux send-keys -t "${sessionName}" "/clear" && sleep 0.2 && tmux send-keys -t "${sessionName}" C-m`;
 
     try {
       await execFileAsync('bash', ['-c', command]);
@@ -595,11 +596,14 @@ export class PSHealthMonitor {
 
   /**
    * Resume PS from handoff document
+   * Uses C-m for better compatibility with Claude Code
    */
   private async resumeFromHandoff(project: string, handoffFile: string): Promise<void> {
     const sessionName = `${project}-ps`;
     const prompt = `Read handoff from ${handoffFile} and resume work`;
-    const command = `tmux send-keys -t "${sessionName}" "${prompt}" Enter`;
+    // Escape double quotes in prompt
+    const escapedPrompt = prompt.replace(/"/g, '\\"');
+    const command = `tmux send-keys -t "${sessionName}" "${escapedPrompt}" && sleep 0.2 && tmux send-keys -t "${sessionName}" C-m`;
 
     try {
       await execFileAsync('bash', ['-c', command]);

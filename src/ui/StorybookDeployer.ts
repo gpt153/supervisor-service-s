@@ -9,6 +9,7 @@ import { join, dirname } from 'path';
 import { exec } from 'child_process';
 import { promisify } from 'util';
 import { pool } from '../db/client.js';
+import { NginxConfigManager } from './NginxConfigManager.js';
 import type {
   DesignSystem,
   StorybookConfig,
@@ -26,10 +27,12 @@ const execAsync = promisify(exec);
 export class StorybookDeployer {
   private readonly templatesDir: string;
   private readonly storybooksDir: string;
+  private readonly nginxManager: NginxConfigManager;
 
-  constructor(templatesDir?: string, storybooksDir?: string) {
+  constructor(templatesDir?: string, storybooksDir?: string, nginxPort?: number) {
     this.templatesDir = templatesDir || join(process.cwd(), 'templates', 'storybook');
     this.storybooksDir = storybooksDir || join(process.cwd(), '.storybooks');
+    this.nginxManager = new NginxConfigManager(nginxPort);
   }
 
   /**
@@ -79,12 +82,29 @@ export class StorybookDeployer {
       // Start Storybook process
       await this.startStorybookProcess(deployment.id, projectDir, port);
 
+      // Create ui_deployments record for nginx integration
+      await this.createUIDeploymentRecord(
+        designSystem.project_name,
+        port,
+        deployment.id
+      );
+
+      // Update nginx configuration
+      const nginxResult = await this.nginxManager.updateAndReload();
+      if (!nginxResult.success) {
+        console.warn('Nginx update failed:', nginxResult.error);
+        // Continue anyway - Storybook is running even if nginx failed
+      }
+
       const updatedDeployment = await this.getDeployment(deployment.id);
 
       return {
         success: true,
         deployment: updatedDeployment || undefined,
         url: publicUrl,
+        nginxUrl: nginxResult.success
+          ? `http://localhost:8080/${designSystem.project_name}/storybook/`
+          : undefined,
       };
     } catch (error) {
       console.error('Error deploying Storybook:', error);
@@ -149,6 +169,15 @@ export class StorybookDeployer {
       // Start new process
       const projectDir = join(this.storybooksDir, designSystem.project_name);
       await this.startStorybookProcess(deploymentId, projectDir, deployment.port);
+
+      // Update ui_deployments status
+      await pool.query(
+        `UPDATE ui_deployments SET status = 'active' WHERE project_name = $1 AND deployment_type = 'storybook'`,
+        [designSystem.project_name]
+      );
+
+      // Update nginx configuration
+      await this.nginxManager.updateAndReload();
 
       return true;
     } catch (error) {
@@ -343,5 +372,62 @@ export class StorybookDeployer {
     );
 
     return result.rows.length > 0 ? result.rows[0] : null;
+  }
+
+  /**
+   * Create ui_deployments record for nginx integration
+   */
+  private async createUIDeploymentRecord(
+    projectName: string,
+    port: number,
+    designSystemId: number
+  ): Promise<void> {
+    const nginxLocation = `/${projectName}/storybook/`;
+    const url = `http://localhost:8080${nginxLocation}`;
+
+    await pool.query(
+      `
+      INSERT INTO ui_deployments (
+        project_name,
+        deployment_type,
+        port,
+        url,
+        nginx_location,
+        status,
+        metadata
+      )
+      VALUES ($1, $2, $3, $4, $5, $6, $7)
+      ON CONFLICT (project_name, deployment_type)
+      DO UPDATE SET
+        port = EXCLUDED.port,
+        url = EXCLUDED.url,
+        nginx_location = EXCLUDED.nginx_location,
+        status = EXCLUDED.status,
+        metadata = EXCLUDED.metadata,
+        updated_at = NOW()
+    `,
+      [
+        projectName,
+        'storybook',
+        port,
+        url,
+        nginxLocation,
+        'active',
+        { design_system_id: designSystemId },
+      ]
+    );
+  }
+
+  /**
+   * Update nginx configuration for all deployments
+   *
+   * @returns Result of nginx update
+   */
+  async updateNginxConfig(): Promise<{
+    success: boolean;
+    error?: string;
+    config?: string;
+  }> {
+    return await this.nginxManager.updateAndReload();
   }
 }

@@ -397,11 +397,98 @@ export const listDomainsTool: ToolDefinition = {
   }
 };
 
+/**
+ * Sync port allocations with ingress rules
+ */
+export const syncPortAllocationsTool: ToolDefinition = {
+  name: 'tunnel_sync_port_allocations',
+  description: 'Manually trigger sync between port allocations and ingress rules. Auto-adds missing ingress rules and removes orphaned ones.',
+  inputSchema: {
+    type: 'object',
+    properties: {},
+    required: []
+  },
+  handler: async (params: any, context?: ProjectContext) => {
+    try {
+      const manager = await getTunnelManager();
+      await manager.syncPortAllocations();
+
+      return {
+        content: [{
+          type: 'text',
+          text: '✅ Port allocation sync completed successfully'
+        }]
+      };
+    } catch (error) {
+      return {
+        content: [{
+          type: 'text',
+          text: `Error syncing port allocations: ${error instanceof Error ? error.message : 'Unknown error'}`
+        }],
+        isError: true
+      };
+    }
+  }
+};
+
+/**
+ * Check if port has proper ingress configuration
+ */
+export const checkPortIngressTool: ToolDefinition = {
+  name: 'tunnel_check_port_ingress',
+  description: 'Check if a specific port has proper ingress rule configuration',
+  inputSchema: {
+    type: 'object',
+    properties: {
+      port: {
+        type: 'number',
+        description: 'Port number to check'
+      },
+      projectName: {
+        type: 'string',
+        description: 'Project name (auto-detected from context if not provided)'
+      }
+    },
+    required: ['port']
+  },
+  handler: async (params: any, context?: ProjectContext) => {
+    try {
+      const projectName = params.projectName || context?.project?.name || 'unknown';
+      const manager = await getTunnelManager();
+      const result = await manager.checkPortIngress(params.port, projectName);
+
+      return {
+        content: [{
+          type: 'text',
+          text: JSON.stringify({
+            port: params.port,
+            project: projectName,
+            needs_ingress: result.needsIngress,
+            has_ingress: result.hasIngress,
+            status: result.hasIngress ? '✅ Configured' : result.needsIngress ? '⚠️ Missing ingress rule' : 'ℹ️ No CNAME',
+            recommendation: result.recommendation
+          }, null, 2)
+        }]
+      };
+    } catch (error) {
+      return {
+        content: [{
+          type: 'text',
+          text: `Error checking port ingress: ${error instanceof Error ? error.message : 'Unknown error'}`
+        }],
+        isError: true
+      };
+    }
+  }
+};
+
 // Export all tunnel tools
 export const tunnelTools = [
   getTunnelStatusTool,
   requestCNAMETool,
   deleteCNAMETool,
   listCNAMEsTool,
-  listDomainsTool
+  listDomainsTool,
+  syncPortAllocationsTool,
+  checkPortIngressTool
 ];

@@ -1,0 +1,11 @@
+{
+  "mcpServers": {
+    "supervisor": {
+      "command": "node",
+      "args": [
+        "/home/samuel/sv/supervisor-service-s/scripts/mcp-stdio-wrapper.mjs",
+        "meta"
+      ]
+    }
+  }
+}

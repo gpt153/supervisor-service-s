@@ -65,7 +65,7 @@ export async function closePool(): Promise<void> {
  * @param params - Query parameters
  * @returns Query result
  */
-export async function query<T = any>(
+export async function query<T extends pg.QueryResultRow = any>(
   query: string,
   params?: any[]
 ): Promise<pg.QueryResult<T>> {

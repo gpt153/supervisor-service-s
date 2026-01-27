@@ -56,7 +56,11 @@ export class AutomatedAccountManager {
     const keyManager = service === 'gemini' ? this.geminiKeyManager : this.claudeKeyManager;
     const keys = await keyManager.getAvailableKeys();
 
-    const totalQuota = keys.reduce((sum, k) => sum + (k.monthlyQuota || k.dailyQuota || 0), 0);
+    // Handle different quota types - Gemini has dailyQuota, Claude has monthlyQuota
+    const totalQuota = keys.reduce((sum, k) => {
+      const quota = 'monthlyQuota' in k ? k.monthlyQuota : 'dailyQuota' in k ? k.dailyQuota : 0;
+      return sum + quota;
+    }, 0);
     const usedQuota = keys.reduce((sum, k) => sum + k.currentUsage, 0);
     const remainingQuota = totalQuota - usedQuota;
     const usagePercentage = totalQuota > 0 ? (usedQuota / totalQuota) * 100 : 0;
@@ -162,16 +166,19 @@ export class AutomatedAccountManager {
     email: string;
     password: string;
   }>> {
-    const secrets = await this.secretsManager.list(`meta/${service}/credentials`);
+    const secrets = await this.secretsManager.list({ scope: 'meta' });
     const credentials: Array<{ accountName: string; email: string; password: string }> = [];
 
     for (const secret of secrets) {
       try {
-        const value = await this.secretsManager.get(secret.key_path);
+        // Filter for credentials of the specified service
+        if (!secret.keyPath.startsWith(`meta/${service}/credentials/`)) continue;
+
+        const value = await this.secretsManager.get({ keyPath: secret.keyPath });
         if (!value) continue;
 
         const parsed = JSON.parse(value);
-        const accountName = secret.key_path.split('/').pop() || 'unknown';
+        const accountName = secret.keyPath.split('/').pop() || 'unknown';
 
         credentials.push({
           accountName,
@@ -179,7 +186,7 @@ export class AutomatedAccountManager {
           password: parsed.password,
         });
       } catch (error) {
-        console.error(`Failed to load credentials from ${secret.key_path}:`, error);
+        console.error(`Failed to load credentials from ${secret.keyPath}:`, error);
       }
     }
 

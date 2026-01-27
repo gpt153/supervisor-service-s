@@ -21,6 +21,10 @@ import type {
   GCloudProject,
   ScalingDecision,
   AutoScaleConfig,
+  OAuthBrand,
+  OAuthClient,
+  CreateOAuthBrandOptions,
+  CreateOAuthClientOptions,
 } from './types.js';
 
 /**
@@ -65,6 +69,7 @@ export class GCloudManager {
       const monitoring = google.monitoring({ version: 'v3', auth });
       const storage = google.storage({ version: 'v1', auth });
       const run = google.run({ version: 'v1', auth });
+      const iap = google.iap({ version: 'v1', auth });
 
       // Store project configuration
       this.projects.set(name, {
@@ -74,6 +79,7 @@ export class GCloudManager {
         monitoring,
         storage,
         run,
+        iap,
       });
 
       console.log(`✓ Added GCloud project: ${name} (${serviceAccountKey.project_id})`);
@@ -530,5 +536,218 @@ export class GCloudManager {
       );
     }
     return proj;
+  }
+
+  // ============================================================================
+  // OAuth Management Methods
+  // ============================================================================
+
+  /**
+   * List OAuth brands (consent screens) for a project
+   *
+   * @param project - Project name
+   * @returns Array of OAuth brands
+   * @throws Error if API call fails
+   */
+  async listOAuthBrands(project: string): Promise<OAuthBrand[]> {
+    const proj = this.getProject(project);
+
+    try {
+      const result = await proj.iap.projects.brands.list({
+        parent: `projects/${proj.projectId}`,
+      });
+
+      return (result.data.brands || []).map((brand: any) => ({
+        name: brand.name,
+        supportEmail: brand.supportEmail,
+        applicationTitle: brand.applicationTitle,
+        orgInternalOnly: brand.orgInternalOnly,
+      }));
+    } catch (error) {
+      const errorMsg = error instanceof Error ? error.message : 'Unknown error';
+      throw new Error(`Failed to list OAuth brands: ${errorMsg}`);
+    }
+  }
+
+  /**
+   * Create an OAuth brand (consent screen)
+   *
+   * @param project - Project name
+   * @param options - Brand creation options
+   * @returns Created brand
+   * @throws Error if brand already exists or API call fails
+   */
+  async createOAuthBrand(
+    project: string,
+    options: CreateOAuthBrandOptions
+  ): Promise<OAuthBrand> {
+    const proj = this.getProject(project);
+
+    try {
+      const result = await proj.iap.projects.brands.create({
+        parent: `projects/${proj.projectId}`,
+        requestBody: {
+          applicationTitle: options.applicationTitle,
+          supportEmail: options.supportEmail,
+        },
+      });
+
+      const brand = result.data;
+      return {
+        name: brand.name,
+        supportEmail: brand.supportEmail,
+        applicationTitle: brand.applicationTitle,
+        orgInternalOnly: brand.orgInternalOnly,
+      };
+    } catch (error) {
+      const errorMsg = error instanceof Error ? error.message : 'Unknown error';
+      throw new Error(`Failed to create OAuth brand: ${errorMsg}`);
+    }
+  }
+
+  /**
+   * List OAuth clients for a brand
+   *
+   * @param project - Project name
+   * @param brandId - Optional brand ID (uses first brand if not specified)
+   * @returns Array of OAuth clients with secrets
+   * @throws Error if API call fails
+   */
+  async listOAuthClients(project: string, brandId?: string): Promise<OAuthClient[]> {
+    const proj = this.getProject(project);
+
+    try {
+      // If brandId not provided, get first brand
+      let brand = brandId;
+      if (!brand) {
+        const brands = await this.listOAuthBrands(project);
+        if (brands.length === 0) {
+          throw new Error('No OAuth brands found. Create a brand first.');
+        }
+        // Extract brand ID from name (format: projects/PROJECT/brands/BRAND_ID)
+        brand = brands[0].name.split('/').pop() || '';
+      }
+
+      const result = await proj.iap.projects.brands.identityAwareProxyClients.list({
+        parent: `projects/${proj.projectId}/brands/${brand}`,
+      });
+
+      return (result.data.identityAwareProxyClients || []).map((client: any) => {
+        // Extract client ID from name
+        const clientId = client.name.split('/').pop() || '';
+        return {
+          name: client.name,
+          secret: client.secret,
+          displayName: client.displayName,
+          clientId,
+        };
+      });
+    } catch (error) {
+      const errorMsg = error instanceof Error ? error.message : 'Unknown error';
+      throw new Error(`Failed to list OAuth clients: ${errorMsg}`);
+    }
+  }
+
+  /**
+   * Create an OAuth client
+   *
+   * @param project - Project name
+   * @param options - Client creation options
+   * @returns Created OAuth client with secret
+   * @throws Error if API call fails
+   */
+  async createOAuthClient(
+    project: string,
+    options: CreateOAuthClientOptions
+  ): Promise<OAuthClient> {
+    const proj = this.getProject(project);
+
+    try {
+      // If brandId not provided, get first brand
+      let brandId = options.brandId;
+      if (!brandId) {
+        const brands = await this.listOAuthBrands(project);
+        if (brands.length === 0) {
+          throw new Error('No OAuth brands found. Create a brand first.');
+        }
+        // Extract brand ID from name
+        brandId = brands[0].name.split('/').pop() || '';
+      }
+
+      const result = await proj.iap.projects.brands.identityAwareProxyClients.create({
+        parent: `projects/${proj.projectId}/brands/${brandId}`,
+        requestBody: {
+          displayName: options.displayName,
+        },
+      });
+
+      const client = result.data;
+      const clientId = client.name.split('/').pop() || '';
+
+      console.log(`✓ Created OAuth client: ${options.displayName} (${clientId})`);
+
+      return {
+        name: client.name,
+        secret: client.secret,
+        displayName: client.displayName,
+        clientId,
+      };
+    } catch (error) {
+      const errorMsg = error instanceof Error ? error.message : 'Unknown error';
+      throw new Error(`Failed to create OAuth client: ${errorMsg}`);
+    }
+  }
+
+  /**
+   * Delete an OAuth client
+   *
+   * @param project - Project name
+   * @param clientName - Full client name (format: projects/PROJECT/brands/BRAND/identityAwareProxyClients/CLIENT_ID)
+   * @throws Error if API call fails
+   */
+  async deleteOAuthClient(project: string, clientName: string): Promise<void> {
+    const proj = this.getProject(project);
+
+    try {
+      await proj.iap.projects.brands.identityAwareProxyClients.delete({
+        name: clientName,
+      });
+
+      console.log(`✓ Deleted OAuth client: ${clientName}`);
+    } catch (error) {
+      const errorMsg = error instanceof Error ? error.message : 'Unknown error';
+      throw new Error(`Failed to delete OAuth client: ${errorMsg}`);
+    }
+  }
+
+  /**
+   * Get an OAuth client with secret (for retrieving credentials)
+   *
+   * @param project - Project name
+   * @param clientName - Full client name
+   * @returns OAuth client with secret
+   * @throws Error if API call fails
+   */
+  async getOAuthClient(project: string, clientName: string): Promise<OAuthClient> {
+    const proj = this.getProject(project);
+
+    try {
+      const result = await proj.iap.projects.brands.identityAwareProxyClients.get({
+        name: clientName,
+      });
+
+      const client = result.data;
+      const clientId = client.name.split('/').pop() || '';
+
+      return {
+        name: client.name,
+        secret: client.secret,
+        displayName: client.displayName,
+        clientId,
+      };
+    } catch (error) {
+      const errorMsg = error instanceof Error ? error.message : 'Unknown error';
+      throw new Error(`Failed to get OAuth client: ${errorMsg}`);
+    }
   }
 }

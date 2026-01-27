@@ -10,7 +10,12 @@ export class CostCalculator {
    * Tier pricing configurations
    * Source: Actual pricing from service websites
    */
-  private readonly TIER_CONFIGS = {
+  private readonly TIER_CONFIGS: Record<string, Record<string, {
+    monthly_cost: number;
+    quota_limit: number | null;
+    quota_period: string;
+    overage_rate: number;
+  }>> = {
     claude: {
       free: {
         monthly_cost: 0,
@@ -65,7 +70,8 @@ export class CostCalculator {
     const config = this.TIER_CONFIGS.claude[tier];
 
     const base = config.monthly_cost;
-    const overageTokens = Math.max(0, tokensUsed - config.quota_limit);
+    const quotaLimit = config.quota_limit ?? 0;
+    const overageTokens = Math.max(0, tokensUsed - quotaLimit);
     const overage = (overageTokens / 1000000) * config.overage_rate * 1000000; // $15 per 1M tokens
 
     return {

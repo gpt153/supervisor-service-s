@@ -140,10 +140,11 @@ export class DockerNetworkIntel {
       // Store network memberships
       const networks = info.NetworkSettings.Networks || {};
       for (const [networkName, networkInfo] of Object.entries(networks)) {
-        const networkRow = this.database.getDomains(); // This needs to be fixed - should query networks
-        // For now, we'll use a simpler approach
-        const stmt = this.database as any;
-        // We'll add network membership tracking in a moment
+        const networkDbId = this.database.getNetworkIdByName(networkName);
+        if (networkDbId) {
+          const ipAddress = (networkInfo as any).IPAddress || null;
+          this.database.setContainerNetwork(containerDbId, networkDbId, ipAddress);
+        }
       }
 
       // Store port mappings
@@ -274,9 +275,7 @@ export class DockerNetworkIntel {
    * Get container ports from database
    */
   private async getContainerPorts(containerDbId: number): Promise<Array<{ internal_port: number; host_port: number | null; protocol: string }>> {
-    // Direct database query (TunnelDatabase doesn't expose this yet)
-    // For now, return empty array - we'll enhance this
-    return [];
+    return this.database.getContainerPorts(containerDbId);
   }
 
   /**

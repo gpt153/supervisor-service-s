@@ -296,6 +296,27 @@ export class TunnelDatabase {
   }
 
   /**
+   * Get port mappings for a container
+   */
+  getContainerPorts(containerDbId: number): Array<{ internal_port: number; host_port: number | null; protocol: string }> {
+    const stmt = this.db.prepare(`
+      SELECT internal_port, host_port, protocol
+      FROM container_ports
+      WHERE container_id = ?
+    `);
+    return stmt.all(containerDbId) as Array<{ internal_port: number; host_port: number | null; protocol: string }>;
+  }
+
+  /**
+   * Get network ID by name
+   */
+  getNetworkIdByName(networkName: string): number | null {
+    const stmt = this.db.prepare('SELECT id FROM docker_networks WHERE network_name = ?');
+    const row = stmt.get(networkName) as any;
+    return row ? row.id : null;
+  }
+
+  /**
    * Clean up stale Docker data (not seen recently)
    */
   cleanupStaleDockerData(olderThanMinutes: number = 5): void {

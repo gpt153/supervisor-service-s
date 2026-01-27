@@ -1,0 +1,29 @@
+import { defineConfig } from 'vite'
+import react from '@vitejs/plugin-react'
+
+// Template variables:
+// {{PORT}} - Dev server port
+// {{BASE_PATH}} - Base path for routing (e.g., /consilio/dev)
+// {{HMR_PORT}} - Hot module replacement port (usually 443 for WSS)
+
+export default defineConfig({
+  plugins: [react()],
+  base: '{{BASE_PATH}}',
+  server: {
+    port: {{PORT}},
+    strictPort: true,
+    host: '0.0.0.0',
+    hmr: {
+      protocol: 'wss',
+      host: 'ui.153.se',
+      port: {{HMR_PORT}},
+      clientPort: {{HMR_PORT}},
+      path: '{{BASE_PATH}}/__vite_hmr',
+    },
+  },
+  build: {
+    outDir: 'dist',
+    assetsDir: 'assets',
+    sourcemap: true,
+  },
+})

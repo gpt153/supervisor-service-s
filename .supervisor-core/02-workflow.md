@@ -2,127 +2,94 @@
 
 ## Standard Operating Procedure
 
-### When Starting Work
+**Starting**: Check context → review state → spawn subagent
+**During**: Monitor → report progress (if SSC)
+**Completing**: Verify → commit & push → update status
 
-1. **Check Context**: Understand what service/component is being modified
-2. **Review State**: Check database, running services, recent changes
-3. **Plan Changes**: Outline steps before implementing
-4. **Document**: Update relevant documentation
-
-### When Making Changes
-
-1. **Test Locally**: Verify changes work before committing
-2. **Update Schema**: If database changes, create migrations
-3. **Version Bump**: Update package.json if API changes
-4. **Documentation**: Update README, API docs, or ADRs as needed
-
-### When Completing Work
-
-1. **Verify**: Run tests, check services still work
-2. **Commit & Push**: Clear commit messages, push to remote
-3. **Update Status**: Mark tasks/issues complete
-4. **Handoff**: Document any pending work or blockers
+---
 
 ## Git Workflow (PS Responsibility)
 
-**YOU are responsible for all git operations. This is NOT the user's job.**
+**YOU are responsible for all git operations.**
 
-### When to Commit
+**When to commit**: After feature, docs, CLAUDE.md regeneration, config changes
+**Format**: `type: description` (feat/fix/docs/chore)
+**When to push**: Immediately after commit
+**When to PR**: New features (>50 lines), breaking changes
+**When to direct commit**: Docs, config tweaks (<10 lines)
+**Auto-merge**: If user says "continue building", merge after tests pass
 
-**Commit immediately after:**
-- Completing a feature or bug fix
-- Updating documentation (deployment configs, README, etc.)
-- Regenerating CLAUDE.md files
-- Creating or updating epics
-- Configuration changes (ports, tunnels, environment)
+---
 
-### Commit Message Format
+## Validation Before Commit (MANDATORY)
 
-```bash
-# Good commit messages
-git commit -m "feat: add JWT authentication to API"
-git commit -m "docs: update deployment config with tunnel consilio.153.se"
-git commit -m "fix: resolve port conflict on backend service"
-git commit -m "chore: regenerate CLAUDE.md with tunnel info"
+**Before EVERY commit for epic work:**
+1. ✅ Spawn `validate-acceptance-criteria` subagent
+2. ✅ Wait for validation report
+3. ✅ Only commit if ALL acceptance criteria pass
+4. ✅ Validation automatically updates PRD (version, changelog, status)
+5. ❌ NEVER commit epic work without validation
+
+**Validation report location**: `.bmad/features/{feature}/reports/validation-epic-{NNN}-*.md`
+
+**If validation fails**:
+- Spawn fix subagent with failure details
+- Re-validate after fixes
+- Repeat until pass (max 3 attempts)
+- Create handoff if persistently failing
+
+**Why mandatory**: Validation triggers automatic PRD updates, keeping documentation current
+
+---
+
+## Deployment Workflow (MANDATORY)
+
+**Before EVERY deployment:**
+
+**CRITICAL**: NEVER deploy manually. ALWAYS spawn deployment subagent.
+
+```javascript
+Task({
+  description: "Deploy {service} locally",
+  prompt: `Deploy service with mandatory cleanup and validation.
+
+  Type: {native|docker}
+  Project: {project}
+  Path: {path}
+  Service: {service_name}
+  Port: {port}
+  Health check: {url}
+  Start command: {command} (if native)
+  Docker compose: {file} (if docker)
+
+  See: /home/samuel/sv/.claude/commands/subagents/deployment/deploy-service-local.md`,
+  subagent_type: "Bash",
+  model: "haiku"
+})
 ```
 
-### When to Push
+**The deployment agent automatically**:
+1. ✅ Verifies code is committed and pushed
+2. ✅ Kills ALL old instances (prevents conflicts)
+3. ✅ Rebuilds Docker images with --no-cache (if docker - gets latest code!)
+4. ✅ Cleans up old containers/images (prevents disk fill)
+5. ✅ Runs health checks (12 attempts, 1 min)
+6. ✅ Verifies only ONE instance on port
+7. ✅ Updates deployment status docs
 
-**Push immediately after committing** (unless working on feature branch):
-```bash
-git add .
-git commit -m "descriptive message"
-git push origin main  # or current branch
-```
+**Common Issues Prevented**:
+- ❌ Multiple instances running on same port (native)
+- ❌ Deploying old code (docker without rebuild)
+- ❌ Disk full from old images (docker cleanup)
 
-### Branch Strategy
+**Never**:
+- ❌ `npm run dev` directly
+- ❌ `docker compose up -d` directly
+- ❌ Deploy without killing old instances
 
-**Main branch (simple projects):**
-- Commit directly to main for documentation updates
-- Push immediately
+---
 
-**Feature branches (complex work):**
-- Create branch: `git checkout -b feature/authentication`
-- Commit frequently
-- Push branch: `git push origin feature/authentication`
-- Create PR when complete
-- Merge after review (or auto-merge if user approves)
+## References
 
-### When to Create PRs
-
-**Always create PR for:**
-- New features (>50 lines changed)
-- Breaking changes
-- Major refactors
-- Multi-file changes affecting core logic
-
-**Direct commit to main for:**
-- Documentation updates
-- CLAUDE.md regeneration
-- Config file tweaks
-- Minor fixes (<10 lines)
-
-### Auto-Merge Strategy
-
-**If user says "continue building" or "keep going autonomously":**
-- You have permission to merge PRs automatically
-- Verify tests pass first
-- Use `gh pr merge --auto --squash` (or --merge)
-- Continue to next task
-
-**If user says "create PR":**
-- Create PR and wait for manual review
-- Do NOT merge automatically
-
-## Common Operations
-
-### Database Migrations
-
-```bash
-npm run migrate:create <migration-name>
-# Edit migration in migrations/
-npm run migrate:up
-```
-
-### Service Management
-
-```bash
-npm run dev      # Development with hot reload
-npm run build    # Production build
-npm run start    # Run production build
-```
-
-### Testing
-
-```bash
-npm test         # Run test suite
-npm run lint     # Check code quality
-```
-
-## Decision Framework
-
-**When Uncertain**:
-1. Check existing patterns in codebase
-2. Review relevant ADRs in /home/samuel/sv/docs/adr/
-3. Consult epic specifications in /home/samuel/sv/.bmad/epics/
-4. Ask user for clarification if still unclear
+**Complete workflow guide**: `/home/samuel/sv/docs/guides/ps-workflows.md`
+**Local deployment guide**: `/home/samuel/sv/docs/guides/local-deployment-workflow.md`
