@@ -597,3 +597,114 @@ export interface SearchLearningsParams {
   limit?: number;
   min_similarity?: number;
 }
+
+// ============================================================================
+// Migration 006: Evidence Collection Framework
+// ============================================================================
+
+export interface EvidenceArtifactRow {
+  id: number;
+  epic_id: string;
+  test_id: string;
+  test_type: 'ui' | 'api' | 'unit' | 'integration';
+  verification_level?: number;
+  test_name: string;
+  expected_outcome?: string;
+  actual_outcome?: string;
+  pass_fail: 'pass' | 'fail' | 'pending';
+  screenshot_before?: string;
+  screenshot_after?: string;
+  dom_snapshot?: string;
+  console_logs?: string;
+  network_trace?: string;
+  http_request?: string;
+  http_response?: string;
+  coverage_report?: string;
+  timestamp: Date;
+  duration_ms?: number;
+  error_message?: string;
+  stack_trace?: string;
+  created_at: Date;
+  updated_at: Date;
+}
+
+export interface EvidenceMetadata {
+  id: number;
+  evidence_id: number;
+  metadata_key: string;
+  metadata_value?: string;
+  created_at: Date;
+}
+
+export interface ConsoleLogEntry {
+  id: number;
+  evidence_id: number;
+  log_level?: 'log' | 'error' | 'warning' | 'info' | 'debug';
+  message: string;
+  timestamp?: Date;
+  created_at: Date;
+}
+
+export interface NetworkTraceEntry {
+  id: number;
+  evidence_id: number;
+  method?: string;
+  url: string;
+  status_code?: number;
+  response_time_ms?: number;
+  request_body?: string;
+  response_body?: string;
+  timestamp?: Date;
+  created_at: Date;
+}
+
+export interface HttpRequestResponsePair {
+  id: number;
+  evidence_id: number;
+  correlation_id?: string;
+  request_method?: string;
+  request_url: string;
+  request_headers?: Record<string, string>;
+  request_body?: any;
+  response_status?: number;
+  response_headers?: Record<string, string>;
+  response_body?: any;
+  response_time_ms?: number;
+  timestamp?: Date;
+  created_at: Date;
+}
+
+export interface ToolExecutionRecord {
+  id: number;
+  evidence_id: number;
+  tool_name?: string;
+  tool_params?: any;
+  tool_response?: any;
+  execution_time_ms?: number;
+  success?: boolean;
+  error_message?: string;
+  timestamp?: Date;
+  created_at: Date;
+}
+
+export interface CoverageMetrics {
+  id: number;
+  evidence_id: number;
+  line_coverage_percent?: number;
+  branch_coverage_percent?: number;
+  function_coverage_percent?: number;
+  statement_coverage_percent?: number;
+  coverage_report_path?: string;
+  timestamp?: Date;
+  created_at: Date;
+}
+
+export interface RetentionRecord {
+  id: number;
+  evidence_id: number;
+  archive_date?: Date;
+  delete_date?: Date;
+  archived?: boolean;
+  deleted?: boolean;
+  created_at: Date;
+}
