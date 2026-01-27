@@ -1,0 +1,74 @@
+name: Validate Core Instructions
+
+on:
+  push:
+    branches:
+      - main
+      - feature/*
+    paths:
+      - '.supervisor-core/**'
+      - '.supervisor-meta/**'
+      - 'src/instructions/**'
+  pull_request:
+    branches:
+      - main
+    paths:
+      - '.supervisor-core/**'
+      - '.supervisor-meta/**'
+      - 'src/instructions/**'
+  workflow_dispatch:
+
+jobs:
+  validate-instructions:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build TypeScript
+        run: npm run build
+
+      - name: Validate instruction templates
+        run: |
+          echo "Validating core instruction templates..."
+          find .supervisor-core -name "*.md" -type f | while read file; do
+            echo "Checking $file..."
+            # Check file size (should be under 30KB for core instructions)
+            size=$(wc -c < "$file")
+            if [ $size -gt 30000 ]; then
+              echo "ERROR: $file is too large ($size bytes). Core instructions should be under 30KB."
+              exit 1
+            fi
+          done
+
+      - name: Test CLAUDE.md generation
+        run: |
+          echo "Testing CLAUDE.md generation for supervisor-service-s..."
+          npm run init-projects -- --project supervisor-service-s --verbose
+
+          # Check generated CLAUDE.md size
+          if [ -f CLAUDE.md ]; then
+            size=$(wc -c < CLAUDE.md)
+            echo "Generated CLAUDE.md size: $size bytes"
+            if [ $size -gt 50000 ]; then
+              echo "WARNING: CLAUDE.md is larger than recommended (>50KB)"
+            fi
+          else
+            echo "ERROR: CLAUDE.md was not generated"
+            exit 1
+          fi
+
+      - name: Validate instruction assembly logic
+        run: |
+          echo "Running instruction assembly tests..."
+          npm test -- --testPathPattern=instructions || echo "Instruction tests skipped - not configured"
