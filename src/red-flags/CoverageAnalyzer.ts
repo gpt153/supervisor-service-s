@@ -138,7 +138,7 @@ export class CoverageAnalyzer {
       // Istanbul format: object with file paths as keys
       Object.values(json).forEach((file: any) => {
         if (file.lines) {
-          linesCovered += Object.values(file.lines).filter((v) => v > 0).length;
+          linesCovered += Object.values(file.lines).filter((v: any) => (v as number) > 0).length;
           linesTotal += Object.keys(file.lines).length;
         }
         if (file.b) {
@@ -150,7 +150,7 @@ export class CoverageAnalyzer {
           });
         }
         if (file.f) {
-          functionsCovered += Object.values(file.f).filter((v) => v > 0).length;
+          functionsCovered += Object.values(file.f).filter((v: any) => (v as number) > 0).length;
           functionsTotal += Object.keys(file.f).length;
         }
       });

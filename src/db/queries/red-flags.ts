@@ -13,7 +13,7 @@ import {
   TestTimingHistory,
   TestTimingAverages,
   TestType,
-} from '../types/red-flags.js';
+} from '../../types/red-flags.js';
 
 /**
  * Insert a new red flag
