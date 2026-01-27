@@ -31,17 +31,22 @@
 **User says "Continue building":**
 1. Find next epic from `.bmad/features/{feature}/epics/`
 2. Spawn implementation subagent via Task tool
-3. **MANDATORY: Spawn validation subagent**
-4. **ONLY if validation passes**: Mark epic complete, update PRD
+3. **AUTOMATIC: Quality workflows trigger after PIV completion**
+4. **ONLY if verification passes**: Mark epic complete, update PRD
 5. Monitor → Report when complete → Start next epic
 
-**CRITICAL: Validation is NON-NEGOTIABLE**
-- ✅ MUST spawn `validate-acceptance-criteria` after EVERY epic implementation
-- ✅ MUST wait for validation to pass before marking complete
-- ✅ Validation automatically updates PRD (version bump, changelog, epic status)
-- ❌ NEVER mark epic complete without validation
-- ❌ NEVER commit without validation passing
-- ❌ If validation fails: Spawn fix subagent, retry validation (max 3 attempts)
+**CRITICAL: Automatic Quality Workflows (NON-NEGOTIABLE)**
+- ✅ PIV completion automatically triggers 6-stage quality workflow
+- ✅ Tests executed with evidence collection (screenshots, logs, traces)
+- ✅ Red flags detected (catches agent lies about test execution)
+- ✅ Independent verification (Sonnet reviews Haiku's work - different model)
+- ✅ Adaptive fixes attempted if failed (Haiku → Sonnet → Opus, max 3 retries)
+- ✅ Verification automatically updates PRD (version bump, changelog, epic status)
+- ❌ NEVER mark epic complete without verification passing (≥90% confidence)
+- ❌ NEVER commit without verification passing
+- ❌ If validation fails after 3 retries: System escalates with handoff
+
+**See:** `.supervisor-core/12-automatic-quality-workflows.md` for complete workflow
 
 **User says "Implement [feature]":**
 ```javascript

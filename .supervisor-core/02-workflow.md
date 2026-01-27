@@ -23,22 +23,33 @@
 
 ## Validation Before Commit (MANDATORY)
 
+**UPDATED: Now using Automatic Quality Workflows system**
+
 **Before EVERY commit for epic work:**
-1. ✅ Spawn `validate-acceptance-criteria` subagent
-2. ✅ Wait for validation report
-3. ✅ Only commit if ALL acceptance criteria pass
-4. ✅ Validation automatically updates PRD (version, changelog, status)
-5. ❌ NEVER commit epic work without validation
+1. ✅ PIV completion triggers automatic quality workflows (6-stage process)
+2. ✅ Tests execute → Evidence collected → Red flags detected → Verified independently
+3. ✅ Fixes attempted automatically if failed (up to 3 retries with adaptive models)
+4. ✅ Only commit if verification passes (≥90% confidence, no critical red flags)
+5. ✅ Validation automatically updates PRD (version, changelog, status)
+6. ❌ NEVER commit epic work without validation passing
 
-**Validation report location**: `.bmad/features/{feature}/reports/validation-epic-{NNN}-*.md`
+**Validation report location**: `.bmad/features/{feature}/reports/verification-epic-{NNN}-*.md`
 
-**If validation fails**:
-- Spawn fix subagent with failure details
-- Re-validate after fixes
-- Repeat until pass (max 3 attempts)
-- Create handoff if persistently failing
+**What happens automatically:**
+- Evidence collection (screenshots, logs, traces)
+- Red flag detection (catches agent lies)
+- Independent verification (Sonnet reviews Haiku's work)
+- Adaptive fixes (Haiku → Sonnet → Opus based on complexity)
+- Learning extraction (stores patterns for reuse)
 
-**Why mandatory**: Validation triggers automatic PRD updates, keeping documentation current
+**If validation fails after 3 fix attempts:**
+- System escalates with handoff document
+- Manual intervention required
+- All evidence and RCA included
+
+**Why mandatory**: Prevents agent deception, ensures quality, optimizes costs (80% reduction)
+
+**See:** `.supervisor-core/12-automatic-quality-workflows.md` for complete details
 
 ---
 
