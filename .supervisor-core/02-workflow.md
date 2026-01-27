@@ -42,6 +42,54 @@
 
 ---
 
+## Deployment Workflow (MANDATORY)
+
+**Before EVERY deployment:**
+
+**CRITICAL**: NEVER deploy manually. ALWAYS spawn deployment subagent.
+
+```javascript
+Task({
+  description: "Deploy {service} locally",
+  prompt: `Deploy service with mandatory cleanup and validation.
+
+  Type: {native|docker}
+  Project: {project}
+  Path: {path}
+  Service: {service_name}
+  Port: {port}
+  Health check: {url}
+  Start command: {command} (if native)
+  Docker compose: {file} (if docker)
+
+  See: /home/samuel/sv/.claude/commands/subagents/deployment/deploy-service-local.md`,
+  subagent_type: "Bash",
+  model: "haiku"
+})
+```
+
+**The deployment agent automatically**:
+1. ✅ Verifies code is committed and pushed
+2. ✅ Kills ALL old instances (prevents conflicts)
+3. ✅ Rebuilds Docker images with --no-cache (if docker - gets latest code!)
+4. ✅ Cleans up old containers/images (prevents disk fill)
+5. ✅ Runs health checks (12 attempts, 1 min)
+6. ✅ Verifies only ONE instance on port
+7. ✅ Updates deployment status docs
+
+**Common Issues Prevented**:
+- ❌ Multiple instances running on same port (native)
+- ❌ Deploying old code (docker without rebuild)
+- ❌ Disk full from old images (docker cleanup)
+
+**Never**:
+- ❌ `npm run dev` directly
+- ❌ `docker compose up -d` directly
+- ❌ Deploy without killing old instances
+
+---
+
 ## References
 
 **Complete workflow guide**: `/home/samuel/sv/docs/guides/ps-workflows.md`
+**Local deployment guide**: `/home/samuel/sv/docs/guides/local-deployment-workflow.md`
