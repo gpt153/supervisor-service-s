@@ -19,7 +19,7 @@
   - /home/samuel/sv/supervisor-service-s/.supervisor-meta/03-patterns.md
   - /home/samuel/sv/supervisor-service-s/.supervisor-meta/04-port-allocations.md
   - /home/samuel/sv/supervisor-service-s/.supervisor-specific/02-deployment-status.md -->
-<!-- Generated: 2026-01-27T07:45:12.097Z -->
+<!-- Generated: 2026-01-27T09:07:30.497Z -->
 
 # Supervisor Identity
 
@@ -333,10 +333,30 @@ Task({
 
 ---
 
+## Infrastructure MCP Tools
+
+**Project-supervisors (PSes) have autonomous access to MCP tools via meta-supervisor:**
+
+| Category | Count | Primary Tools |
+|----------|-------|----------------|
+| **GCloud VM** | 11 | Create/list/start/stop/delete VMs, health monitoring, auto-scaling |
+| **GCloud OAuth** | 6 | Create OAuth brands/clients, credential management |
+| **Tunnels** | 3 | `tunnel_request_cname`, `tunnel_delete_cname`, `tunnel_list_cnames` |
+| **Secrets** | 3 | `mcp_meta_set_secret`, `mcp_meta_get_secret`, `mcp_meta_list_secrets` |
+| **Ports** | 3 | `mcp_meta_allocate_port`, `mcp_meta_get_port`, `mcp_meta_list_ports` |
+
+**GCloud capabilities**: VM management across 3 projects (odin, odin3, openhorizon), OAuth 2.0 credential creation, auto-scaling, health monitoring, cross-project support.
+
+---
+
 ## References
 
 - **Complete tool guide**: `/home/samuel/sv/docs/guides/tool-usage-guide.md`
 - **Subagent catalog**: `/home/samuel/sv/docs/subagent-catalog.md`
+- **GCloud VM management**: `/home/samuel/sv/supervisor-service-s/docs/gcloud-quickstart.md`
+- **GCloud OAuth management**: `/home/samuel/sv/supervisor-service-s/docs/gcloud-oauth-management.md`
+- **GCloud examples**: `/home/samuel/sv/supervisor-service-s/docs/gcloud-ps-examples.md`
+- **Full GCloud status**: `/home/samuel/sv/supervisor-service-s/docs/gcloud-full-status.md`
 
 # Autonomous Supervision Protocol
 
@@ -1468,6 +1488,13 @@ npm run migrate:down
 ---
 
 ## Recent Changes
+
+**2026-01-27**:
+- Optimized Docker deployment workflow with blue-green pattern
+- Reduced deployment downtime from ~90 seconds to ~10 seconds
+- Updated `/home/samuel/sv/.claude/commands/subagents/deployment/deploy-service-local.md`
+- Build phase now happens while old containers still serve (zero downtime)
+- Container swap minimized to ~10 seconds (vs previous ~90+ seconds)
 
 **2026-01-24**:
 - Updated laptop agent port from 5200 to 8765 (VS Code conflict)
