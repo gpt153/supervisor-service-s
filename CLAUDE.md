@@ -19,7 +19,7 @@
   - /home/samuel/sv/supervisor-service-s/.supervisor-meta/03-patterns.md
   - /home/samuel/sv/supervisor-service-s/.supervisor-meta/04-port-allocations.md
   - /home/samuel/sv/supervisor-service-s/.supervisor-specific/02-deployment-status.md -->
-<!-- Generated: 2026-01-27T09:07:30.497Z -->
+<!-- Generated: 2026-01-27T09:12:51.110Z -->
 
 # Supervisor Identity
 
@@ -1269,7 +1269,7 @@ ingress:
 | MCP Server | ✅ Running | `localhost:8081` | HTTP endpoint |
 | PostgreSQL | ✅ Running | `localhost:5432` | Supervisor database |
 | Laptop Agent | ✅ Running | `localhost:8765` | WebSocket server (changed from 5200 due to VS Code conflict) |
-| Tunnel Manager | ✅ Running | Cloudflare daemon | Manages public URLs |
+| Tunnel Manager | ✅ Automated | Cloudflare daemon | Full automation (health, restart, CNAME, ingress) |
 
 ### Production
 
@@ -1470,20 +1470,44 @@ npm run migrate:down
 
 ---
 
+## Tunnel Manager Capabilities
+
+**Automated Features (2026-01-27)**:
+- ✅ **Health Monitoring**: 30-second checks, 3-strike failure detection
+- ✅ **Auto-Restart**: Exponential backoff (5s → 5min), unlimited retries
+- ✅ **Docker Intelligence**: Auto-detect localhost vs container networking
+- ✅ **CNAME Lifecycle**: Create/delete with validation and audit logging
+- ✅ **Ingress Automation**: Auto-update config.yml, atomic writes, git backup
+- ✅ **Port Sync**: 5-minute sync between port allocations and ingress rules
+- ✅ **Config Recovery**: Auto-regenerate config from database on startup
+
+**MCP Tools Available**:
+- `tunnel_get_status` - Health metrics and uptime
+- `tunnel_request_cname` - Create CNAME + ingress rule
+- `tunnel_delete_cname` - Remove CNAME + ingress rule
+- `tunnel_list_cnames` - List all CNAMEs (filtered by project)
+- `tunnel_list_domains` - Available Cloudflare domains
+- `tunnel_sync_port_allocations` - Manual sync trigger
+- `tunnel_check_port_ingress` - Verify port configuration
+
+**Database**: SQLite at `data/tunnel-manager.db` (8 tables: CNAMEs, health, Docker topology, audit)
+
+---
+
 ## Known Issues
 
 **Resolved**:
 - ✅ Laptop agent port conflict with VS Code (5200 → 8765)
 - ✅ Tunnel ID updated to latest deployment
 - ✅ DNS propagation for `mac.153.se` confirmed operational
+- ✅ Docker network intelligence incomplete (fixed 2026-01-27)
+- ✅ Auto-sync from port allocations missing (implemented 2026-01-27)
 
 **Active**:
 - None
 
 **Technical Debt**:
 - Consider moving laptop agent to dedicated systemd service
-- Add health check monitoring for tunnel connectivity
-- Implement automatic tunnel failover
 
 ---
 
