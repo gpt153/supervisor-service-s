@@ -234,6 +234,13 @@ npm run migrate:down
 
 ## Recent Changes
 
+**2026-01-27**:
+- Optimized Docker deployment workflow with blue-green pattern
+- Reduced deployment downtime from ~90 seconds to ~10 seconds
+- Updated `/home/samuel/sv/.claude/commands/subagents/deployment/deploy-service-local.md`
+- Build phase now happens while old containers still serve (zero downtime)
+- Container swap minimized to ~10 seconds (vs previous ~90+ seconds)
+
 **2026-01-24**:
 - Updated laptop agent port from 5200 to 8765 (VS Code conflict)
 - Updated tunnel ID to `aaffe732-9972-4f70-a758-a3ece1df4035`
