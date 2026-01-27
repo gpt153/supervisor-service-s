@@ -79,3 +79,12 @@ export * from './design-system.js';
 
 // Re-export UI-001 Requirements Analysis Engine types
 export * from './ui-001.js';
+
+// Re-export evidence types
+export * from './evidence.js';
+
+// Re-export red flag types
+export * from './red-flags.js';
+
+// Re-export verification types
+export * from './verification.js';
