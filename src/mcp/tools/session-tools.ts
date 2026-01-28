@@ -28,7 +28,19 @@ import {
   InvalidEventError,
   InstanceNotFoundForEventError,
   EventStoreError,
+  // Epic 007-D: Checkpoint System
+  getCheckpointManager,
+  getWorkStateSerializer,
+  CheckpointNotFoundError,
+  CheckpointInstanceNotFoundError,
+  CheckpointError,
 } from '../../session/index.js';
+// Epic 007-E: Resume Engine
+import {
+  resumeInstance,
+  getInstanceDetails as getResumeInstanceDetails,
+  listStaleInstances,
+} from '../../session/ResumeEngine.js';
 import {
   InstanceType,
   InstanceStatus,
@@ -879,6 +891,275 @@ export const listEventTypesTool: ToolDefinition = {
 };
 
 /**
+ * Tool: mcp_meta_create_checkpoint
+ * Create a checkpoint for current work state (Epic 007-D)
+ */
+export const createCheckpointTool: ToolDefinition = {
+  name: 'mcp_meta_create_checkpoint',
+  description:
+    'Create a checkpoint of current work state for fast recovery (context_window, epic_completion, or manual)',
+  inputSchema: {
+    type: 'object',
+    properties: {
+      instance_id: {
+        type: 'string',
+        description: 'Instance ID',
+      },
+      checkpoint_type: {
+        type: 'string',
+        enum: ['context_window', 'epic_completion', 'manual'],
+        description: 'Type of checkpoint',
+      },
+      context_window_percent: {
+        type: 'number',
+        description: 'Optional context window percentage',
+        minimum: 0,
+        maximum: 100,
+      },
+      current_epic: {
+        type: 'object',
+        description: 'Optional current epic data',
+      },
+      manual_note: {
+        type: 'string',
+        description: 'Optional note for manual checkpoints',
+      },
+      working_dir: {
+        type: 'string',
+        description: 'Optional working directory (default: cwd)',
+      },
+    },
+    required: ['instance_id', 'checkpoint_type'],
+  },
+  handler: async (input: any, context: ProjectContext) => {
+    const start = Date.now();
+
+    try {
+      // Serialize work state
+      const serializer = getWorkStateSerializer();
+      const workState = await serializer.serialize(
+        input.instance_id,
+        input.current_epic,
+        input.working_dir
+      );
+
+      // Create checkpoint
+      const manager = getCheckpointManager();
+      const result = await manager.createCheckpoint({
+        instance_id: input.instance_id,
+        checkpoint_type: input.checkpoint_type,
+        context_window_percent: input.context_window_percent,
+        work_state: workState,
+        metadata: {
+          trigger: `event_${input.checkpoint_type}`,
+          manual_note: input.manual_note,
+        },
+      });
+
+      const duration = Date.now() - start;
+
+      if (duration > 200) {
+        console.warn(`Create checkpoint slow: ${duration}ms`);
+      }
+
+      return {
+        success: true,
+        checkpoint_id: result.checkpoint_id,
+        instance_id: result.instance_id,
+        checkpoint_type: result.checkpoint_type,
+        sequence_num: result.sequence_num,
+        size_bytes: result.size_bytes,
+        created_at: result.created_at,
+      };
+    } catch (error: any) {
+      console.error('Create checkpoint failed:', error);
+      return {
+        success: false,
+        error: error.message || 'Failed to create checkpoint',
+      };
+    }
+  },
+};
+
+/**
+ * Tool: mcp_meta_get_checkpoint
+ * Retrieve checkpoint and generate recovery instructions (Epic 007-D)
+ */
+export const getCheckpointTool: ToolDefinition = {
+  name: 'mcp_meta_get_checkpoint',
+  description:
+    'Get checkpoint by ID and generate plain-language recovery instructions',
+  inputSchema: {
+    type: 'object',
+    properties: {
+      checkpoint_id: {
+        type: 'string',
+        description: 'Checkpoint UUID',
+      },
+    },
+    required: ['checkpoint_id'],
+  },
+  handler: async (input: any, context: ProjectContext) => {
+    const start = Date.now();
+
+    try {
+      const manager = getCheckpointManager();
+      const result = await manager.getCheckpoint(input.checkpoint_id);
+
+      const duration = Date.now() - start;
+
+      if (duration > 50) {
+        console.warn(`Get checkpoint slow: ${duration}ms`);
+      }
+
+      return {
+        success: true,
+        checkpoint: {
+          checkpoint_id: result.checkpoint.checkpoint_id,
+          instance_id: result.checkpoint.instance_id,
+          checkpoint_type: result.checkpoint.checkpoint_type,
+          sequence_num: result.checkpoint.sequence_num,
+          timestamp: result.checkpoint.timestamp.toISOString(),
+          context_window_percent: result.checkpoint.context_window_percent,
+        },
+        recovery_instructions: result.recovery_instructions,
+      };
+    } catch (error: any) {
+      console.error('Get checkpoint failed:', error);
+      return {
+        success: false,
+        error: error.message || 'Failed to get checkpoint',
+      };
+    }
+  },
+};
+
+/**
+ * Tool: mcp_meta_list_checkpoints
+ * List checkpoints for an instance (Epic 007-D)
+ */
+export const listCheckpointsTool: ToolDefinition = {
+  name: 'mcp_meta_list_checkpoints',
+  description:
+    'List checkpoints for an instance, optionally filtered by type',
+  inputSchema: {
+    type: 'object',
+    properties: {
+      instance_id: {
+        type: 'string',
+        description: 'Instance ID',
+      },
+      checkpoint_type: {
+        type: 'string',
+        enum: ['context_window', 'epic_completion', 'manual'],
+        description: 'Optional filter by checkpoint type',
+      },
+      limit: {
+        type: 'number',
+        description: 'Number of results (default 50, max 1000)',
+        default: 50,
+      },
+      offset: {
+        type: 'number',
+        description: 'Pagination offset (default 0)',
+        default: 0,
+      },
+    },
+    required: ['instance_id'],
+  },
+  handler: async (input: any, context: ProjectContext) => {
+    const start = Date.now();
+
+    try {
+      const manager = getCheckpointManager();
+      const result = await manager.listCheckpoints(input.instance_id, {
+        checkpoint_type: input.checkpoint_type,
+        limit: input.limit || 50,
+        offset: input.offset || 0,
+      });
+
+      const duration = Date.now() - start;
+
+      if (duration > 30) {
+        console.warn(`List checkpoints slow: ${duration}ms`);
+      }
+
+      return {
+        success: true,
+        checkpoints: result.checkpoints.map((cp) => ({
+          checkpoint_id: cp.checkpoint_id,
+          checkpoint_type: cp.checkpoint_type,
+          sequence_num: cp.sequence_num,
+          timestamp: cp.timestamp,
+          context_window_percent: cp.context_window_percent,
+          epic_id: cp.epic_id,
+          size_bytes: cp.size_bytes,
+        })),
+        total_count: result.total_count,
+        instance_id: result.instance_id,
+      };
+    } catch (error: any) {
+      console.error('List checkpoints failed:', error);
+      return {
+        success: false,
+        error: error.message || 'Failed to list checkpoints',
+      };
+    }
+  },
+};
+
+/**
+ * Tool: mcp_meta_cleanup_checkpoints
+ * Clean up old checkpoints based on retention policy (Epic 007-D)
+ */
+export const cleanupCheckpointsTool: ToolDefinition = {
+  name: 'mcp_meta_cleanup_checkpoints',
+  description:
+    'Clean up checkpoints older than retention period (default 30 days)',
+  inputSchema: {
+    type: 'object',
+    properties: {
+      retention_days: {
+        type: 'number',
+        description: 'Number of days to retain (default 30)',
+        default: 30,
+        minimum: 1,
+      },
+    },
+  },
+  handler: async (input: any, context: ProjectContext) => {
+    const start = Date.now();
+
+    try {
+      const manager = getCheckpointManager();
+      const result = await manager.cleanupCheckpoints(input.retention_days || 30);
+
+      const duration = Date.now() - start;
+
+      if (duration > 500) {
+        console.warn(`Cleanup checkpoints slow: ${duration}ms`);
+      }
+
+      const freedMB = (result.freed_bytes / (1024 * 1024)).toFixed(2);
+
+      return {
+        success: true,
+        deleted_count: result.deleted_count,
+        freed_bytes: result.freed_bytes,
+        freed_mb: freedMB,
+        retention_days: result.retention_days,
+      };
+    } catch (error: any) {
+      console.error('Cleanup checkpoints failed:', error);
+      return {
+        success: false,
+        error: error.message || 'Failed to cleanup checkpoints',
+      };
+    }
+  },
+};
+
+/**
  * Export all session tools
  */
 export function getSessionTools(): ToolDefinition[] {
@@ -896,6 +1177,11 @@ export function getSessionTools(): ToolDefinition[] {
     queryEventsTool,
     replayEventsTool,
     listEventTypesTool,
+    // Epic 007-D: Checkpoint System
+    createCheckpointTool,
+    getCheckpointTool,
+    listCheckpointsTool,
+    cleanupCheckpointsTool,
   ];
 }
 
