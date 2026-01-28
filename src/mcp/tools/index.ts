@@ -28,6 +28,7 @@ import { getPIVPhaseTools } from './piv-phase-tools.js';
 import { getBMADTools } from './bmad-tools.js';
 import { getBMADFullWorkflowTools } from './bmad-full-workflow.js';
 import { getPRDStalenessTools } from './prd-staleness-tools.js';
+import { getSessionTools } from './session-tools.js';
 
 const execAsync = promisify(exec);
 
@@ -414,6 +415,9 @@ export function getAllTools(): ToolDefinition[] {
 
     // PRD staleness monitoring tools
     ...getPRDStalenessTools(),
+
+    // Session continuity and instance registry tools (Epic 007-A)
+    ...getSessionTools(),
   ];
 }
 

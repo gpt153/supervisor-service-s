@@ -88,3 +88,6 @@ export * from './red-flags.js';
 
 // Re-export verification types
 export * from './verification.js';
+
+// Re-export session continuity types (Epic 007-A)
+export * from './session.js';

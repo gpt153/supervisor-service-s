@@ -1,0 +1,902 @@
+/**
+ * Session Registry MCP Tools (Epic 007-A)
+ * Provides MCP tools for instance registration, heartbeat, and listing
+ *
+ * Exported tools:
+ * - mcp_meta_register_instance: Register new PS/MS instance
+ * - mcp_meta_heartbeat: Update instance heartbeat
+ * - mcp_meta_list_instances: List active instances
+ * - mcp_meta_get_instance_details: Query instance by ID or prefix
+ */
+
+import {
+  registerInstance,
+  updateHeartbeat,
+  listInstances,
+  getInstanceDetails,
+  getPrefixMatches,
+  calculateInstanceAge,
+  isInstanceStale,
+  getCommandLogger,
+  getSanitizationService,
+  // Epic 007-C: Event Store
+  emitEvent,
+  queryEvents,
+  replayEvents,
+  aggregateEventsByType,
+  getLatestEvents,
+  InvalidEventError,
+  InstanceNotFoundForEventError,
+  EventStoreError,
+} from '../../session/index.js';
+import {
+  InstanceType,
+  InstanceStatus,
+} from '../../types/session.js';
+import {
+  ExplicitLogInputSchema,
+  SearchCommandsInputSchema,
+} from '../../types/command-log.js';
+import { ToolDefinition, ProjectContext } from '../../types/project.js';
+
+/**
+ * Tool: mcp_meta_register_instance
+ * Register a new PS/MS instance and get unique instance ID
+ */
+export const registerInstanceTool: ToolDefinition = {
+  name: 'mcp_meta_register_instance',
+  description:
+    'Register a new Project-Supervisor or Meta-Supervisor instance and receive unique instance ID',
+  inputSchema: {
+    type: 'object',
+    properties: {
+      project: {
+        type: 'string',
+        description: 'Project name (e.g., odin, consilio, meta)',
+      },
+      instance_type: {
+        type: 'string',
+        enum: ['PS', 'MS'],
+        description: 'Instance type: PS (Project-Supervisor) or MS (Meta-Supervisor)',
+      },
+      initial_context: {
+        type: 'object',
+        description: 'Optional initial context for future checkpoint use',
+      },
+    },
+    required: ['project', 'instance_type'],
+  },
+  handler: async (input: any, context: ProjectContext) => {
+    const start = Date.now();
+
+    try {
+      const instance = await registerInstance(
+        input.project,
+        input.instance_type as InstanceType,
+        input.initial_context
+      );
+
+      const duration = Date.now() - start;
+
+      if (duration > 50) {
+        console.warn(`Register instance slow: ${duration}ms for ${instance.instance_id}`);
+      }
+
+      return {
+        success: true,
+        instance_id: instance.instance_id,
+        project: instance.project,
+        type: instance.instance_type,
+        status: instance.status,
+        created_at: instance.created_at.toISOString(),
+        context_percent: instance.context_percent,
+      };
+    } catch (error: any) {
+      console.error('Register instance failed:', error);
+      return {
+        success: false,
+        error: error.message || 'Failed to register instance',
+      };
+    }
+  },
+};
+
+/**
+ * Tool: mcp_meta_heartbeat
+ * Update instance heartbeat and context tracking
+ */
+export const heartbeatTool: ToolDefinition = {
+  name: 'mcp_meta_heartbeat',
+  description:
+    'Send heartbeat for instance to update last activity, context usage, and current epic',
+  inputSchema: {
+    type: 'object',
+    properties: {
+      instance_id: {
+        type: 'string',
+        description: 'Instance ID to update',
+      },
+      context_percent: {
+        type: 'number',
+        description: 'Context usage percentage (0-100)',
+        minimum: 0,
+        maximum: 100,
+      },
+      current_epic: {
+        type: 'string',
+        description: 'Optional current epic ID',
+      },
+    },
+    required: ['instance_id', 'context_percent'],
+  },
+  handler: async (input: any, context: ProjectContext) => {
+    const start = Date.now();
+
+    try {
+      const instance = await updateHeartbeat(
+        input.instance_id,
+        input.context_percent,
+        input.current_epic
+      );
+
+      const duration = Date.now() - start;
+
+      if (duration > 20) {
+        console.warn(`Heartbeat slow: ${duration}ms for ${instance.instance_id}`);
+      }
+
+      const ageSeconds = calculateInstanceAge(instance.last_heartbeat);
+      const stale = isInstanceStale(instance.last_heartbeat);
+
+      return {
+        success: true,
+        instance_id: instance.instance_id,
+        status: stale ? InstanceStatus.STALE : instance.status,
+        last_heartbeat: instance.last_heartbeat.toISOString(),
+        age_seconds: ageSeconds,
+        stale,
+        context_percent: instance.context_percent,
+      };
+    } catch (error: any) {
+      console.error('Heartbeat failed:', error);
+      return {
+        success: false,
+        error: error.message || 'Heartbeat failed',
+      };
+    }
+  },
+};
+
+/**
+ * Tool: mcp_meta_list_instances
+ * List all instances with optional filtering
+ */
+export const listInstancesTool: ToolDefinition = {
+  name: 'mcp_meta_list_instances',
+  description:
+    'List all active instances, optionally filtered by project and status',
+  inputSchema: {
+    type: 'object',
+    properties: {
+      project: {
+        type: 'string',
+        description: 'Optional project filter',
+      },
+      active_only: {
+        type: 'boolean',
+        description: 'If true, exclude stale and closed instances',
+      },
+    },
+  },
+  handler: async (input: any, context: ProjectContext) => {
+    const start = Date.now();
+
+    try {
+      const instances = await listInstances(input.project, input.active_only);
+
+      const duration = Date.now() - start;
+
+      if (duration > 100) {
+        console.warn(`List instances slow: ${duration}ms for ${instances.length} instances`);
+      }
+
+      const activeCount = instances.filter((i) => i.status === 'active').length;
+      const staleCount = instances.filter((i) => i.status === 'stale').length;
+
+      return {
+        success: true,
+        instances: instances.map((instance) => ({
+          instance_id: instance.instance_id,
+          project: instance.project,
+          type: instance.instance_type,
+          status: instance.status,
+          last_heartbeat: instance.last_heartbeat.toISOString(),
+          age_seconds: calculateInstanceAge(instance.last_heartbeat),
+          context_percent: instance.context_percent,
+          current_epic: instance.current_epic,
+        })),
+        total_count: instances.length,
+        active_count: activeCount,
+        stale_count: staleCount,
+      };
+    } catch (error: any) {
+      console.error('List instances failed:', error);
+      return {
+        success: false,
+        error: error.message || 'Failed to list instances',
+      };
+    }
+  },
+};
+
+/**
+ * Tool: mcp_meta_get_instance_details
+ * Query instance by ID (full or prefix match)
+ */
+export const getInstanceDetailsTool: ToolDefinition = {
+  name: 'mcp_meta_get_instance_details',
+  description:
+    'Get detailed information about a specific instance by ID (full or prefix match)',
+  inputSchema: {
+    type: 'object',
+    properties: {
+      instance_id: {
+        type: 'string',
+        description: 'Instance ID (full or prefix)',
+      },
+    },
+    required: ['instance_id'],
+  },
+  handler: async (input: any, context: ProjectContext) => {
+    const start = Date.now();
+
+    try {
+      // Try exact match first
+      const instance = await getInstanceDetails(input.instance_id);
+
+      if (instance) {
+        const duration = Date.now() - start;
+
+        if (duration > 50) {
+          console.warn(`Get instance details slow: ${duration}ms for ${instance.instance_id}`);
+        }
+
+        return {
+          success: true,
+          instance: {
+            instance_id: instance.instance_id,
+            project: instance.project,
+            type: instance.instance_type,
+            status: instance.status,
+            last_heartbeat: instance.last_heartbeat.toISOString(),
+            age_seconds: calculateInstanceAge(instance.last_heartbeat),
+            context_percent: instance.context_percent,
+            current_epic: instance.current_epic,
+            created_at: instance.created_at.toISOString(),
+          },
+        };
+      }
+
+      // Try prefix match
+      const matches = await getPrefixMatches(input.instance_id);
+
+      if (matches.length === 0) {
+        return {
+          success: false,
+          error: 'Instance not found',
+          searched_for: input.instance_id,
+        };
+      }
+
+      if (matches.length === 1) {
+        // Single match - return as if exact match
+        return {
+          success: true,
+          instance: {
+            instance_id: matches[0].instance_id,
+            project: matches[0].project,
+            type: matches[0].instance_type,
+            status: matches[0].status,
+            last_heartbeat: matches[0].last_heartbeat.toISOString(),
+            age_seconds: calculateInstanceAge(matches[0].last_heartbeat),
+            context_percent: matches[0].context_percent,
+            current_epic: matches[0].current_epic,
+            created_at: matches[0].created_at.toISOString(),
+          },
+        };
+      }
+
+      // Multiple matches - disambiguation
+      return {
+        success: true,
+        matches: matches.map((m) => ({
+          instance_id: m.instance_id,
+          project: m.project,
+          type: m.instance_type,
+          status: m.status,
+          age_seconds: calculateInstanceAge(m.last_heartbeat),
+        })),
+        message: 'Multiple matches found. Specify full ID or project.',
+      };
+    } catch (error: any) {
+      console.error('Get instance details failed:', error);
+      return {
+        success: false,
+        error: error.message || 'Failed to get instance details',
+      };
+    }
+  },
+};
+
+/**
+ * Tool: mcp_meta_log_command
+ * Explicitly log a command or action (Epic 007-B)
+ * Used by PS for spawns, git operations, planning decisions
+ */
+export const logCommandTool: ToolDefinition = {
+  name: 'mcp_meta_log_command',
+  description: 'Explicitly log a command or action for audit trail',
+  inputSchema: {
+    type: 'object',
+    properties: {
+      action: {
+        type: 'string',
+        description:
+          'Action type: spawn_subagent, git_commit, git_push, planning, deployment, etc.',
+      },
+      details: {
+        type: 'object',
+        description: 'Details object with optional description, parameters, result',
+        properties: {
+          description: {
+            type: 'string',
+            description: 'Human-readable description of the action',
+          },
+          parameters: {
+            type: 'object',
+            description: 'Input parameters (will be sanitized)',
+          },
+          result: {
+            type: 'object',
+            description: 'Output result (will be sanitized)',
+          },
+          tags: {
+            type: 'array',
+            items: { type: 'string' },
+            description: 'Tags for categorization (e.g., deployment, critical)',
+          },
+          context_data: {
+            type: 'object',
+            description: 'Additional context data',
+          },
+        },
+        required: ['description'],
+      },
+    },
+    required: ['action', 'details'],
+  },
+  handler: async (input: any, context: ProjectContext) => {
+    const start = Date.now();
+
+    try {
+      // Get instance ID from context
+      const instanceId = (context as any).instanceId;
+      if (!instanceId) {
+        return {
+          success: false,
+          error: 'No instance ID in context',
+        };
+      }
+
+      // Validate input
+      const validated = ExplicitLogInputSchema.safeParse({
+        instance_id: instanceId,
+        action: input.action,
+        details: input.details,
+      });
+
+      if (!validated.success) {
+        return {
+          success: false,
+          error: `Validation failed: ${validated.error.message}`,
+        };
+      }
+
+      // Log the command
+      const logger = getCommandLogger();
+      const result = await logger.logExplicit(validated.data);
+
+      const duration = Date.now() - start;
+
+      if (duration > 50) {
+        console.warn(`Log command slow: ${duration}ms for ${input.action}`);
+      }
+
+      return {
+        success: true,
+        logged_id: result.id.toString(),
+        timestamp: result.timestamp,
+        action: result.action,
+      };
+    } catch (error: any) {
+      console.error('Log command failed:', error);
+      return {
+        success: false,
+        error: error.message || 'Failed to log command',
+      };
+    }
+  },
+};
+
+/**
+ * Tool: mcp_meta_search_commands
+ * Search command history for an instance (Epic 007-B)
+ * Query with optional filters: action, tool_name, time range, success status
+ */
+export const searchCommandsTool: ToolDefinition = {
+  name: 'mcp_meta_search_commands',
+  description: 'Search command history for an instance with optional filters',
+  inputSchema: {
+    type: 'object',
+    properties: {
+      instance_id: {
+        type: 'string',
+        description: 'Instance ID to search',
+      },
+      action: {
+        type: 'string',
+        description: 'Optional filter by action type',
+      },
+      tool_name: {
+        type: 'string',
+        description: 'Optional filter by tool name',
+      },
+      time_range: {
+        type: 'object',
+        description: 'Optional time range filter',
+        properties: {
+          start_time: {
+            type: 'string',
+            description: 'Start time (ISO 8601)',
+          },
+          end_time: {
+            type: 'string',
+            description: 'End time (ISO 8601)',
+          },
+        },
+      },
+      success_only: {
+        type: 'boolean',
+        description: 'Only return successful commands (default: false)',
+      },
+      limit: {
+        type: 'integer',
+        description: 'Number of results (max 1000, default 100)',
+        minimum: 1,
+        maximum: 1000,
+      },
+      offset: {
+        type: 'integer',
+        description: 'For pagination (default: 0)',
+        minimum: 0,
+      },
+    },
+    required: ['instance_id'],
+  },
+  handler: async (input: any, context: ProjectContext) => {
+    const start = Date.now();
+
+    try {
+      // Validate input
+      const validated = SearchCommandsInputSchema.safeParse(input);
+
+      if (!validated.success) {
+        return {
+          success: false,
+          error: `Validation failed: ${validated.error.message}`,
+        };
+      }
+
+      // Search commands
+      const logger = getCommandLogger();
+      const result = await logger.searchCommands(validated.data);
+
+      const duration = Date.now() - start;
+
+      if (duration > 500) {
+        console.warn(`Search commands slow: ${duration}ms`);
+      }
+
+      return {
+        success: true,
+        total: result.total,
+        instance_id: result.instance_id,
+        commands: result.commands.map((cmd) => ({
+          id: cmd.id.toString(),
+          action: cmd.action,
+          tool_name: cmd.tool_name,
+          timestamp: cmd.timestamp,
+          parameters: cmd.parameters,
+          result: cmd.result,
+          success: cmd.success,
+          execution_time_ms: cmd.execution_time_ms,
+          tags: cmd.tags,
+          source: cmd.source,
+        })),
+      };
+    } catch (error: any) {
+      console.error('Search commands failed:', error);
+      return {
+        success: false,
+        error: error.message || 'Failed to search commands',
+      };
+    }
+  },
+};
+
+/**
+ * Tool: mcp_meta_emit_event (Epic 007-C)
+ * Emit a new event for session state tracking
+ */
+export const emitEventTool: ToolDefinition = {
+  name: 'mcp_meta_emit_event',
+  description: 'Emit a new event for session state tracking',
+  inputSchema: {
+    type: 'object',
+    properties: {
+      instance_id: {
+        type: 'string',
+        description: 'Instance ID',
+      },
+      event_type: {
+        type: 'string',
+        description: 'Event type',
+      },
+      event_data: {
+        type: 'object',
+        description: 'Event payload (JSONB)',
+      },
+      metadata: {
+        type: 'object',
+        description: 'Optional metadata',
+      },
+    },
+    required: ['instance_id', 'event_type', 'event_data'],
+  },
+  handler: async (input: any, context: ProjectContext) => {
+    const start = Date.now();
+
+    try {
+      const result = await emitEvent(
+        input.instance_id,
+        input.event_type,
+        input.event_data,
+        input.metadata
+      );
+
+      const duration = Date.now() - start;
+
+      if (duration > 10) {
+        console.warn(`emitEvent slow: ${duration}ms`);
+      }
+
+      return {
+        success: true,
+        event_id: result.event_id,
+        sequence_num: result.sequence_num,
+        timestamp: result.timestamp.toISOString(),
+      };
+    } catch (error: any) {
+      if (
+        error instanceof InvalidEventError ||
+        error instanceof InstanceNotFoundForEventError
+      ) {
+        return {
+          success: false,
+          error: error.message,
+        };
+      }
+
+      console.error('emitEvent failed:', error);
+      return {
+        success: false,
+        error: error.message || 'Failed to emit event',
+      };
+    }
+  },
+};
+
+/**
+ * Tool: mcp_meta_query_events (Epic 007-C)
+ * Query events for an instance with filtering
+ */
+export const queryEventsTool: ToolDefinition = {
+  name: 'mcp_meta_query_events',
+  description: 'Query events for an instance with optional filtering',
+  inputSchema: {
+    type: 'object',
+    properties: {
+      instance_id: {
+        type: 'string',
+        description: 'Instance ID',
+      },
+      filters: {
+        type: 'object',
+        description: 'Optional filters',
+        properties: {
+          event_type: {
+            type: ['string', 'array'],
+            description: 'Filter by event type(s)',
+          },
+          start_date: {
+            type: 'string',
+            description: 'Start date (ISO 8601)',
+          },
+          end_date: {
+            type: 'string',
+            description: 'End date (ISO 8601)',
+          },
+          keyword: {
+            type: 'string',
+            description: 'Keyword search in event data',
+          },
+        },
+      },
+      limit: {
+        type: 'number',
+        description: 'Number of results (1-1000, default 100)',
+      },
+      offset: {
+        type: 'number',
+        description: 'Pagination offset (default 0)',
+      },
+    },
+    required: ['instance_id'],
+  },
+  handler: async (input: any, context: ProjectContext) => {
+    const start = Date.now();
+
+    try {
+      const result = await queryEvents(
+        input.instance_id,
+        input.filters,
+        input.limit || 100,
+        input.offset || 0
+      );
+
+      const duration = Date.now() - start;
+
+      if (duration > 100) {
+        console.warn(`queryEvents slow: ${duration}ms`);
+      }
+
+      return {
+        success: true,
+        events: result.events,
+        total_count: result.total_count,
+        has_more: result.has_more,
+      };
+    } catch (error: any) {
+      console.error('queryEvents failed:', error);
+      return {
+        success: false,
+        error: error.message || 'Failed to query events',
+      };
+    }
+  },
+};
+
+/**
+ * Tool: mcp_meta_replay_events (Epic 007-C)
+ * Replay events to reconstruct state
+ */
+export const replayEventsTool: ToolDefinition = {
+  name: 'mcp_meta_replay_events',
+  description: 'Replay events to reconstruct instance state',
+  inputSchema: {
+    type: 'object',
+    properties: {
+      instance_id: {
+        type: 'string',
+        description: 'Instance ID',
+      },
+      to_sequence_num: {
+        type: 'number',
+        description: 'Optional sequence number to replay up to',
+      },
+    },
+    required: ['instance_id'],
+  },
+  handler: async (input: any, context: ProjectContext) => {
+    const start = Date.now();
+
+    try {
+      const result = await replayEvents(input.instance_id, input.to_sequence_num);
+
+      const duration = Date.now() - start;
+
+      if (duration > 200) {
+        console.warn(`replayEvents slow: ${duration}ms`);
+      }
+
+      return {
+        success: true,
+        final_state: result.final_state,
+        events_replayed: result.events_replayed,
+        duration_ms: result.duration_ms,
+      };
+    } catch (error: any) {
+      console.error('replayEvents failed:', error);
+      return {
+        success: false,
+        error: error.message || 'Failed to replay events',
+      };
+    }
+  },
+};
+
+/**
+ * Tool: mcp_meta_list_event_types (Epic 007-C)
+ * List all available event types
+ */
+export const listEventTypesTool: ToolDefinition = {
+  name: 'mcp_meta_list_event_types',
+  description: 'List all available event types with descriptions and schemas',
+  inputSchema: {
+    type: 'object',
+    properties: {
+      category: {
+        type: 'string',
+        description: 'Optional category filter',
+      },
+    },
+  },
+  handler: async (input: any, context: ProjectContext) => {
+    const eventTypes = [
+      {
+        type: 'instance_registered',
+        category: 'instance',
+        description: 'Emitted when new PS/MS instance starts',
+      },
+      {
+        type: 'instance_heartbeat',
+        category: 'instance',
+        description: 'Periodic heartbeat to track instance liveness',
+      },
+      {
+        type: 'instance_stale',
+        category: 'instance',
+        description: 'Instance detected as stale (no heartbeat for 120s)',
+      },
+      {
+        type: 'epic_started',
+        category: 'epic',
+        description: 'Epic implementation begins',
+      },
+      {
+        type: 'epic_completed',
+        category: 'epic',
+        description: 'Epic implementation completed successfully',
+      },
+      {
+        type: 'epic_failed',
+        category: 'epic',
+        description: 'Epic implementation failed',
+      },
+      {
+        type: 'test_passed',
+        category: 'testing',
+        description: 'Tests passed successfully',
+      },
+      {
+        type: 'test_failed',
+        category: 'testing',
+        description: 'Tests failed',
+      },
+      {
+        type: 'validation_passed',
+        category: 'testing',
+        description: 'Validation/quality checks passed',
+      },
+      {
+        type: 'validation_failed',
+        category: 'testing',
+        description: 'Validation/quality checks failed',
+      },
+      {
+        type: 'commit_created',
+        category: 'git',
+        description: 'Code committed',
+      },
+      {
+        type: 'pr_created',
+        category: 'git',
+        description: 'Pull request created',
+      },
+      {
+        type: 'pr_merged',
+        category: 'git',
+        description: 'Pull request merged',
+      },
+      {
+        type: 'deployment_started',
+        category: 'deployment',
+        description: 'Deployment begins',
+      },
+      {
+        type: 'deployment_completed',
+        category: 'deployment',
+        description: 'Deployment completed successfully',
+      },
+      {
+        type: 'deployment_failed',
+        category: 'deployment',
+        description: 'Deployment failed',
+      },
+      {
+        type: 'context_window_updated',
+        category: 'work_state',
+        description: 'Context window usage changed',
+      },
+      {
+        type: 'checkpoint_created',
+        category: 'work_state',
+        description: 'Checkpoint created for context recovery',
+      },
+      {
+        type: 'checkpoint_loaded',
+        category: 'work_state',
+        description: 'Checkpoint restored',
+      },
+      {
+        type: 'epic_planned',
+        category: 'planning',
+        description: 'Epic planning completed',
+      },
+      {
+        type: 'feature_requested',
+        category: 'planning',
+        description: 'New feature requested',
+      },
+      {
+        type: 'task_spawned',
+        category: 'planning',
+        description: 'Subagent task spawned',
+      },
+    ];
+
+    let filtered = eventTypes;
+    if (input.category) {
+      filtered = eventTypes.filter((t: any) => t.category === input.category);
+    }
+
+    return {
+      success: true,
+      event_types: filtered,
+      total_count: filtered.length,
+    };
+  },
+};
+
+/**
+ * Export all session tools
+ */
+export function getSessionTools(): ToolDefinition[] {
+  return [
+    // Epic 007-A: Instance Registry
+    registerInstanceTool,
+    heartbeatTool,
+    listInstancesTool,
+    getInstanceDetailsTool,
+    // Epic 007-B: Command Logging
+    logCommandTool,
+    searchCommandsTool,
+    // Epic 007-C: Event Store
+    emitEventTool,
+    queryEventsTool,
+    replayEventsTool,
+    listEventTypesTool,
+  ];
+}
+
+export const sessionTools = getSessionTools();
