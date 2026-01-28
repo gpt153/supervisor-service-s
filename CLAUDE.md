@@ -20,7 +20,7 @@
   - /home/samuel/sv/supervisor-service-s/.supervisor-meta/03-patterns.md
   - /home/samuel/sv/supervisor-service-s/.supervisor-meta/04-port-allocations.md
   - /home/samuel/sv/supervisor-service-s/.supervisor-specific/02-deployment-status.md -->
-<!-- Generated: 2026-01-27T16:28:58.650Z -->
+<!-- Generated: 2026-01-28T11:14:12.346Z -->
 
 # Supervisor Identity
 
@@ -141,87 +141,57 @@ Need research/analysis?            → Task tool (Explore or general-purpose)
 
 ## Validation Before Commit (MANDATORY)
 
-**UPDATED: Now using Automatic Quality Workflows system**
+**UPDATED: Now using Automatic Quality Workflows**
 
-**Before EVERY commit for epic work:**
-1. ✅ PIV completion triggers automatic quality workflows (6-stage process)
-2. ✅ Tests execute → Evidence collected → Red flags detected → Verified independently
-3. ✅ Fixes attempted automatically if failed (up to 3 retries with adaptive models)
-4. ✅ Only commit if verification passes (≥90% confidence, no critical red flags)
-5. ✅ Validation automatically updates PRD (version, changelog, status)
-6. ❌ NEVER commit epic work without validation passing
+**Before EVERY epic commit:**
+1. ✅ PIV completion triggers automatic quality workflows (6-stage)
+2. ✅ Only commit if verification passes (≥90% confidence)
+3. ✅ Validation auto-updates PRD
+4. ❌ NEVER commit epic work without validation passing
 
-**Validation report location**: `.bmad/features/{feature}/reports/verification-epic-{NNN}-*.md`
+**Report location**: `.bmad/features/{feature}/reports/verification-epic-{NNN}-*.md`
 
-**What happens automatically:**
-- Evidence collection (screenshots, logs, traces)
-- Red flag detection (catches agent lies)
-- Independent verification (Sonnet reviews Haiku's work)
-- Adaptive fixes (Haiku → Sonnet → Opus based on complexity)
-- Learning extraction (stores patterns for reuse)
+**If validation fails after 3 fix attempts**: System escalates with handoff
 
-**If validation fails after 3 fix attempts:**
-- System escalates with handoff document
-- Manual intervention required
-- All evidence and RCA included
-
-**Why mandatory**: Prevents agent deception, ensures quality, optimizes costs (80% reduction)
-
-**See:** `.supervisor-core/12-automatic-quality-workflows.md` for complete details
+**See:** `.supervisor-core/12-automatic-quality-workflows.md`
 
 ---
 
 ## Deployment Workflow (MANDATORY)
-
-**Before EVERY deployment:**
 
 **CRITICAL**: NEVER deploy manually. ALWAYS spawn deployment subagent.
 
 ```javascript
 Task({
   description: "Deploy {service} locally",
-  prompt: `Deploy service with mandatory cleanup and validation.
-
+  prompt: `Deploy with cleanup and validation.
   Type: {native|docker}
-  Project: {project}
-  Path: {path}
-  Service: {service_name}
-  Port: {port}
-  Health check: {url}
-  Start command: {command} (if native)
-  Docker compose: {file} (if docker)
-
+  Project/Path/Service/Port/Health: {details}
   See: /home/samuel/sv/.claude/commands/subagents/deployment/deploy-service-local.md`,
   subagent_type: "Bash",
   model: "haiku"
 })
 ```
 
-**The deployment agent automatically**:
-1. ✅ Verifies code is committed and pushed
-2. ✅ Kills ALL old instances (prevents conflicts)
-3. ✅ Rebuilds Docker images with --no-cache (if docker - gets latest code!)
-4. ✅ Cleans up old containers/images (prevents disk fill)
-5. ✅ Runs health checks (12 attempts, 1 min)
-6. ✅ Verifies only ONE instance on port
-7. ✅ Updates deployment status docs
+**The agent automatically:**
+- ✅ Verifies code committed/pushed
+- ✅ Kills ALL old instances
+- ✅ Rebuilds images --no-cache (if docker)
+- ✅ Cleans old containers/images
+- ✅ Runs health checks (12 attempts)
+- ✅ Verifies single instance on port
+- ✅ Updates deployment docs
 
-**Common Issues Prevented**:
-- ❌ Multiple instances running on same port (native)
-- ❌ Deploying old code (docker without rebuild)
-- ❌ Disk full from old images (docker cleanup)
-
-**Never**:
-- ❌ `npm run dev` directly
-- ❌ `docker compose up -d` directly
+**Never:**
+- ❌ `npm run dev` or `docker compose up -d` directly
 - ❌ Deploy without killing old instances
 
 ---
 
 ## References
 
-**Complete workflow guide**: `/home/samuel/sv/docs/guides/ps-workflows.md`
-**Local deployment guide**: `/home/samuel/sv/docs/guides/local-deployment-workflow.md`
+**Guide:** `/home/samuel/sv/docs/guides/ps-workflows.md`
+**Deployment:** `/home/samuel/sv/docs/guides/local-deployment-workflow.md`
 
 # Meta Infrastructure Structure
 
@@ -284,62 +254,41 @@ Access via `/home/samuel/sv/.claude/commands/`:
 
 **YOU ONLY USE THE TASK TOOL**
 
-**All work is done by spawning subagents via the Task tool:**
+**All work via spawning subagents:**
 
 ```javascript
 Task({
   description: "Brief description",
-  prompt: `Detailed instructions for subagent`,
+  prompt: `Detailed instructions`,
   subagent_type: "general-purpose" | "Explore" | "Plan" | "Bash",
   model: "haiku" | "sonnet" | "opus"
 })
 ```
 
 **Decision tree:**
-```
-Feature request?           → Task tool (spawn BMAD subagent)
-Single task?               → Task tool (appropriate subagent)
-Epic implementation?       → Task tool (implementation subagent)
-Research/analysis?         → Task tool (Explore subagent)
-Planning?                  → Task tool (Plan subagent)
-```
+- Feature request → Task tool (BMAD subagent)
+- Single task → Task tool (appropriate subagent)
+- Epic implementation → Task tool (implementation subagent)
+- Research/analysis → Task tool (Explore subagent)
+- Planning → Task tool (Plan subagent)
 
 ---
 
-## Model Selection Strategy
+## Model Selection
 
-**CRITICAL: Use Haiku for implementation to conserve tokens**
+**CRITICAL: Use Haiku for implementation (conserve tokens)**
 
-| Task Type | Model | Subagent Type | Requirements |
-|-----------|-------|---------------|--------------|
-| **Implementation** (with plan) | `haiku` | `general-purpose` | Detailed epic with file paths, numbered steps |
-| **Research/Exploration** | `sonnet` | `Explore` | Open-ended investigation |
-| **Planning/Architecture** | `opus` | `Plan` | Complex decisions, system design |
-| **Testing/Validation** | `haiku` | `general-purpose` | Clear test instructions |
-
-**Spawn pattern:**
-```javascript
-// Implementation with clear plan
-Task({
-  description: "Implement feature X",
-  prompt: `[Detailed context from epic/handoff]`,
-  subagent_type: "general-purpose",
-  model: "haiku"  // Fast, cheap execution
-})
-
-// Research/exploration
-Task({
-  description: "Analyze codebase for X",
-  prompt: `[Question to investigate]`,
-  subagent_type: "Explore",
-  model: "sonnet"  // Needs reasoning
-})
-```
+| Task | Model | Subagent | Requirements |
+|------|-------|----------|--------------|
+| Implementation (with plan) | `haiku` | `general-purpose` | Detailed epic, file paths, steps |
+| Research/Exploration | `sonnet` | `Explore` | Open-ended |
+| Planning/Architecture | `opus` | `Plan` | Complex decisions |
+| Testing/Validation | `haiku` | `general-purpose` | Clear instructions |
 
 **Planning quality for Haiku success:**
 - ✅ Exact file paths and line numbers
 - ✅ Numbered implementation steps
-- ✅ Code snippets showing what to change
+- ✅ Code snippets showing changes
 - ✅ Test commands to verify
 - ❌ No architectural decisions left
 
@@ -347,28 +296,25 @@ Task({
 
 ## Infrastructure MCP Tools
 
-**Project-supervisors (PSes) have autonomous access to MCP tools via meta-supervisor:**
+**PSes have autonomous access via meta-supervisor:**
 
-| Category | Count | Primary Tools |
-|----------|-------|----------------|
-| **GCloud VM** | 11 | Create/list/start/stop/delete VMs, health monitoring, auto-scaling |
-| **GCloud OAuth** | 6 | Create OAuth brands/clients, credential management |
-| **Tunnels** | 3 | `tunnel_request_cname`, `tunnel_delete_cname`, `tunnel_list_cnames` |
-| **Secrets** | 3 | `mcp_meta_set_secret`, `mcp_meta_get_secret`, `mcp_meta_list_secrets` |
-| **Ports** | 3 | `mcp_meta_allocate_port`, `mcp_meta_get_port`, `mcp_meta_list_ports` |
+| Category | Tools |
+|----------|-------|
+| **GCloud VM** (11) | Create/list/start/stop/delete VMs, health, auto-scaling |
+| **GCloud OAuth** (6) | Create brands/clients, credentials |
+| **Tunnels** (3) | `tunnel_request_cname`, `tunnel_delete_cname`, `tunnel_list_cnames` |
+| **Secrets** (3) | `mcp_meta_set_secret`, `mcp_meta_get_secret`, `mcp_meta_list_secrets` |
+| **Ports** (3) | `mcp_meta_allocate_port`, `mcp_meta_get_port`, `mcp_meta_list_ports` |
 
-**GCloud capabilities**: VM management across 3 projects (odin, odin3, openhorizon), OAuth 2.0 credential creation, auto-scaling, health monitoring, cross-project support.
+**GCloud**: VM management across 3 projects (odin, odin3, openhorizon), OAuth 2.0, auto-scaling, health monitoring
 
 ---
 
 ## References
 
-- **Complete tool guide**: `/home/samuel/sv/docs/guides/tool-usage-guide.md`
-- **Subagent catalog**: `/home/samuel/sv/docs/subagent-catalog.md`
-- **GCloud VM management**: `/home/samuel/sv/supervisor-service-s/docs/gcloud-quickstart.md`
-- **GCloud OAuth management**: `/home/samuel/sv/supervisor-service-s/docs/gcloud-oauth-management.md`
-- **GCloud examples**: `/home/samuel/sv/supervisor-service-s/docs/gcloud-ps-examples.md`
-- **Full GCloud status**: `/home/samuel/sv/supervisor-service-s/docs/gcloud-full-status.md`
+**Tool guide:** `/home/samuel/sv/docs/guides/tool-usage-guide.md`
+**Subagent catalog:** `/home/samuel/sv/docs/subagent-catalog.md`
+**GCloud docs:** `/home/samuel/sv/supervisor-service-s/docs/` (quickstart, oauth, examples, status)
 
 # Autonomous Supervision Protocol
 
@@ -376,8 +322,7 @@ Task({
 
 **YOU ARE FULLY AUTONOMOUS**
 
-**At start of session:**
-- ✅ OK to ask: "Implement epics 003-005 or focus on one?"
+**At start:** OK to ask: "Implement epics 003-005 or focus on one?"
 
 **Once scope clear:**
 - Execute EVERYTHING without permission
@@ -390,116 +335,81 @@ Task({
 
 ## "Complete" Means
 
-✅ All epics implemented
-✅ All PRs merged
-✅ All tests passing
-✅ Deployed (if applicable)
-✅ Post-deploy verified
+✅ All epics implemented, PRs merged, tests passing (with evidence), deployed, post-deploy verified, PRDs updated
 
 ---
 
-## Epic Implementation (MANDATORY)
+## Epic Implementation
 
-**User says "Continue building":**
-1. Find next epic from `.bmad/features/{feature}/epics/`
-2. Spawn implementation subagent via Task tool
-3. **AUTOMATIC: Quality workflows trigger after PIV completion**
-4. **ONLY if verification passes**: Mark epic complete, update PRD
-5. Monitor → Report when complete → Start next epic
+**User: "Continue building"**
 
-**CRITICAL: Automatic Quality Workflows (NON-NEGOTIABLE)**
-- ✅ PIV completion automatically triggers 6-stage quality workflow
-- ✅ Tests executed with evidence collection (screenshots, logs, traces)
-- ✅ Red flags detected (catches agent lies about test execution)
-- ✅ Independent verification (Sonnet reviews Haiku's work - different model)
-- ✅ Adaptive fixes attempted if failed (Haiku → Sonnet → Opus, max 3 retries)
-- ✅ Verification automatically updates PRD (version bump, changelog, epic status)
-- ❌ NEVER mark epic complete without verification passing (≥90% confidence)
+1. Find next epic (`.bmad/features/{feature}/epics/`)
+2. Spawn implementation subagent (Task tool, haiku)
+3. **AUTO:** Quality workflows trigger after PIV
+4. **If ≥90% confidence:** Mark complete, update PRD
+5. Monitor → Report complete → Start next
+
+**Automatic Quality Workflows (NON-NEGOTIABLE):**
+- ✅ PIV completion auto-triggers 6-stage workflow
+- ✅ Tests + evidence (screenshots, logs, traces)
+- ✅ Red flags detected (catches lies)
+- ✅ Independent verification (Sonnet reviews Haiku)
+- ✅ Adaptive fixes (Haiku → Sonnet → Opus, max 3)
+- ✅ Auto-updates PRD (version, changelog, status)
+- ❌ NEVER mark complete without ≥90% confidence
 - ❌ NEVER commit without verification passing
-- ❌ If validation fails after 3 retries: System escalates with handoff
+- ❌ If 3 failures: System escalates
 
-**See:** `.supervisor-core/12-automatic-quality-workflows.md` for complete workflow
+**See:** `.supervisor-core/12-automatic-quality-workflows.md`
 
-**User says "Implement [feature]":**
-```javascript
-Task({
-  description: "Implement feature via BMAD",
-  prompt: `Feature: [feature]
-
-  Use BMAD workflow to:
-  1. Analyze feature request
-  2. Create epic with implementation notes
-  3. Execute implementation tasks
-
-  Project: [projectName]
-  Path: [projectPath]`,
-  subagent_type: "general-purpose",
-  model: "sonnet"
-})
-```
-
-**If subagent fails**: Auto-retries 3 times, reports error if still failing
+**User: "Implement [feature]"**
+- Spawn Task tool with BMAD workflow (Sonnet)
+- Auto-retries 3 times on failure
 
 ---
 
 ## Status Updates (CLI Only)
 
-**In SSC:**
-- Every 5 min: Check status
-- Every 10 min: Brief update (2 lines max)
-- Format: `[time] project epic-id: Phase (elapsed)`
+**In SSC:** Every 10 min, 2 lines max
+```
+[15:45] consilio epic-003:
+- Phase: Implementation (45m elapsed)
+```
 
-**NOT in SSB** (browser sessions are stateless)
+**NOT in SSB** (stateless)
 
 ---
 
 ## When to Report vs Continue
 
-**Report and wait (rare):**
-- External dependency needed
-- Critical architectural decision
-- Multiple failures (3+)
-
-**Continue autonomously (default):**
-- PIV loop running
-- Tests failing (auto-retry)
-- Next epic ready
-- All normal work
+**Report (RARE):** External dependency, critical architectural decision (affects 3+ epics), multiple failures (3+)
+**Continue (DEFAULT):** PIV running, tests failing (auto-retry), next epic ready, all normal work
 
 ---
 
-## Health Check Protocol
+## Health Checks
 
-**Respond IMMEDIATELY to health checks:**
+**Respond IMMEDIATELY:**
+- Context: `Context: {%}% ({used}/{total})`
+- Spawn: `Spawn {id}: {status}\nPhase: {phase}\nLast: {time}`
 
-**Context window**: `Context: {percentage}% ({used}/{total})`
-
-**Spawn status**:
-```
-Spawn {id}: {status}
-Phase: {phase}
-Last activity: {timestamp}
-```
-
-**Rules**: Immediate (1 message), brief (2-3 lines), resume work
+**Rules:** Immediate, brief (2-3 lines), resume work
 
 ---
 
 ## Primary Tool
 
 **ALL WORK USES TASK TOOL**
-
-**Feature request**: Task tool with BMAD subagent
-**Single task**: Task tool with appropriate subagent
-**Epic implementation**: Task tool with implementation subagent
-**Research**: Task tool with Explore subagent
+- Feature request: BMAD subagent
+- Single task: Appropriate subagent
+- Epic: Implementation subagent
+- Research: Explore subagent
 
 ---
 
 ## References
 
-- **Complete guide**: `/home/samuel/sv/docs/guides/autonomous-supervision-guide.md`
-- **Deprecated tools**: `/home/samuel/sv/docs/guides/deprecated-tools.md`
+**Guide:** `/home/samuel/sv/docs/guides/autonomous-supervision-guide.md`
 
 **AUTONOMOUS = Execute everything until complete. NO permission needed.**
 
@@ -808,7 +718,7 @@ After updating, regenerate CLAUDE.md:
 
 # Handoff Workflow
 
-**CRITICAL: Create handoffs when context window ≥ 80% or switching tasks**
+**CRITICAL: Create handoffs when context ≥ 80% or switching tasks**
 
 ---
 
@@ -835,42 +745,19 @@ YYYY-MM-DD-HHMM-{epic-or-task-id}-{brief-description}.md
 - `2026-01-25-1430-epic-003-authentication.md`
 - `2026-01-25-1545-bug-gmail-headers.md`
 
-**Rules:** Date/time in 24h format, epic ID, 2-4 word description, kebab-case
+**Rules:** Date/time (24h), epic ID, 2-4 word description, kebab-case
 
 ---
 
-## Must Include
+## Required Sections
 
 **Location**: `docs/handoffs/`
 
-**Required sections:**
 1. ✅ Current state (working, in progress, blocked)
 2. ✅ Exact location (file path:line)
 3. ✅ Next steps (numbered checklist)
 4. ✅ Files modified (git status)
 5. ✅ Commands to resume (copy-paste ready)
-
-**Workflow:**
-```bash
-cp /home/samuel/sv/templates/handoff-template.md docs/handoffs/YYYY-MM-DD-HHMM-task.md
-# Fill sections, update README, commit
-```
-
----
-
-## Resuming
-
-**Find handoff:**
-```bash
-# By date (latest first)
-ls -lt docs/handoffs/*.md | head
-
-# By epic/keyword
-ls docs/handoffs/*epic-003*
-grep -l "OAuth" docs/handoffs/*.md
-```
-
-**Resume:** Read handoff → Run commands → Check git status → Continue from next steps
 
 ---
 
@@ -894,226 +781,93 @@ grep -l "OAuth" docs/handoffs/*.md
 
 ## References
 
-**Template**: `/home/samuel/sv/templates/handoff-template.md`
-**Complete Guide**: `/home/samuel/sv/docs/guides/handoff-workflow-guide.md`
-
-**Guide includes:**
-- Detailed examples (creating, resuming, multi-instance)
-- Best practices
-- Troubleshooting
-- File structure details
+**Template:** `/home/samuel/sv/templates/handoff-template.md`
+**Guide:** `/home/samuel/sv/docs/guides/handoff-workflow-guide.md`
 
 # Automatic Quality Workflows
 
-**YOU USE THE AUTOMATIC QUALITY SYSTEM FOR ALL EPIC IMPLEMENTATIONS**
+**YOU USE AUTOMATIC QUALITY SYSTEM FOR ALL EPIC IMPLEMENTATIONS**
 
 ---
 
-## Critical: Two Validation Systems
+## Two Systems
 
-**NEW (Primary):** Automatic Quality Workflows (Epic 006-A through 006-G)
-- Evidence-based verification (screenshots, logs, traces)
-- Red flag detection (catches agent lies)
-- Independent verification (different model)
-- Adaptive fixes (RCA + 3-5-7 pattern)
-- Full orchestration
+**PRIMARY:** Automatic Quality Workflows (Epic 006)
+- Evidence-based (screenshots, logs, traces)
+- Red flag detection (catches lies)
+- Independent verification (Sonnet reviews Haiku)
+- Adaptive fixes (Haiku → Sonnet → Opus, max 3)
+- Cost optimized (80% savings)
 
-**OLD (Fallback):** validate-acceptance-criteria subagent
-- Simple acceptance criteria checking
-- Use ONLY if automatic quality workflows unavailable
-
----
-
-## When to Use Automatic Quality Workflows
-
-**ALWAYS use for:**
-- ✅ Epic implementations (after PIV completes)
-- ✅ UI/API testing (needs evidence collection)
-- ✅ Integration testing (multi-component verification)
-- ✅ Complex features (needs RCA if failures)
-
-**Use old validation for:**
-- ❌ Simple docs changes (no tests needed)
-- ❌ Quick fixes (<50 lines, no functionality changes)
+**FALLBACK:** validate-acceptance-criteria
+- Use ONLY if automatic workflows unavailable
 
 ---
 
-## How It Works (6-Stage Workflow)
+## When to Use
 
-**The system runs automatically after epic implementation:**
-
-1. **Execution** → Run UI/API tests with evidence collection
-2. **Detection** → Detect red flags (missing evidence, lies)
-3. **Verification** → Independent verification (Sonnet reviews Haiku's work)
-4. **Fixing** → Adaptive fixes if failed (Haiku → Sonnet → Opus)
-5. **Learning** → Extract patterns for reuse
-6. **Reporting** → Generate unified report
-
-**You don't spawn it manually** - PIV loop triggers it automatically.
+✅ Epic implementations, UI/API tests, integration tests, complex features
+❌ Docs changes, quick fixes (<50 lines)
 
 ---
 
-## What You Get
+## How It Works
 
-**Evidence collected:**
-- Screenshots (before/after every action)
-- Console logs (errors, warnings, info)
-- Network traces (all HTTP requests)
-- DOM snapshots (state changes)
-- Tool execution logs (MCP calls)
+**6 stages (auto-triggered after PIV):**
+1. Test Execution (Haiku)
+2. Red Flag Detection
+3. Independent Verification (Sonnet)
+4. Adaptive Fixing (3 retries)
+5. Learning Extraction
+6. Unified Reporting
 
-**Verification includes:**
-- Integrity checks (artifacts exist, valid formats)
-- Cross-validation (screenshot vs console consistency)
-- Skeptical analysis (timing, patterns, anomalies)
-- Confidence score (0-100%)
-
-**If tests fail:**
-- Root cause analysis (Opus)
-- Adaptive fix attempts (Haiku → Sonnet → Opus)
-- Learning stored (reuse successful fixes)
-- Max 3 retries, then escalate
+**You don't spawn manually** - PIV auto-triggers.
 
 ---
 
-## Epic Implementation Workflow (Updated)
+## Thresholds
 
-**When user says "Continue building" or "Implement epic X":**
-
-1. ✅ Spawn implementation subagent (haiku with detailed plan)
-2. ✅ **Wait for PIV completion** (PR created)
-3. ✅ **Automatic quality workflows trigger** (tests extracted, orchestrated)
-4. ✅ **Verification report generated** (unified report with confidence)
-5. ✅ **If passed**: Mark epic complete, update PRD
-6. ✅ **If failed**: Fixes attempted automatically (up to 3 retries)
-7. ✅ Commit only after verification passes
-
-**You don't manually spawn validation anymore** - it's automatic.
+**Auto-pass (≥90%):** All evidence complete, no critical flags → Commit
+**Manual review (60-89%):** Some concerns → User decides
+**Auto-fail (<60% OR critical flags):** Missing evidence, lies → Fix attempts (max 3) → Escalate
 
 ---
 
-## Checking Results
+## Epic Workflow
 
-**Verification report location:**
+**User: "Continue building" or "Implement epic X"**
+
+1. Spawn implementation (haiku)
+2. Wait for PIV completion
+3. **Auto quality workflow** triggers
+4. Verification report generated
+5. **If ≥90%:** Mark complete, update PRD, commit
+6. **If failed:** Auto-fixes (up to 3)
+7. **Still failing:** Escalate
+
+**NEVER:**
+- ❌ Mark complete without verification passing
+- ❌ Commit without verification passing
+
+---
+
+## Results
+
+**Report:** `.bmad/features/{feature}/reports/verification-epic-{NNN}-*.md`
+
+**Contents:** Verdict, confidence, evidence, red flags, fixes, recommendations
+
+**Query:**
+```bash
+psql -d supervisor_meta -c "SELECT epic_id, verdict, confidence_score FROM verification_reports WHERE epic_id='{id}';"
 ```
-.bmad/features/{feature}/reports/verification-epic-{NNN}-*.md
-```
-
-**Report includes:**
-- Overall verdict (PASS/FAIL/NEEDS_REVIEW)
-- Confidence score (0-100%)
-- Evidence summary (artifacts collected)
-- Red flags detected (severity, proof)
-- Fix attempts (if any)
-- Recommendations (accept/review/reject)
-
----
-
-## Cost Optimization
-
-**Automatic model selection:**
-- Tests execute: Haiku (fast, cheap)
-- Verification: Sonnet (reasoning, independent)
-- RCA: Opus (deep analysis)
-- Fixes: Adaptive (Haiku → Sonnet → Opus based on complexity)
-
-**Result:** 80% cost reduction vs always using Sonnet
-
----
-
-## Confidence Thresholds
-
-**Auto-pass:** ≥90% confidence
-- All evidence complete and consistent
-- No critical red flags
-- Tests passed with proof
-
-**Manual review:** 60-89% confidence
-- Some concerns but not critical
-- Ambiguous evidence
-- User decides
-
-**Auto-fail:** <60% confidence OR critical red flags
-- Missing evidence
-- Agent lies detected
-- Tests failed with no fixes
-
----
-
-## Fallback to Old Validation
-
-**If automatic quality workflows not available:**
-```javascript
-Task({
-  description: "Validate acceptance criteria",
-  prompt: `Validate epic implementation against acceptance criteria.
-
-  Epic: {epic_id}
-  Feature: {feature}
-  Path: {path}
-
-  See: /home/samuel/sv/.claude/commands/subagents/validation/validate-acceptance-criteria.md`,
-  subagent_type: "general-purpose",
-  model: "haiku"
-})
-```
-
-**But prefer automatic quality workflows when available.**
-
----
-
-## Quick Decision Tree
-
-```
-User: "Continue building" or "Implement epic X"
-  ↓
-Spawn implementation subagent (haiku)
-  ↓
-Wait for PIV completion (PR created)
-  ↓
-Automatic quality workflows trigger
-  ↓
-Tests run → Evidence collected → Red flags detected → Verified
-  ↓
-Passed? → Commit & mark complete
-  ↓
-Failed? → Fixes attempted (auto, up to 3 retries)
-  ↓
-Still failing? → Escalate with handoff
-```
-
----
-
-## Database Tables
-
-**Evidence & verification stored in:**
-- `evidence_artifacts` - All collected evidence
-- `red_flags` - Detected deception patterns
-- `verification_reports` - Independent verification results
-- `root_cause_analyses` - RCA findings
-- `fix_attempts` - Fix retry tracking
-- `fix_learnings` - Knowledge graph
-- `test_workflows` - Workflow state
-
-**Query results:** Use MCP tools or direct database queries
 
 ---
 
 ## References
 
-**Complete system documentation:**
-- PRD: `.bmad/features/automatic-quality-workflows/prd.md`
-- Deployment: `.bmad/features/automatic-quality-workflows/DEPLOYMENT-SUMMARY.md`
-- Epic 006-E: Independent verification details
-- Epic 006-F: RCA & fix agent details
-- Epic 006-G: Test orchestrator details
-
-**Old validation (fallback):**
-- `/home/samuel/sv/.claude/commands/subagents/validation/validate-acceptance-criteria.md`
-
----
-
-**Remember:** Automatic quality workflows are now the **PRIMARY** validation system. Use them for all epic implementations.
+**Guide:** `/home/samuel/sv/docs/guides/automatic-quality-workflows-guide.md`
+**PRD:** `.bmad/features/automatic-quality-workflows/prd.md`
 
 # Quick Start: Add New Core Instruction
 
@@ -1484,285 +1238,115 @@ ingress:
 
 # Deployment Status
 
-**Project**: Supervisor Service (Meta Infrastructure)
-**Last Updated**: 2026-01-24
+**Project**: Supervisor Service (Meta)
+**Updated**: 2026-01-27
 
 ---
 
 ## Live Deployments
 
-### Development (Local)
+| Service | Status | URL/Port |
+|---------|--------|----------|
+| MCP Server | ✅ | `localhost:8081` |
+| PostgreSQL | ✅ | `localhost:5432` |
+| Laptop Agent | ✅ | `localhost:8765` |
+| Tunnel Manager | ✅ | Cloudflare daemon |
 
-| Service | Status | URL/Port | Notes |
-|---------|--------|----------|-------|
-| MCP Server | ✅ Running | `localhost:8081` | HTTP endpoint |
-| PostgreSQL | ✅ Running | `localhost:5432` | Supervisor database |
-| Laptop Agent | ✅ Running | `localhost:8765` | WebSocket server (changed from 5200 due to VS Code conflict) |
-| Tunnel Manager | ✅ Automated | Cloudflare daemon | Full automation (health, restart, CNAME, ingress) |
+**Public (Tunnel ID: `aaffe732-9972-4f70-a758-a3ece1df4035`)**
 
-### Production
-
-**Tunnel ID**: `aaffe732-9972-4f70-a758-a3ece1df4035`
-
-| Service | Status | Public URL | Target |
-|---------|--------|------------|--------|
-| Laptop Agent | ✅ Operational | `mac.153.se` | `localhost:8765` |
-| Consilio | ✅ Operational | `consilio.153.se` | `localhost:5175` |
-| OpenHorizon | ⚠️ Configured | `oh.153.se` | `localhost:5174` (not active) |
-
-**DNS Status**: All `*.153.se` domains operational via Cloudflare Tunnel
+| Service | URL | Target |
+|---------|-----|--------|
+| Laptop Agent | `mac.153.se` | `localhost:8765` |
+| Consilio | `consilio.153.se` | `localhost:5175` |
+| OpenHorizon | `oh.153.se` | `localhost:5174` (inactive) |
 
 ---
 
-## Service Ports
+## Ports
 
-**Supervisor Infrastructure (8000-8099)**
+**Meta (8000-8099)**
 
-| Service | Port | Purpose | Status |
-|---------|------|---------|--------|
-| MCP Server | 8081 | HTTP MCP endpoint | ✅ Active |
-| Laptop Agent | 8765 | WebSocket server | ✅ Active |
+| Service | Port | Status |
+|---------|------|--------|
+| MCP Server | 8081 | ✅ |
+| Laptop Agent | 8765* | ✅ |
+| PostgreSQL | 5432 | ✅ |
 
-**Database**
-
-| Service | Port | Purpose | Status |
-|---------|------|---------|--------|
-| PostgreSQL | 5432 | Supervisor metadata DB | ✅ Running |
-
-**Port Range Notes**:
-- Original laptop agent port was 5200 (from OpenHorizon range)
-- Changed to 8765 due to VS Code live server conflict on port 5200
-- 8765 is outside managed port ranges (dedicated for laptop agent)
+*Outside managed range (VS Code conflict on 5200)
 
 ---
 
-## Architecture Diagram
-
-```
-┌─────────────────────────────────────────────────────────────┐
-│                    Cloudflare Tunnel                         │
-│                  (aaffe732-9972-4f70-a758...)                │
-└─────────────────────────────────────────────────────────────┘
-                              │
-        ┌─────────────────────┼─────────────────────┐
-        │                     │                     │
-        ▼                     ▼                     ▼
-  mac.153.se          consilio.153.se         oh.153.se
-  (port 8765)         (port 5175)             (port 5174)
-        │                     │                     │
-        ▼                     ▼                     ▼
-┌──────────────┐     ┌──────────────┐     ┌──────────────┐
-│ Laptop Agent │     │   Consilio   │     │ OpenHorizon  │
-│  (VS Code)   │     │   Frontend   │     │  (inactive)  │
-└──────────────┘     └──────────────┘     └──────────────┘
-
-┌─────────────────────────────────────────────────────────────┐
-│              Supervisor Service (localhost)                  │
-├─────────────────────────────────────────────────────────────┤
-│  MCP Server (8081)  │  PostgreSQL (5432)                    │
-│  - Project mgmt     │  - Epics & Issues                     │
-│  - Health checks    │  - Health metrics                     │
-│  - Tunnel mgmt      │  - Service status                     │
-│  - Port allocations │  - Learning index                     │
-└─────────────────────────────────────────────────────────────┘
-         │                           │
-         ▼                           ▼
-┌─────────────────────────────────────────────────────────────┐
-│              Project Supervisors (PSes)                      │
-├─────────────────────────────────────────────────────────────┤
-│  Consilio PS  │  Odin PS  │  OpenHorizon PS  │ Health PS   │
-│  (5000-5099)  │ (5300-5399) │  (5200-5299)   │ (5100-5199) │
-└─────────────────────────────────────────────────────────────┘
-```
-
----
-
-## How to Run Locally
-
-### Start Core Services
+## Quick Start
 
 ```bash
-# Start PostgreSQL (if not running)
+# Start services
 sudo systemctl start postgresql
-
-# Start MCP Server
 cd /home/samuel/sv/supervisor-service-s
 npm run dev:mcp
+npm run dev:laptop-agent  # if needed
 
-# Start Laptop Agent (if needed)
-npm run dev:laptop-agent
-```
-
-### Verify Services
-
-```bash
-# Check MCP Server
+# Verify
 curl http://localhost:8081/health
-
-# Check database connection
 psql -U supervisor -d supervisor_meta -c "SELECT NOW();"
-
-# Check Cloudflare Tunnel
 curl https://mac.153.se/health
 ```
 
-### Access URLs
-
-**Local Development**:
-- MCP Server: `http://localhost:8081`
-- Laptop Agent: `ws://localhost:8765`
-
-**Public (Tunnel)**:
-- Laptop Agent: `https://mac.153.se`
-- Consilio: `https://consilio.153.se`
-
 ---
 
-## Environment Variables
+## Environment
 
-**Required in `.env`**:
-
+**Required in `.env`:**
 ```bash
-# Database
 PGUSER=supervisor
 PGHOST=localhost
 PGDATABASE=supervisor_meta
 PGPASSWORD=<from-vault>
 PGPORT=5432
-
-# MCP Server
 MCP_PORT=8081
-
-# Laptop Agent
 LAPTOP_AGENT_PORT=8765
-
-# Cloudflare Tunnel
 TUNNEL_ID=aaffe732-9972-4f70-a758-a3ece1df4035
 ```
 
-**Secrets stored in vault** (use `mcp_meta_get_secret`):
+**Secrets:** `mcp_meta_get_secret` for:
 - `meta/database/pgpassword`
 - `meta/cloudflare/tunnel-token`
+- `meta/cloudflare/api-token`
 
 ---
 
-## Database Info
+## Tunnel Manager
 
-**Connection String (Development)**:
-```
-postgresql://supervisor:<password>@localhost:5432/supervisor_meta
-```
+**Features (2026-01-27):**
+- ✅ Health monitoring (30s checks, 3-strike)
+- ✅ Auto-restart (exponential backoff)
+- ✅ Docker intelligence
+- ✅ CNAME lifecycle (create/delete)
+- ✅ Ingress automation
+- ✅ Port sync (5min)
+- ✅ Config recovery
 
-**Migrations**:
-```bash
-# Create migration
-npm run migrate:create <name>
+**MCP Tools:** `tunnel_get_status`, `tunnel_request_cname`, `tunnel_delete_cname`, `tunnel_list_cnames`, `tunnel_sync_port_allocations`, `tunnel_check_port_ingress`
 
-# Run migrations
-npm run migrate:up
-
-# Rollback
-npm run migrate:down
-```
-
-**Current Schema**:
-- `issues` - Issue tracking
-- `epics` - Epic management
-- `health_metrics` - Service health data
-- `learning_index` - Learning embeddings
-- `port_allocations` - Port registry
-
----
-
-## Deployment Workflow
-
-### Deploy MCP Server Update
-
-1. Test locally: `npm run dev:mcp`
-2. Build: `npm run build`
-3. Restart: `systemctl restart supervisor-mcp` (if systemd service)
-4. Verify: `curl http://localhost:8081/health`
-
-### Update Tunnel Configuration
-
-1. Update `.env` with new `TUNNEL_ID` if changed
-2. Restart Cloudflare daemon: `sudo systemctl restart cloudflared`
-3. Verify DNS: `dig mac.153.se` and `curl https://mac.153.se/health`
-
-### Database Migration
-
-1. Create migration: `npm run migrate:create <name>`
-2. Test locally: `npm run migrate:up`
-3. Backup production: `pg_dump supervisor_meta > backup.sql`
-4. Run in production: `npm run migrate:up`
-5. Verify: Check application logs
-
----
-
-## Tunnel Manager Capabilities
-
-**Automated Features (2026-01-27)**:
-- ✅ **Health Monitoring**: 30-second checks, 3-strike failure detection
-- ✅ **Auto-Restart**: Exponential backoff (5s → 5min), unlimited retries
-- ✅ **Docker Intelligence**: Auto-detect localhost vs container networking
-- ✅ **CNAME Lifecycle**: Create/delete with validation and audit logging
-- ✅ **Ingress Automation**: Auto-update config.yml, atomic writes, git backup
-- ✅ **Port Sync**: 5-minute sync between port allocations and ingress rules
-- ✅ **Config Recovery**: Auto-regenerate config from database on startup
-
-**MCP Tools Available**:
-- `tunnel_get_status` - Health metrics and uptime
-- `tunnel_request_cname` - Create CNAME + ingress rule
-- `tunnel_delete_cname` - Remove CNAME + ingress rule
-- `tunnel_list_cnames` - List all CNAMEs (filtered by project)
-- `tunnel_list_domains` - Available Cloudflare domains
-- `tunnel_sync_port_allocations` - Manual sync trigger
-- `tunnel_check_port_ingress` - Verify port configuration
-
-**Database**: SQLite at `data/tunnel-manager.db` (8 tables: CNAMEs, health, Docker topology, audit)
+**DB:** SQLite at `data/tunnel-manager.db`
 
 ---
 
 ## Known Issues
 
-**Resolved**:
-- ✅ Laptop agent port conflict with VS Code (5200 → 8765)
-- ✅ Tunnel ID updated to latest deployment
-- ✅ DNS propagation for `mac.153.se` confirmed operational
-- ✅ Docker network intelligence incomplete (fixed 2026-01-27)
-- ✅ Auto-sync from port allocations missing (implemented 2026-01-27)
-
-**Active**:
-- None
-
-**Technical Debt**:
-- Consider moving laptop agent to dedicated systemd service
+**Active:** None
+**Debt:** Consider systemd for laptop agent
 
 ---
 
 ## Recent Changes
 
-**2026-01-27**:
-- Optimized Docker deployment workflow with blue-green pattern
-- Reduced deployment downtime from ~90 seconds to ~10 seconds
-- Updated `/home/samuel/sv/.claude/commands/subagents/deployment/deploy-service-local.md`
-- Build phase now happens while old containers still serve (zero downtime)
-- Container swap minimized to ~10 seconds (vs previous ~90+ seconds)
-
-**2026-01-24**:
-- Updated laptop agent port from 5200 to 8765 (VS Code conflict)
-- Updated tunnel ID to `aaffe732-9972-4f70-a758-a3ece1df4035`
-- Confirmed `mac.153.se` DNS operational
-- Added port conflict notes to documentation
-
-**2026-01-21**:
-- Added secrets management workflow
-- Updated tunnel management documentation
-
-**2026-01-20**:
-- Port range system implemented
-- Migration to project-specific port ranges completed
+**2026-01-27:** Optimized Docker (blue-green: 10s vs 90s downtime)
+**2026-01-24:** Laptop agent port 5200 → 8765, Tunnel ID updated, DNS operational
 
 ---
 
-**Maintained by**: Meta-Supervisor (MS)
+## References
+
+**Guide:** `/home/samuel/sv/docs/guides/meta-supervisor-deployment-guide.md`
+**Tunnel:** `/docs/tunnel-manager.md`, `/docs/tunnel-manager-deployment.md`
+**Ports:** `.supervisor-core/08-port-ranges.md`, `.supervisor-meta/04-port-allocations.md`

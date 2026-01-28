@@ -23,84 +23,54 @@
 
 ## Validation Before Commit (MANDATORY)
 
-**UPDATED: Now using Automatic Quality Workflows system**
+**UPDATED: Now using Automatic Quality Workflows**
 
-**Before EVERY commit for epic work:**
-1. ✅ PIV completion triggers automatic quality workflows (6-stage process)
-2. ✅ Tests execute → Evidence collected → Red flags detected → Verified independently
-3. ✅ Fixes attempted automatically if failed (up to 3 retries with adaptive models)
-4. ✅ Only commit if verification passes (≥90% confidence, no critical red flags)
-5. ✅ Validation automatically updates PRD (version, changelog, status)
-6. ❌ NEVER commit epic work without validation passing
+**Before EVERY epic commit:**
+1. ✅ PIV completion triggers automatic quality workflows (6-stage)
+2. ✅ Only commit if verification passes (≥90% confidence)
+3. ✅ Validation auto-updates PRD
+4. ❌ NEVER commit epic work without validation passing
 
-**Validation report location**: `.bmad/features/{feature}/reports/verification-epic-{NNN}-*.md`
+**Report location**: `.bmad/features/{feature}/reports/verification-epic-{NNN}-*.md`
 
-**What happens automatically:**
-- Evidence collection (screenshots, logs, traces)
-- Red flag detection (catches agent lies)
-- Independent verification (Sonnet reviews Haiku's work)
-- Adaptive fixes (Haiku → Sonnet → Opus based on complexity)
-- Learning extraction (stores patterns for reuse)
+**If validation fails after 3 fix attempts**: System escalates with handoff
 
-**If validation fails after 3 fix attempts:**
-- System escalates with handoff document
-- Manual intervention required
-- All evidence and RCA included
-
-**Why mandatory**: Prevents agent deception, ensures quality, optimizes costs (80% reduction)
-
-**See:** `.supervisor-core/12-automatic-quality-workflows.md` for complete details
+**See:** `.supervisor-core/12-automatic-quality-workflows.md`
 
 ---
 
 ## Deployment Workflow (MANDATORY)
-
-**Before EVERY deployment:**
 
 **CRITICAL**: NEVER deploy manually. ALWAYS spawn deployment subagent.
 
 ```javascript
 Task({
   description: "Deploy {service} locally",
-  prompt: `Deploy service with mandatory cleanup and validation.
-
+  prompt: `Deploy with cleanup and validation.
   Type: {native|docker}
-  Project: {project}
-  Path: {path}
-  Service: {service_name}
-  Port: {port}
-  Health check: {url}
-  Start command: {command} (if native)
-  Docker compose: {file} (if docker)
-
+  Project/Path/Service/Port/Health: {details}
   See: /home/samuel/sv/.claude/commands/subagents/deployment/deploy-service-local.md`,
   subagent_type: "Bash",
   model: "haiku"
 })
 ```
 
-**The deployment agent automatically**:
-1. ✅ Verifies code is committed and pushed
-2. ✅ Kills ALL old instances (prevents conflicts)
-3. ✅ Rebuilds Docker images with --no-cache (if docker - gets latest code!)
-4. ✅ Cleans up old containers/images (prevents disk fill)
-5. ✅ Runs health checks (12 attempts, 1 min)
-6. ✅ Verifies only ONE instance on port
-7. ✅ Updates deployment status docs
+**The agent automatically:**
+- ✅ Verifies code committed/pushed
+- ✅ Kills ALL old instances
+- ✅ Rebuilds images --no-cache (if docker)
+- ✅ Cleans old containers/images
+- ✅ Runs health checks (12 attempts)
+- ✅ Verifies single instance on port
+- ✅ Updates deployment docs
 
-**Common Issues Prevented**:
-- ❌ Multiple instances running on same port (native)
-- ❌ Deploying old code (docker without rebuild)
-- ❌ Disk full from old images (docker cleanup)
-
-**Never**:
-- ❌ `npm run dev` directly
-- ❌ `docker compose up -d` directly
+**Never:**
+- ❌ `npm run dev` or `docker compose up -d` directly
 - ❌ Deploy without killing old instances
 
 ---
 
 ## References
 
-**Complete workflow guide**: `/home/samuel/sv/docs/guides/ps-workflows.md`
-**Local deployment guide**: `/home/samuel/sv/docs/guides/local-deployment-workflow.md`
+**Guide:** `/home/samuel/sv/docs/guides/ps-workflows.md`
+**Deployment:** `/home/samuel/sv/docs/guides/local-deployment-workflow.md`

@@ -4,8 +4,7 @@
 
 **YOU ARE FULLY AUTONOMOUS**
 
-**At start of session:**
-- ✅ OK to ask: "Implement epics 003-005 or focus on one?"
+**At start:** OK to ask: "Implement epics 003-005 or focus on one?"
 
 **Once scope clear:**
 - Execute EVERYTHING without permission
@@ -18,115 +17,80 @@
 
 ## "Complete" Means
 
-✅ All epics implemented
-✅ All PRs merged
-✅ All tests passing
-✅ Deployed (if applicable)
-✅ Post-deploy verified
+✅ All epics implemented, PRs merged, tests passing (with evidence), deployed, post-deploy verified, PRDs updated
 
 ---
 
-## Epic Implementation (MANDATORY)
+## Epic Implementation
 
-**User says "Continue building":**
-1. Find next epic from `.bmad/features/{feature}/epics/`
-2. Spawn implementation subagent via Task tool
-3. **AUTOMATIC: Quality workflows trigger after PIV completion**
-4. **ONLY if verification passes**: Mark epic complete, update PRD
-5. Monitor → Report when complete → Start next epic
+**User: "Continue building"**
 
-**CRITICAL: Automatic Quality Workflows (NON-NEGOTIABLE)**
-- ✅ PIV completion automatically triggers 6-stage quality workflow
-- ✅ Tests executed with evidence collection (screenshots, logs, traces)
-- ✅ Red flags detected (catches agent lies about test execution)
-- ✅ Independent verification (Sonnet reviews Haiku's work - different model)
-- ✅ Adaptive fixes attempted if failed (Haiku → Sonnet → Opus, max 3 retries)
-- ✅ Verification automatically updates PRD (version bump, changelog, epic status)
-- ❌ NEVER mark epic complete without verification passing (≥90% confidence)
+1. Find next epic (`.bmad/features/{feature}/epics/`)
+2. Spawn implementation subagent (Task tool, haiku)
+3. **AUTO:** Quality workflows trigger after PIV
+4. **If ≥90% confidence:** Mark complete, update PRD
+5. Monitor → Report complete → Start next
+
+**Automatic Quality Workflows (NON-NEGOTIABLE):**
+- ✅ PIV completion auto-triggers 6-stage workflow
+- ✅ Tests + evidence (screenshots, logs, traces)
+- ✅ Red flags detected (catches lies)
+- ✅ Independent verification (Sonnet reviews Haiku)
+- ✅ Adaptive fixes (Haiku → Sonnet → Opus, max 3)
+- ✅ Auto-updates PRD (version, changelog, status)
+- ❌ NEVER mark complete without ≥90% confidence
 - ❌ NEVER commit without verification passing
-- ❌ If validation fails after 3 retries: System escalates with handoff
+- ❌ If 3 failures: System escalates
 
-**See:** `.supervisor-core/12-automatic-quality-workflows.md` for complete workflow
+**See:** `.supervisor-core/12-automatic-quality-workflows.md`
 
-**User says "Implement [feature]":**
-```javascript
-Task({
-  description: "Implement feature via BMAD",
-  prompt: `Feature: [feature]
-
-  Use BMAD workflow to:
-  1. Analyze feature request
-  2. Create epic with implementation notes
-  3. Execute implementation tasks
-
-  Project: [projectName]
-  Path: [projectPath]`,
-  subagent_type: "general-purpose",
-  model: "sonnet"
-})
-```
-
-**If subagent fails**: Auto-retries 3 times, reports error if still failing
+**User: "Implement [feature]"**
+- Spawn Task tool with BMAD workflow (Sonnet)
+- Auto-retries 3 times on failure
 
 ---
 
 ## Status Updates (CLI Only)
 
-**In SSC:**
-- Every 5 min: Check status
-- Every 10 min: Brief update (2 lines max)
-- Format: `[time] project epic-id: Phase (elapsed)`
+**In SSC:** Every 10 min, 2 lines max
+```
+[15:45] consilio epic-003:
+- Phase: Implementation (45m elapsed)
+```
 
-**NOT in SSB** (browser sessions are stateless)
+**NOT in SSB** (stateless)
 
 ---
 
 ## When to Report vs Continue
 
-**Report and wait (rare):**
-- External dependency needed
-- Critical architectural decision
-- Multiple failures (3+)
-
-**Continue autonomously (default):**
-- PIV loop running
-- Tests failing (auto-retry)
-- Next epic ready
-- All normal work
+**Report (RARE):** External dependency, critical architectural decision (affects 3+ epics), multiple failures (3+)
+**Continue (DEFAULT):** PIV running, tests failing (auto-retry), next epic ready, all normal work
 
 ---
 
-## Health Check Protocol
+## Health Checks
 
-**Respond IMMEDIATELY to health checks:**
+**Respond IMMEDIATELY:**
+- Context: `Context: {%}% ({used}/{total})`
+- Spawn: `Spawn {id}: {status}\nPhase: {phase}\nLast: {time}`
 
-**Context window**: `Context: {percentage}% ({used}/{total})`
-
-**Spawn status**:
-```
-Spawn {id}: {status}
-Phase: {phase}
-Last activity: {timestamp}
-```
-
-**Rules**: Immediate (1 message), brief (2-3 lines), resume work
+**Rules:** Immediate, brief (2-3 lines), resume work
 
 ---
 
 ## Primary Tool
 
 **ALL WORK USES TASK TOOL**
-
-**Feature request**: Task tool with BMAD subagent
-**Single task**: Task tool with appropriate subagent
-**Epic implementation**: Task tool with implementation subagent
-**Research**: Task tool with Explore subagent
+- Feature request: BMAD subagent
+- Single task: Appropriate subagent
+- Epic: Implementation subagent
+- Research: Explore subagent
 
 ---
 
 ## References
 
-- **Complete guide**: `/home/samuel/sv/docs/guides/autonomous-supervision-guide.md`
-- **Deprecated tools**: `/home/samuel/sv/docs/guides/deprecated-tools.md`
+**Guide:** `/home/samuel/sv/docs/guides/autonomous-supervision-guide.md`
 
 **AUTONOMOUS = Execute everything until complete. NO permission needed.**
