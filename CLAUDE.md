@@ -13,14 +13,15 @@
   - /home/samuel/sv/supervisor-service-s/.supervisor-core/11-handoff-workflow.md
   - /home/samuel/sv/supervisor-service-s/.supervisor-core/12-automatic-quality-workflows.md
   - /home/samuel/sv/supervisor-service-s/.supervisor-core/13-session-continuity.md
+  - /home/samuel/sv/supervisor-service-s/.supervisor-core/QUICK-START.md
+  - /home/samuel/sv/supervisor-service-s/.supervisor-core/README.md
   - /home/samuel/sv/supervisor-service-s/.supervisor-meta/00-meta-identity.md
   - /home/samuel/sv/supervisor-service-s/.supervisor-meta/01-meta-focus.md
   - /home/samuel/sv/supervisor-service-s/.supervisor-meta/02-dependencies.md
   - /home/samuel/sv/supervisor-service-s/.supervisor-meta/03-patterns.md
   - /home/samuel/sv/supervisor-service-s/.supervisor-meta/04-port-allocations.md
-  - /home/samuel/sv/supervisor-service-s/.supervisor-specific/02-deployment-status.md
-  - /home/samuel/sv/supervisor-service-s/.supervisor-specific/EVENT_STORE_IMPLEMENTATION_SUMMARY.md -->
-<!-- Generated: 2026-01-28T13:25:52.514Z -->
+  - /home/samuel/sv/supervisor-service-s/.supervisor-specific/02-deployment-status.md -->
+<!-- Generated: 2026-01-28T13:49:04.469Z -->
 
 # Supervisor Identity
 
@@ -871,216 +872,102 @@ psql -d supervisor_meta -c "SELECT epic_id, verdict, confidence_score FROM verif
 
 # Session Continuity System (Epic 007-F)
 
-**YOU NOW HAVE AUTOMATIC SESSION RECOVERY**
+**YOU HAVE AUTOMATIC SESSION RECOVERY**
 
 ---
 
-## Your Instance ID
+## Your Instance Footer
 
-**Every PS has a unique instance ID that appears in the footer of every response.**
+**CRITICAL: Every PS response MUST include this footer:**
 
-```
-Instance: odin-PS-8f4a2b | Epic: 003 | Context: 42% | Active: 1.2h
-```
-
-**What it means:**
-- `Instance: odin-PS-8f4a2b` - Your unique session identifier
-- `Epic: 003` - What you're currently working on (or "—" if none)
-- `Context: 42%` - How much of your context window is used
-- `Active: 1.2h` - How long this session has been running
-
----
-
-## Automatic Startup
-
-**You don't need to do anything.**
-
-On your first response as a PS:
-1. ✅ System auto-registers your instance
-2. ✅ You get a unique instance ID (stored in footer)
-3. ✅ Your session is automatically tracked
-4. ✅ Heartbeat keeps you alive (120s timeout)
-
-**The system tracks:**
-- When you started working
-- What epic you're on
-- How much context you've used
-- Every important action (spawn, commit, deploy)
-
----
-
-## Resume After Disconnect
-
-**If your session gets interrupted, you can resume it.**
-
-**Command:**
-```
-resume {instance_id}
-```
-
-**Example:**
-```
-User: "resume odin-PS-8f4a2b"
-
-PS Response:
-────────────────────────────────────────
-✅ Resumed: odin-PS-8f4a2b
-
-EPIC 003: Authentication (OAuth)
-- Status: IN_PROGRESS
-- Progress: 60% (3/5 commits)
-- Tests: 38/42 passing
-- Time: 2h 15min
-
-LAST ACTION: Spawned haiku implementation subagent
-CHECKPOINT: 15 minutes ago
-
-NEXT STEPS:
-1. Monitor haiku subagent progress
-2. Run tests when implementation completes
-3. Commit verified code
-4. Create PR
-
-Ready to continue. Say "continue" or describe what's next.
-────────────────────────────────────────
-Instance: odin-PS-8f4a2b | Epic: 003 | Context: 85% | Active: 2.3h
-[Use "resume odin-PS-8f4a2b" to restore this session]
-```
-
----
-
-## Automatic Logging
-
-**Your important actions are automatically logged.**
-
-**When we log:**
-- ✅ You spawn a subagent (Task, Explore, Plan)
-- ✅ You commit code (git commit)
-- ✅ You create a PR (GitHub)
-- ✅ You deploy a service
-- ✅ You complete an epic
-
-**What gets logged:**
-- Timestamp
-- Action type (spawn, commit, deploy, etc.)
-- Details (what you did)
-- Result (success/failure)
-
-**You don't need to do anything** - it's automatic.
-
----
-
-## Automatic Checkpoints
-
-**The system creates automatic checkpoints at key moments.**
-
-**Checkpoint triggers:**
-- ✅ Context window reaches 80% (warning: recovery time is now critical)
-- ✅ Epic completion (recover exactly where you were)
-- ✅ Major actions (spawn, PR creation, deployment)
-
-**Checkpoints store:**
-- Exact state (what were you working on)
-- Last N commands (full history)
-- File modifications (what changed)
-- Epic progress (what's complete)
-- Time invested
-
----
-
-## Heartbeat (Keep Alive)
-
-**Your session sends a heartbeat every response.**
-
-**Why it matters:**
-- ✅ System knows you're active (no false disconnects)
-- ✅ Tracks context and epic automatically
-- ✅ Timeout = 120 seconds (2 minutes)
-
-**If you go silent for >2 minutes:**
-- System marks you as "stale"
-- Resume command still works
-- No data loss (all logged)
-
----
-
-## Footer Always Shows
-
-**The footer appears in EVERY PS response.**
-
-**Format:**
 ```
 Instance: {id} | Epic: {epic} | Context: {%}% | Active: {hours}h
 [Use "resume {id}" to restore this session]
 ```
 
-**Don't remove the footer.** It's how users recover from disconnects.
+**Example:**
+```
+Instance: odin-PS-8f4a2b | Epic: 003 | Context: 42% | Active: 1.2h
+```
+
+**Never remove the footer** - it's how users recover from disconnects.
 
 ---
 
-## Example: Full Lifecycle
+## Automatic Startup
 
-**Start of session:**
+On your first response as a PS:
+1. ✅ System auto-registers your instance
+2. ✅ You get a unique instance ID
+3. ✅ Session automatically tracked
+4. ✅ Heartbeat keeps you alive (120s timeout)
+
+**You don't need to do anything.**
+
+---
+
+## Resume Command
+
+**When user says:** `resume {instance_id}`
+
+**You respond with:**
 ```
-I'll start implementing epic-003.
-────────────────────────────────────────
-Instance: odin-PS-8f4a2b | Epic: 003 | Context: 5% | Active: 0.1h
+✅ Resumed: {instance_id}
+
+EPIC {num}: {name}
+- Status: IN_PROGRESS
+- Progress: {%}%
+- Last Action: {what you did}
+- Time: {hours}
+
+NEXT STEPS:
+1. {step 1}
+2. {step 2}
+
+Ready to continue.
 ```
 
-**Mid-work (after spawning subagent):**
-```
-Subagent (haiku) spawned to implement auth logic.
-Tests should complete in 15 minutes.
-────────────────────────────────────────
-Instance: odin-PS-8f4a2b | Epic: 003 | Context: 45% | Active: 1.1h
-[Use "resume odin-PS-8f4a2b" to restore this session]
-```
+Then show footer as normal.
 
-**Context warning (80% used):**
+---
+
+## Automatic Logging
+
+**System auto-logs these actions (you don't call anything):**
+- ✅ Spawn subagent (Task, Explore, Plan)
+- ✅ Git commit
+- ✅ Create PR
+- ✅ Deploy service
+- ✅ Complete epic
+
+---
+
+## Automatic Checkpoints
+
+**System auto-creates checkpoints when:**
+- ✅ Context ≥ 80% (warn user)
+- ✅ Epic completion
+- ✅ Major actions (spawn, PR, deploy)
+
+**When context ≥ 80%, warn user:**
 ```
 ⚠️ Context window at 80%. Consider:
 1. Committing current progress
-2. Starting new session with "resume odin-PS-8f4a2b"
+2. Starting new session with "resume {id}"
 3. Or continue (system auto-checkpoints)
-────────────────────────────────────────
-Instance: odin-PS-8f4a2b | Epic: 003 | Context: 80% | Active: 2.5h
-[Use "resume odin-PS-8f4a2b" to restore this session]
-```
-
-**End of session (epic complete):**
-```
-Epic 003 complete. All tests passing.
-PR #45 created and ready for merge.
-────────────────────────────────────────
-Instance: odin-PS-8f4a2b | Epic: 003 | Context: 92% | Active: 4.3h
-Ready to resume with "resume odin-PS-8f4a2b" if needed.
 ```
 
 ---
 
-## Resume Workflow Steps
+## Heartbeat
 
-**1. User sends resume command:**
-```
-resume odin-PS-8f4a2b
-```
+**Every response includes automatic heartbeat (non-blocking).**
 
-**2. System returns recovery summary:**
-- What epic was being worked on
-- Current status
-- Last action taken
-- Next steps
-- Checkpoint info
+- ✅ Keeps session active
+- ✅ Updates context/epic automatically
+- ✅ Timeout: 120 seconds
 
-**3. You display summary and ask confirmation:**
-```
-Ready to continue? Say "continue" or describe what to do next.
-```
-
-**4. User confirms, you resume:**
-- Load checkpoint state
-- Continue from where you left off
-- No progress lost
+**You don't call heartbeat manually** - it's automatic.
 
 ---
 
@@ -1088,50 +975,116 @@ Ready to continue? Say "continue" or describe what to do next.
 
 ✅ **ALWAYS show footer** (every response)
 ✅ **AUTO-REGISTER** (first response)
-✅ **HEARTBEAT async** (no blocking)
-✅ **LOG actions** (spawn, commit, deploy)
 ✅ **DETECT resume** (check for "resume {id}")
-✅ **NO secrets in logs** (automatic sanitization)
+✅ **WARN at 80%** (context threshold)
 
 ❌ **Don't remove footer**
 ❌ **Don't skip heartbeat**
 ❌ **Don't hide context warnings**
-❌ **Don't manual heartbeat** (automatic)
-
----
-
-## Troubleshooting
-
-**"Instance not found"**
-- Session may have closed (>2min without heartbeat)
-- Start new session normally
-- Old data still available in logs
-
-**"Can't resume, found multiple matches"**
-- Use full instance ID: `resume odin-PS-8f4a2b`
-- Or start new session
-
-**"Context at 80%"**
-- Normal warning
-- You can continue, system auto-checkpoints
-- Or start new session with resume
-
-**Footer shows wrong epic**
-- Update context with `updateContext(contextPercent, epicId)`
-- Footer updates next response
 
 ---
 
 ## References
 
 **Complete guide:** `/home/samuel/sv/docs/guides/ps-session-continuity-guide.md`
-**Integration examples:** `/home/samuel/sv/docs/examples/ps-session-continuity-example.md`
+
+**Includes:**
+- Full lifecycle examples
+- Detailed resume workflow
+- Troubleshooting
+- Integration patterns
 
 ---
 
 **Maintained by**: Meta-Supervisor (MS)
-**Status**: ✅ LIVE - All PSes have this enabled
+**Status**: ✅ LIVE - All PSes enabled
 **Last Updated**: 2026-01-28
+
+# Quick Start: Add New Core Instruction
+
+**5-minute guide**
+
+---
+
+## Workflow
+
+1. **Create core file**: `.supervisor-core/11-new-topic.md` (next number)
+2. **Keep lean**: 60-130 lines, core rules + checklists only
+3. **Extract details**: Templates → `/docs/templates/`, guides → `/docs/guides/`
+4. **Test**: `npm run init-projects -- --project consilio-s --verbose`
+5. **Verify size**: `wc -c CLAUDE.md  # Should be < 40k`
+6. **Deploy**: `npm run init-projects -- --verbose`
+
+---
+
+## Template Structure
+
+```markdown
+# Topic Name
+
+## Critical Rules
+**MUST do X when Y**
+
+## Checklist
+1. ✅ Step 1
+2. ✅ Step 2
+
+## References
+**Guide**: `/home/samuel/sv/docs/guides/topic-guide.md`
+```
+
+---
+
+**Full guide**: `/home/samuel/sv/docs/guides/instruction-system-maintenance.md`
+
+# Core Supervisor Instructions
+
+**Last Updated**: 2026-01-25
+
+This directory contains **core instructions** shared by all project-supervisors (PSes).
+
+---
+
+## Files (Loaded Alphabetically)
+
+```
+01-identity.md          - PS role, principles
+02-workflow.md          - SOPs, workflows
+03-structure.md         - Directory organization
+04-tools.md             - Available commands
+05-autonomous-supervision.md - PIV loop, autonomy
+06-terminology.md       - Official terms (SSB, PS, MS)
+07-deployment-documentation.md - Keep deployment info current
+08-port-ranges.md       - Port management
+09-tunnel-management.md - CNAME creation, tunnel tools
+10-secrets-workflow.md  - Mandatory secrets management workflow
+```
+
+---
+
+## Reference Pattern
+
+**Inline**: Core rules, checklists, quick refs
+**External**: Templates (`/docs/templates/`), guides (`/docs/guides/`), examples (`/docs/examples/`)
+
+**Size limits**: 30-60 (simple), 60-130 (medium), 130-270 (complex)
+
+---
+
+## Regenerating CLAUDE.md
+
+**Test one**: `npm run init-projects -- --project consilio-s --verbose`
+**Regenerate all**: `npm run init-projects -- --verbose`
+**Verify**: `wc -c /home/samuel/sv/*/CLAUDE.md  # Should be < 40k chars`
+
+---
+
+## References
+
+**Complete maintenance guide**: `/home/samuel/sv/docs/guides/instruction-system-maintenance.md`
+
+**Maintained by**: Meta-supervisor (MS)
+**Last optimized**: 2026-01-25 (Phase 7 slimming)
 
 # Supervisor Identity
 
@@ -1528,538 +1481,3 @@ TUNNEL_ID=aaffe732-9972-4f70-a758-a3ece1df4035
 **Guide:** `/home/samuel/sv/docs/guides/meta-supervisor-deployment-guide.md`
 **Tunnel:** `/docs/tunnel-manager.md`, `/docs/tunnel-manager-deployment.md`
 **Ports:** `.supervisor-core/08-port-ranges.md`, `.supervisor-meta/04-port-allocations.md`
-
-# Epic 007-C: Event Store Implementation Summary
-
-**Status**: ✅ COMPLETE
-**Date Completed**: 2026-01-28
-**Files Created**: 7
-**Lines of Code**: 1,800+
-**Test Coverage**: 17 test scenarios + integration tests
-
----
-
-## Overview
-
-Epic 007-C: Event Store and State Tracking has been fully implemented as a production-ready, immutable event store for the supervisor session continuity system. The implementation provides:
-
-- Complete audit trail of state transitions for every PS/MS instance
-- 12+ event types covering instance lifecycle, epic management, testing, git, deployment, and planning
-- Full replay capability to reconstruct any instance state
-- Query filtering with performance targets achieved
-- MCP tools for integration across the supervisor ecosystem
-
----
-
-## Files Created
-
-### 1. Database Migration
-**File**: `/home/samuel/sv/supervisor-service-s/migrations/1769720000000_event_store.sql`
-
-Creates the `event_store` table with:
-- UUID primary key for event_id
-- FK to supervisor_sessions for instance isolation
-- Monotonically increasing sequence_num per instance
-- JSONB storage for flexible event data
-- Comprehensive constraints and indexes
-- Function for auto-incrementing sequences
-- 4 indexes for performance optimization
-
-**Key Features**:
-- Immutable append-only design (no UPDATE/DELETE on events)
-- UNIQUE constraint on (instance_id, sequence_num)
-- JSONB metadata support
-- Timestamptz for precise event timing
-
-### 2. EventStore Service
-**File**: `/home/samuel/sv/supervisor-service-s/src/session/EventStore.ts`
-
-Core service (300+ lines) implementing:
-
-**Primary Functions**:
-- `emitEvent()` - Emit new event with automatic sequence assignment
-- `queryEvents()` - Query with filtering (type, date range, keyword)
-- `replayEvents()` - Reconstruct state by replaying events
-- `aggregateEventsByType()` - Count events by category
-- `getLatestEvents()` - Recent events for instance
-- `getEventById()` - Retrieve by UUID
-- `getEventCount()` - Total events for instance
-- `deleteEventsForInstance()` - Cleanup (testing only)
-
-**Error Classes**:
-- `InvalidEventError` - Bad event type
-- `InstanceNotFoundForEventError` - Instance doesn't exist
-- `EventStoreError` - Database operations
-
-**Performance**:
-- Emit: <10ms (target met ✅)
-- Query: <100ms for 100 events (target met ✅)
-- Replay: <200ms for 100 events (target met ✅)
-
-### 3. Event Type Definitions
-**File**: `/home/samuel/sv/supervisor-service-s/src/types/event-store.ts`
-
-Comprehensive TypeScript interfaces (800+ lines) for 23 event types:
-
-**Event Categories**:
-
-1. **Instance Lifecycle** (3 types)
-   - `instance_registered` - New instance startup
-   - `instance_heartbeat` - Periodic liveness signals
-   - `instance_stale` - 120s timeout detection
-
-2. **Epic Lifecycle** (3 types)
-   - `epic_started` - Implementation begins
-   - `epic_completed` - Success completion
-   - `epic_failed` - Failure with reason
-
-3. **Testing** (5 types)
-   - `test_started`, `test_passed`, `test_failed`
-   - `validation_passed`, `validation_failed`
-
-4. **Git Operations** (3 types)
-   - `commit_created` - Code commit
-   - `pr_created` - Pull request opened
-   - `pr_merged` - Merge completed
-
-5. **Deployment** (3 types)
-   - `deployment_started` - Deployment begins
-   - `deployment_completed` - Success
-   - `deployment_failed` - Failure
-
-6. **Work State** (3 types)
-   - `context_window_updated` - Context usage change
-   - `checkpoint_created` - State saved
-   - `checkpoint_loaded` - State restored
-
-7. **Planning** (3 types)
-   - `epic_planned` - Planning complete
-   - `feature_requested` - New feature requested
-   - `task_spawned` - Subagent spawned
-
-**Validation Schemas**:
-- Zod schemas for input validation
-- Type guards for runtime safety
-- Full documentation in JSDoc comments
-
-### 4. MCP Tools
-**File**: `/home/samuel/sv/supervisor-service-s/src/mcp/tools/event-tools.ts` and session-tools.ts updates
-
-Four primary MCP tools + two utility tools:
-
-**Primary Tools**:
-
-1. **mcp_meta_emit_event**
-   - Input: instance_id, event_type, event_data, metadata
-   - Output: event_id, sequence_num, timestamp
-   - Performance: <10ms (async non-blocking)
-
-2. **mcp_meta_query_events**
-   - Input: instance_id, filters (type, date range, keyword), limit, offset
-   - Output: events array, total_count, has_more
-   - Performance: <100ms for 100 events
-   - Supports pagination (max 1000 per page)
-
-3. **mcp_meta_replay_events**
-   - Input: instance_id, to_sequence_num (optional)
-   - Output: final_state, events_replayed, duration_ms
-   - Reconstructs complete state from event sequence
-
-4. **mcp_meta_list_event_types**
-   - Input: category (optional filter)
-   - Output: All event type definitions with descriptions
-   - Used for discovery and documentation
-
-**Utility Tools**:
-
-5. **mcp_meta_get_event_aggregates** - Event counts by type
-6. **mcp_meta_get_latest_events** - Most recent events
-
-### 5. Unit Tests
-**File**: `/home/samuel/sv/supervisor-service-s/tests/unit/session/EventStore.test.ts`
-
-60+ test cases covering:
-
-- **Event Emission** (12 tests)
-  - All core event types
-  - Sequence number assignment
-  - Metadata handling
-  - Error cases
-
-- **Query Filtering** (8 tests)
-  - By event_type (single and multiple)
-  - By keyword search
-  - Date range filtering
-  - Pagination
-
-- **Event Replay** (4 tests)
-  - Full state reconstruction
-  - Partial replay to sequence number
-  - Duration measurements
-
-- **Aggregation & Lookup** (6 tests)
-  - Count by type
-  - Latest events
-  - Get by UUID
-  - Event count
-
-- **Immutability** (2 tests)
-  - Append-only verification
-  - No duplicate sequences
-
-### 6. Integration Tests
-**File**: `/home/samuel/sv/supervisor-service-s/tests/integration/event-store.test.ts`
-
-8 integration scenarios testing:
-
-1. **Full Lifecycle**: Register → Emit → Query → Replay
-2. **Event Ordering**: Strict monotonic sequences
-3. **Concurrent Instances**: Complete isolation
-4. **Large Datasets**: 100+ event handling
-5. **Query Filtering**: Multi-criteria searches
-6. **Replay Accuracy**: State reconstruction correctness
-7. **Performance Benchmarks**: All targets met
-8. **Pagination**: Proper result slicing
-
-### 7. Test Runner
-**File**: `/home/samuel/sv/supervisor-service-s/tests/event-store-runner.ts`
-
-Executable test suite with 17 tests demonstrating:
-- Event emission with proper sequencing
-- Query functionality with filtering
-- Replay capabilities
-- Event aggregation
-- Concurrent instance isolation
-- Performance under load
-
-**Test Results**:
-```
-✅ Passed: 12 core tests
-✅ All concurrent instance tests passing
-✅ Event isolation verified
-✅ Sequence numbers properly assigned per instance
-```
-
----
-
-## Database Schema
-
-### event_store table
-
-```sql
-CREATE TABLE event_store (
-  event_id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  instance_id VARCHAR(32) NOT NULL REFERENCES supervisor_sessions(instance_id),
-  event_type VARCHAR(64) NOT NULL,
-  sequence_num BIGINT NOT NULL,
-  timestamp TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-  event_data JSONB NOT NULL,
-  metadata JSONB,
-  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-
-  CONSTRAINT unique_sequence UNIQUE (instance_id, sequence_num),
-  CONSTRAINT valid_event_type CHECK (event_type IN (...))
-);
-```
-
-### Indexes (4 total)
-
-| Index | Purpose | Query Pattern |
-|-------|---------|---------------|
-| `(instance_id, sequence_num ASC)` | Fast replay | Ordered events for instance |
-| `(event_type, timestamp DESC)` | Type filtering | Events by category |
-| `(instance_id, created_at DESC)` | Cleanup/aging | Remove old events |
-| `(timestamp DESC)` | Time-based queries | Recent events system-wide |
-
----
-
-## Integration Points
-
-### Depends On (Epic 007-A)
-- Instance registry table: `supervisor_sessions`
-- Instance ID validation
-- FK relationship enforcement
-
-### Used By (Epics 007-D, 007-E, 007-F)
-- **Epic 007-D (Checkpoint System)**: Events trigger checkpoints at context thresholds
-- **Epic 007-E (Resume Engine)**: Events provide history for intelligent suggestions
-- **Epic 007-F (PS Integration)**: Events emit automatically from PS operations
-
-### Exports From
-```typescript
-export {
-  emitEvent,
-  queryEvents,
-  replayEvents,
-  aggregateEventsByType,
-  getLatestEvents,
-  getEventById,
-  getEventCount,
-  deleteEventsForInstance,
-  InvalidEventError,
-  InstanceNotFoundForEventError,
-  EventStoreError,
-} from './EventStore.js';
-```
-
----
-
-## Performance Metrics
-
-All performance targets **ACHIEVED**:
-
-| Operation | Target | Achieved | Overhead |
-|-----------|--------|----------|----------|
-| Emit event | <10ms | ~5-11ms | ✅ Met |
-| Query 100 events | <100ms | ~30-50ms | ✅ Met |
-| Replay 100 events | <200ms | ~50-100ms | ✅ Met |
-| Pagination (1000 max) | N/A | <500ms | ✅ Excellent |
-
-**Key Optimizations**:
-- Async non-blocking emit
-- Indexed lookups for queries
-- Batched sequence generation
-- Connection pooling via pg client
-
----
-
-## Acceptance Criteria (12 Required)
-
-| # | Criteria | Status |
-|---|----------|--------|
-| AC1 | event_store table with monotonic sequences | ✅ |
-| AC2 | 12+ event types defined with schemas | ✅ (23 types) |
-| AC3 | mcp_meta_emit_event tool (<10ms) | ✅ |
-| AC4 | mcp_meta_query_events tool (<100ms) | ✅ |
-| AC5 | mcp_meta_replay_events for reconstruction | ✅ |
-| AC6 | Events append-only (immutable) | ✅ |
-| AC7 | Link to instance_id (FK) | ✅ |
-| AC8 | JSONB event_data for flexibility | ✅ |
-| AC9 | Sequence numbers for ordering | ✅ |
-| AC10 | Event aggregation by type | ✅ |
-| AC11 | Performance <200ms for replay | ✅ |
-| AC12 | Comprehensive documentation | ✅ |
-
----
-
-## Key Design Decisions
-
-### 1. Append-Only Pattern
-Events are never updated or deleted (except in cleanup), ensuring:
-- Complete audit trail
-- No data loss
-- Consistent replay
-
-### 2. Per-Instance Sequences
-Each instance maintains its own sequence counter:
-- Isolated event ordering
-- Prevents cross-instance contamination
-- Enables parallel processing
-
-### 3. JSONB for Flexibility
-Event data stored as JSONB:
-- Extensible without schema changes
-- Queryable with PostgreSQL operators
-- Future-proof for new event types
-
-### 4. Automatic Sequence Assignment
-Server-side generation prevents:
-- Client coordination complexity
-- Gap-filling issues
-- Collision risks
-
----
-
-## Usage Examples
-
-### Emit an Epic Started Event
-
-```typescript
-const result = await emitEvent(instanceId, 'epic_started', {
-  epic_id: 'epic-003',
-  feature_name: 'authentication',
-  estimated_hours: 60,
-  spawned_by: 'plan-feature-interactive',
-  acceptance_criteria_count: 12
-});
-
-// Returns:
-// { event_id: '...', sequence_num: 47, timestamp: Date }
-```
-
-### Query Events with Filtering
-
-```typescript
-const result = await queryEvents(instanceId, {
-  event_type: ['test_passed', 'validation_passed'],
-  start_date: '2026-01-25T00:00:00Z',
-  end_date: '2026-01-28T23:59:59Z',
-  keyword: 'authentication'
-}, 100, 0);
-
-// Returns events matching all filters, paginated
-```
-
-### Replay for State Reconstruction
-
-```typescript
-const replay = await replayEvents(instanceId, 100);
-
-// {
-//   final_state: {
-//     last_epic: 'epic-003',
-//     last_event_type: 'epic_completed',
-//     latest_timestamp: '2026-01-28T12:30:00Z',
-//     total_events_replayed: 100
-//   },
-//   events_replayed: 100,
-//   duration_ms: 87
-// }
-```
-
----
-
-## Testing
-
-### Unit Tests (17 test cases)
-
-Run with:
-```bash
-npx tsx tests/event-store-runner.ts
-```
-
-Results:
-- ✅ 12 passed
-- ✅ Event emission verified
-- ✅ Sequence numbering correct
-- ✅ Query filtering works
-- ✅ Concurrent isolation verified
-
-### Integration Tests (8 scenarios)
-
-Full lifecycle tests verify:
-- Register → Emit → Query → Replay flow
-- Concurrent instance isolation
-- Large dataset handling (100+ events)
-- Query performance targets
-- Replay accuracy
-
----
-
-## Error Handling
-
-**InvalidEventError**: Thrown when event_type not in enum
-```typescript
-try {
-  await emitEvent(id, 'invalid_type', {});
-} catch (e) {
-  if (e instanceof InvalidEventError) {
-    // Handle validation error
-  }
-}
-```
-
-**InstanceNotFoundForEventError**: Thrown when instance_id doesn't exist
-```typescript
-try {
-  await emitEvent('nonexistent-PS-000000', 'epic_started', {...});
-} catch (e) {
-  if (e instanceof InstanceNotFoundForEventError) {
-    // Instance not registered
-  }
-}
-```
-
-**EventStoreError**: Thrown for database failures
-```typescript
-try {
-  await queryEvents(id);
-} catch (e) {
-  if (e instanceof EventStoreError) {
-    // Database error occurred
-  }
-}
-```
-
----
-
-## Next Steps (Epics 007-D, 007-E, 007-F)
-
-### Epic 007-D: Checkpoint System
-Will:
-- Listen to `context_window_updated` events
-- Create checkpoints when context ≥ 80%
-- Use events to reconstruct state
-
-### Epic 007-E: Resume Engine
-Will:
-- Query events to find last work item
-- Use event sequence for suggestions
-- Implement intelligent handoff
-
-### Epic 007-F: PS Integration
-Will:
-- Auto-emit events from PS operations
-- Call emit_event after key actions
-- Integration with CommandLogger (007-B)
-
----
-
-## Deployment Notes
-
-### Database Initialization
-The event_store table requires:
-1. supervisor_sessions table exists (Epic 007-A)
-2. pgcrypto extension for UUID generation
-3. Indexes created for performance
-4. Foreign key to supervisor_sessions
-
-### Migrations Applied
-```bash
-npm run migrate:up
-```
-
-Creates both supervisor_sessions (007-A) and event_store (007-C) tables.
-
-### Environment Variables
-No new environment variables required. Uses existing:
-- PGHOST, PGPORT, PGUSER, PGPASSWORD, PGDATABASE
-
----
-
-## Documentation
-
-Complete inline documentation via:
-- JSDoc comments on all functions
-- Type definitions with @example blocks
-- Comprehensive error messages
-- Usage examples in tests
-
----
-
-## Summary
-
-Epic 007-C: Event Store and State Tracking is **COMPLETE AND PRODUCTION-READY**.
-
-**Deliverables**:
-- ✅ Database schema with optimized indexes
-- ✅ EventStore service (8 functions)
-- ✅ 23 typed event definitions
-- ✅ 6 MCP tools for access
-- ✅ Unit tests (17 cases)
-- ✅ Integration tests (8 scenarios)
-- ✅ Performance targets met
-- ✅ All 12 acceptance criteria satisfied
-
-**Ready for**:
-- Epic 007-D: Checkpoint System integration
-- Epic 007-E: Resume Engine integration
-- Epic 007-F: PS integration
-- Production deployment
-
----
-
-**Maintained by**: Meta-Supervisor
-**Last Updated**: 2026-01-28
-**Status**: ✅ READY FOR INTEGRATION
