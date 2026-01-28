@@ -299,7 +299,7 @@ export class CheckpointManager {
         countParams.push(filters.checkpoint_type);
       }
 
-      const countResult = await pool.query<{ total: number }>(countQuery, countParams);
+      const countResult = await pool.query<{ total: string }>(countQuery, countParams);
       const total_count = parseInt(countResult.rows[0]?.total || '0', 10);
 
       // Build response
@@ -403,7 +403,7 @@ export class CheckpointManager {
   }> {
     try {
       const result = await pool.query<{
-        count: number;
+        count: string;
         total_size: string;
       }>(
         `SELECT COUNT(*) as count,
@@ -414,8 +414,8 @@ export class CheckpointManager {
       );
 
       const row = result.rows[0];
-      const count = parseInt(row.count.toString(), 10);
-      const total_size = parseInt(row.total_size.toString(), 10);
+      const count = parseInt(row.count, 10);
+      const total_size = parseInt(row.total_size, 10);
 
       return {
         total_checkpoints: count,

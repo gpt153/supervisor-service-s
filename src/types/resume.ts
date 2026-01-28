@@ -28,9 +28,9 @@ export enum ReconstructionSource {
 }
 
 /**
- * Instance match for disambiguation
+ * Instance match for disambiguation (resume-specific with age_minutes)
  */
-export interface InstanceMatch {
+export interface InstanceMatchResume {
   instance_id: string;
   project: string;
   instance_type: InstanceType;
@@ -54,7 +54,7 @@ export interface ResolutionResultSingle {
  */
 export interface ResolutionResultMultiple {
   success: false;
-  matches: InstanceMatch[];
+  matches: InstanceMatchResume[];
   hint: string;
 }
 
@@ -148,7 +148,7 @@ export interface ResumeInstanceResponseSuccess {
  */
 export interface ResumeInstanceResponseDisambiguation {
   success: false;
-  matches: InstanceMatch[];
+  matches: InstanceMatchResume[];
   user_hint: string;
 }
 
@@ -237,6 +237,4 @@ export const ResumeInstanceInputSchema = z.object({
   user_choice: z.number().int().positive().optional(),
 });
 
-export const GetInstanceDetailsInputSchema = z.object({
-  instance_id: z.string().min(1),
-});
+// Note: GetInstanceDetailsInputSchema already exported from session.ts, reusing that

@@ -1,7 +1,7 @@
 /**
  * Session Continuity System - All Modules (Epics 007-A through 007-F)
- * Exports instance registry, heartbeat management, command logging, footer rendering,
- * PS bootstrap, and all supporting services
+ * Exports instance registry, heartbeat management, command logging, events, checkpoints,
+ * resume engine, footer rendering, PS bootstrap, and all supporting services
  */
 
 // Epic 007-A: Instance Registry
@@ -89,6 +89,37 @@ export {
   resetResumeInstructionGenerator,
 } from './ResumeInstructionGenerator.js';
 
+// Epic 007-E: Resume Engine
+export {
+  resumeInstance,
+  getInstanceDetails as getResumeInstanceDetails,
+  listStaleInstances,
+} from './ResumeEngine.js';
+
+export {
+  resolveInstance,
+  validateInstanceIsStale,
+  ActiveInstanceError,
+} from './InstanceResolver.js';
+
+export {
+  reconstructContext,
+} from './ContextReconstructor.js';
+
+export {
+  calculateConfidence,
+  meetsConfidenceThreshold,
+  getConfidenceLevel,
+  type ConfidenceScoreResult,
+} from './ConfidenceScorer.js';
+
+export {
+  generateNextSteps,
+  generateContinueCommand,
+  formatNextStepsAsMarkdown,
+  prioritizeSteps,
+} from './NextStepGenerator.js';
+
 // Epic 007-F: PS Integration
 export {
   renderFooter,
@@ -113,3 +144,4 @@ export * from '../types/session.js';
 export * from '../types/command-log.js';
 export * from '../types/event-store.js';
 export * from '../types/checkpoint.js';
+export * from '../types/resume.js';

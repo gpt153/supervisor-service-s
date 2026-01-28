@@ -16,7 +16,7 @@ import {
   ResolutionResultSingle,
   ResolutionResultMultiple,
   ResolutionResultNotFound,
-  InstanceMatch,
+  InstanceMatchResume,
 } from '../types/resume.js';
 import { InstanceType, InstanceStatus } from '../types/session.js';
 
@@ -115,7 +115,7 @@ async function resolveExact(
   instanceId: string
 ): Promise<ResolutionResult> {
   try {
-    const result = await pool.query<InstanceMatch>(
+    const result = await pool.query<InstanceMatchResume>(
       `SELECT
         instance_id,
         project,
@@ -165,7 +165,7 @@ async function resolvePartial(
   partialId: string
 ): Promise<ResolutionResult> {
   try {
-    const result = await pool.query<InstanceMatch>(
+    const result = await pool.query<InstanceMatchResume>(
       `SELECT
         instance_id,
         project,
@@ -199,7 +199,7 @@ async function resolvePartial(
     }
 
     // Multiple matches - disambiguation needed
-    const matches: InstanceMatch[] = result.rows.map((row) => ({
+    const matches: InstanceMatchResume[] = result.rows.map((row) => ({
       instance_id: row.instance_id,
       project: row.project,
       instance_type: row.instance_type as InstanceType,
@@ -226,7 +226,7 @@ async function resolveProject(
   project: string
 ): Promise<ResolutionResult> {
   try {
-    const result = await pool.query<InstanceMatch>(
+    const result = await pool.query<InstanceMatchResume>(
       `SELECT
         instance_id,
         project,
@@ -260,7 +260,7 @@ async function resolveProject(
     }
 
     // Multiple matches - disambiguation needed
-    const matches: InstanceMatch[] = result.rows.map((row) => ({
+    const matches: InstanceMatchResume[] = result.rows.map((row) => ({
       instance_id: row.instance_id,
       project: row.project,
       instance_type: row.instance_type as InstanceType,
@@ -285,7 +285,7 @@ async function resolveProject(
  */
 async function resolveEpic(epicId: string): Promise<ResolutionResult> {
   try {
-    const result = await pool.query<InstanceMatch>(
+    const result = await pool.query<InstanceMatchResume>(
       `SELECT
         instance_id,
         project,
@@ -326,7 +326,7 @@ async function resolveEpic(epicId: string): Promise<ResolutionResult> {
  */
 async function resolveNewest(): Promise<ResolutionResult> {
   try {
-    const result = await pool.query<InstanceMatch>(
+    const result = await pool.query<InstanceMatchResume>(
       `SELECT
         instance_id,
         project,

@@ -1,12 +1,33 @@
 /**
- * Session Registry MCP Tools (Epic 007-A)
- * Provides MCP tools for instance registration, heartbeat, and listing
+ * Session Management MCP Tools (Epic 007-A through 007-E)
+ * Provides MCP tools for instance management, logging, events, checkpoints, and resume
  *
- * Exported tools:
+ * Epic 007-A (Instance Registry):
  * - mcp_meta_register_instance: Register new PS/MS instance
  * - mcp_meta_heartbeat: Update instance heartbeat
  * - mcp_meta_list_instances: List active instances
  * - mcp_meta_get_instance_details: Query instance by ID or prefix
+ *
+ * Epic 007-B (Command Logging):
+ * - mcp_meta_log_command: Log command/action
+ * - mcp_meta_search_commands: Search command history
+ *
+ * Epic 007-C (Event Store):
+ * - mcp_meta_emit_event: Emit state event
+ * - mcp_meta_query_events: Query events
+ * - mcp_meta_replay_events: Replay event sequence
+ * - mcp_meta_list_event_types: List available event types
+ *
+ * Epic 007-D (Checkpoint System):
+ * - mcp_meta_create_checkpoint: Create work state checkpoint
+ * - mcp_meta_get_checkpoint: Get checkpoint with recovery instructions
+ * - mcp_meta_list_checkpoints: List instance checkpoints
+ * - mcp_meta_cleanup_checkpoints: Clean up old checkpoints
+ *
+ * Epic 007-E (Resume Engine):
+ * - mcp_meta_resume_instance: Resume stale instance
+ * - mcp_meta_get_resume_instance_details: Get detailed resume context
+ * - mcp_meta_list_stale_instances: List all stale instances
  */
 
 import {
@@ -1160,6 +1181,135 @@ export const cleanupCheckpointsTool: ToolDefinition = {
 };
 
 /**
+ * Tool: mcp_meta_resume_instance (Epic 007-E)
+ * Resume a stale instance by ID, project, epic, or newest
+ */
+export const resumeInstanceTool: ToolDefinition = {
+  name: 'mcp_meta_resume_instance',
+  description:
+    'Resume a stale PS/MS instance by ID (exact/partial), project name, epic ID, or newest. Returns context summary, confidence score, and next steps.',
+  inputSchema: {
+    type: 'object',
+    properties: {
+      instance_id_hint: {
+        type: 'string',
+        description:
+          'Instance hint: full ID ("odin-PS-8f4a2b"), partial ("8f4a"), project ("odin"), epic ("epic-003"), or omit for newest',
+      },
+      user_choice: {
+        type: 'number',
+        description:
+          'If disambiguation shows multiple matches, specify choice (1, 2, 3, etc.)',
+        minimum: 1,
+      },
+    },
+  },
+  handler: async (input: any, context: ProjectContext) => {
+    const start = Date.now();
+
+    try {
+      const result = await resumeInstance(input.instance_id_hint, input.user_choice);
+
+      const duration = Date.now() - start;
+
+      if (duration > 500) {
+        console.warn(`Resume instance slow: ${duration}ms`);
+      }
+
+      return result;
+    } catch (error: any) {
+      console.error('Resume instance failed:', error);
+      return {
+        success: false,
+        error: error.message || 'Failed to resume instance',
+      };
+    }
+  },
+};
+
+/**
+ * Tool: mcp_meta_get_resume_instance_details (Epic 007-E)
+ * Get detailed information about an instance for resume context
+ */
+export const getResumeInstanceDetailsTool: ToolDefinition = {
+  name: 'mcp_meta_get_resume_instance_details',
+  description:
+    'Get detailed instance information including recent commands, checkpoint info, and context state',
+  inputSchema: {
+    type: 'object',
+    properties: {
+      instance_id: {
+        type: 'string',
+        description: 'Instance ID',
+      },
+    },
+    required: ['instance_id'],
+  },
+  handler: async (input: any, context: ProjectContext) => {
+    const start = Date.now();
+
+    try {
+      const result = await getResumeInstanceDetails(input.instance_id);
+
+      const duration = Date.now() - start;
+
+      if (duration > 100) {
+        console.warn(`Get resume instance details slow: ${duration}ms`);
+      }
+
+      return {
+        success: true,
+        ...result,
+      };
+    } catch (error: any) {
+      console.error('Get resume instance details failed:', error);
+      return {
+        success: false,
+        error: error.message || 'Failed to get instance details',
+      };
+    }
+  },
+};
+
+/**
+ * Tool: mcp_meta_list_stale_instances (Epic 007-E)
+ * List all stale instances (heartbeat >2 min ago) for cleanup or resume
+ */
+export const listStaleInstancesTool: ToolDefinition = {
+  name: 'mcp_meta_list_stale_instances',
+  description:
+    'List all stale instances (last heartbeat >2 minutes ago) sorted by most recent',
+  inputSchema: {
+    type: 'object',
+    properties: {},
+  },
+  handler: async (input: any, context: ProjectContext) => {
+    const start = Date.now();
+
+    try {
+      const result = await listStaleInstances();
+
+      const duration = Date.now() - start;
+
+      if (duration > 100) {
+        console.warn(`List stale instances slow: ${duration}ms`);
+      }
+
+      return {
+        success: true,
+        ...result,
+      };
+    } catch (error: any) {
+      console.error('List stale instances failed:', error);
+      return {
+        success: false,
+        error: error.message || 'Failed to list stale instances',
+      };
+    }
+  },
+};
+
+/**
  * Export all session tools
  */
 export function getSessionTools(): ToolDefinition[] {
@@ -1182,6 +1332,10 @@ export function getSessionTools(): ToolDefinition[] {
     getCheckpointTool,
     listCheckpointsTool,
     cleanupCheckpointsTool,
+    // Epic 007-E: Resume Engine
+    resumeInstanceTool,
+    getResumeInstanceDetailsTool,
+    listStaleInstancesTool,
   ];
 }
 
