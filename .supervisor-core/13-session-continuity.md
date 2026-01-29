@@ -143,30 +143,88 @@ Then show footer as normal.
 
 ---
 
-## Optional: Log Important Actions
+## MANDATORY: Log Critical Actions
 
-**After spawning subagent:**
+**You MUST log these operations for crash recovery:**
+
+### 1. Epic Start/Complete
 ```bash
+# When starting epic
 psql -U supervisor -d supervisor_service -p 5434 << EOF
 INSERT INTO command_log (
-  instance_id, command_type, action, tool_name, success
+  instance_id, command_type, action, parameters, success
 ) VALUES (
-  '$INSTANCE_ID', 'spawn', 'spawn_subagent', 'Task', true
+  '$INSTANCE_ID', 'epic', 'start',
+  '{"epic_id": "epic-009", "title": "Pattern Detection"}', true
+);
+EOF
+
+# When completing epic
+psql -U supervisor -d supervisor_service -p 5434 << EOF
+INSERT INTO command_log (
+  instance_id, command_type, action, parameters, success
+) VALUES (
+  '$INSTANCE_ID', 'epic', 'complete',
+  '{"epic_id": "epic-009", "confidence": 92}', true
 );
 EOF
 ```
 
-**After git commit:**
+### 2. Git Commits (CRITICAL)
 ```bash
+# After every commit
+COMMIT_HASH=$(git rev-parse HEAD)
+COMMIT_MSG=$(git log -1 --pretty=%B)
 psql -U supervisor -d supervisor_service -p 5434 << EOF
 INSERT INTO command_log (
   instance_id, command_type, action, parameters, success
 ) VALUES (
   '$INSTANCE_ID', 'git', 'commit',
-  '{"message": "feat: add feature"}', true
+  '{"hash": "$COMMIT_HASH", "message": "$COMMIT_MSG"}', true
 );
 EOF
 ```
+
+### 3. Spawn Operations
+```bash
+# After spawning subagent
+psql -U supervisor -d supervisor_service -p 5434 << EOF
+INSERT INTO command_log (
+  instance_id, command_type, action, tool_name, parameters, success
+) VALUES (
+  '$INSTANCE_ID', 'spawn', 'spawn_subagent', 'Task',
+  '{"subagent_type": "general-purpose", "model": "haiku", "purpose": "implement epic-009"}', true
+);
+EOF
+```
+
+### 4. Deploy Operations
+```bash
+# After deployment
+psql -U supervisor -d supervisor_service -p 5434 << EOF
+INSERT INTO command_log (
+  instance_id, command_type, action, parameters, success
+) VALUES (
+  '$INSTANCE_ID', 'deploy', 'service_deployed',
+  '{"service": "api", "port": 5100, "status": "healthy"}', true
+);
+EOF
+```
+
+### 5. Critical Errors
+```bash
+# On critical failure
+psql -U supervisor -d supervisor_service -p 5434 << EOF
+INSERT INTO command_log (
+  instance_id, command_type, action, success, error_message
+) VALUES (
+  '$INSTANCE_ID', 'epic', 'validation_failed', false,
+  'Epic 009: Tests failed after 3 attempts, confidence 45%'
+);
+EOF
+```
+
+**Do NOT log:** File reads, greps, routine checks, bash commands
 
 ---
 
@@ -175,10 +233,12 @@ EOF
 ✅ **ALWAYS show footer** (every response)
 ✅ **REGISTER once** (first response only)
 ✅ **UPDATE heartbeat** (every 5-10 responses)
+✅ **LOG critical actions** (epic start/complete, git commits, spawns, deploys, errors)
 ✅ **DETECT resume** (check for "resume {id}")
 
 ❌ **Don't skip registration**
 ❌ **Don't skip heartbeat updates**
+❌ **Don't skip critical logging**
 ❌ **Don't remove footer**
 
 ---
@@ -206,6 +266,13 @@ EOF
 **Every 5-10 responses:**
 - [ ] UPDATE heartbeat with context%
 
+**After critical operations:**
+- [ ] Log epic start/complete
+- [ ] Log git commit (with hash)
+- [ ] Log subagent spawn
+- [ ] Log deploy operations
+- [ ] Log critical errors
+
 **When user says "resume":**
 - [ ] Query session data
 - [ ] Display resume summary
@@ -213,5 +280,6 @@ EOF
 
 ---
 
-**Status**: ✅ LIVE - Database ready
+**Status**: ✅ LIVE - Database ready with selective critical logging
 **Last Updated**: 2026-01-29
+**Logging Strategy**: Selective (epic/git/spawn/deploy/error only, ~300 tokens/session overhead)
