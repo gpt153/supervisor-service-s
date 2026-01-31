@@ -1549,3 +1549,81 @@ TUNNEL_ID=aaffe732-9972-4f70-a758-a3ece1df4035
 **Guide:** `/home/samuel/sv/docs/guides/meta-supervisor-deployment-guide.md`
 **Tunnel:** `/docs/tunnel-manager.md`, `/docs/tunnel-manager-deployment.md`
 **Ports:** `.supervisor-core/08-port-ranges.md`, `.supervisor-meta/04-port-allocations.md`
+---
+
+## 🔄 Session Continuity System
+
+**CRITICAL: Register your session when starting work!**
+
+### MCP Server Configuration
+
+The supervisor MCP server is available at:
+- **URL:** https://super.153.se/mcp/meta
+- **Location:** odin3-vm via Cloudflare tunnel
+- **Status:** Check ~/.claude.json for mcpServers.supervisor
+
+### Session Registration (REQUIRED)
+
+**When starting a new Claude Code session:**
+
+1. **Register Instance:**
+   ```
+   Use MCP tool: mcp_meta_register_instance
+   Arguments: {
+     "project": "<project-name>",  # odin, consilio, health-agent, etc.
+     "instance_type": "PS"          # PS for Project-Supervisor, MS for Meta-Supervisor
+   }
+   Returns: { instance_id: "project-PS-xxxxxx", ... }
+   ```
+
+2. **Send Heartbeats (every 120 seconds):**
+   ```
+   Use MCP tool: mcp_meta_heartbeat
+   Arguments: {
+     "instance_id": "<your-instance-id>",
+     "context_percent": <0-100>,      # Your context usage %
+     "current_epic": "007-A"         # Optional: current epic/task
+   }
+   ```
+
+3. **List Active Instances:**
+   ```
+   Use MCP tool: mcp_meta_list_instances
+   Arguments: { "active_only": true }
+   ```
+
+### Instance ID Format
+
+**Format:** `{project}-{type}-{6-char-hash}`
+- Example: `odin-PS-8f4a2b`
+- Example: `health-agent-PS-1a2b3c`
+- Example: `meta-MS-9x8y7z`
+
+### Stale Timeout
+
+- **Timeout:** 120 seconds without heartbeat
+- **Status:** Instance marked as `stale`
+- **Action:** Send heartbeat or resume using `mcp_meta_resume_instance`
+
+### Available Session Tools
+
+- `mcp_meta_register_instance` - Register new instance
+- `mcp_meta_heartbeat` - Update heartbeat
+- `mcp_meta_list_instances` - List all instances
+- `mcp_meta_get_instance_details` - Get instance info
+- `mcp_meta_resume_instance` - Resume stale instance
+- `mcp_meta_log_command` - Log commands
+- `mcp_meta_emit_event` - Emit state events
+- `mcp_meta_create_checkpoint` - Create checkpoints
+
+### Best Practices
+
+1. **Always register** when starting a new session
+2. **Send heartbeats** every 2 minutes during active work
+3. **Update context_percent** to track memory usage
+4. **Log major decisions** using mcp_meta_log_command
+5. **Create checkpoints** before major changes
+6. **List instances** to see other active sessions
+7. **Resume instances** instead of creating duplicates
+
+---
