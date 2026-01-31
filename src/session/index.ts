@@ -67,6 +67,11 @@ export {
   EventStoreError,
 } from './EventStore.js';
 
+// Epic 008-B: EventLogger with Lineage Tracking
+export {
+  EventLogger,
+} from './EventLogger.js';
+
 // Epic 007-D: Checkpoint System
 export {
   CheckpointManager,
