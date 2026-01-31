@@ -82,6 +82,9 @@ export interface BaseEvent {
   metadata?: Record<string, any>;
   created_at: Date;
   updated_at: Date;
+  parent_uuid?: string; // Optional: link to parent event
+  root_uuid?: string; // Optional: top-level event for fast queries
+  depth?: number; // Optional: distance from root (0 = root event)
 }
 
 /**
@@ -421,6 +424,7 @@ export interface EmitEventInput {
   event_type: string;
   event_data: Record<string, any>;
   metadata?: Record<string, any>;
+  parent_uuid?: string; // Optional: parent event UUID for lineage tracking
 }
 
 /**
@@ -459,6 +463,9 @@ export interface EventItem {
   timestamp: string;
   event_data: Record<string, any>;
   metadata?: Record<string, any>;
+  parent_uuid?: string; // Optional: link to parent event
+  root_uuid?: string; // Optional: top-level event for fast queries
+  depth?: number; // Optional: distance from root (0 = root event)
 }
 
 /**
@@ -553,6 +560,7 @@ export const EmitEventInputSchema = z.object({
   event_type: EventTypeSchema,
   event_data: z.record(z.string(), z.any()),
   metadata: z.record(z.string(), z.any()).optional(),
+  parent_uuid: z.string().uuid().optional(),
 });
 
 export const QueryEventsInputSchema = z.object({
