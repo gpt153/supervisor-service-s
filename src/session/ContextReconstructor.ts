@@ -139,49 +139,93 @@ async function tryLoadCheckpoint(
 
 /**
  * Priority 2: Try replaying events from event_store
+ * Uses parent chains for smarter reconstruction (Epic 008-C)
  */
 async function tryReplayEvents(
   instanceId: string
 ): Promise<ReconstructedContext | null> {
   try {
-    const result = await pool.query<{
-      event_type: string;
-      event_data: any;
-      created_at: Date;
-    }>(
-      `SELECT event_type, event_data, created_at
-      FROM event_store
-      WHERE instance_id = $1
-      ORDER BY created_at DESC
-      LIMIT 50`,
-      [instanceId]
-    );
+    // Import EventLogger for parent chain support
+    const { EventLogger } = await import('./EventLogger.js');
+    const logger = new EventLogger(instanceId);
 
-    if (result.rows.length === 0) {
+    // Get last 50 events (memory safe)
+    const recentEvents = await logger.getRecentEvents(50);
+
+    if (recentEvents.length === 0) {
       return null;
     }
 
-    // Reconstruct state from events
+    // Find last user message (root of current chain)
+    const lastUserMsg = recentEvents
+      .slice()
+      .reverse()
+      .find(e => e.event_type === 'user_message');
+
     const workState: Record<string, any> = {};
     const recentActions: string[] = [];
 
-    for (const event of result.rows.slice(0, 10)) {
-      recentActions.push(`${event.event_type}: ${JSON.stringify(event.event_data).substring(0, 50)}...`);
+    if (lastUserMsg) {
+      // Walk parent chain of most recent event for context
+      try {
+        const mostRecent = recentEvents[recentEvents.length - 1];
+        const chain = await logger.getParentChain(mostRecent.event_id);
 
-      // Extract work state from events
-      if (event.event_type === 'epic_started' && event.event_data.epic_id) {
-        workState.current_epic = event.event_data.epic_id;
+        // Extract state from chain
+        for (const event of chain) {
+          const action = `${event.event_type}: ${JSON.stringify(event.event_data).substring(0, 50)}...`;
+          recentActions.push(action);
+
+          // Extract work state from events
+          if (event.event_type === 'epic_started' && event.event_data?.epic_id) {
+            workState.current_epic = event.event_data.epic_id;
+          }
+          if (event.event_type === 'epic_completed' && event.event_data?.epic_id) {
+            workState.last_completed_epic = event.event_data.epic_id;
+          }
+          if (event.event_type === 'test_passed') {
+            workState.tests_passed = (workState.tests_passed || 0) + 1;
+          }
+          if (event.event_type === 'error') {
+            workState.last_error = event.event_data?.message;
+          }
+        }
+      } catch (error) {
+        console.warn('Failed to walk parent chain, falling back to recent events');
+
+        // Fallback: just use recent events without chain
+        for (const event of recentEvents.slice(0, 10)) {
+          const action = `${event.event_type}: ${JSON.stringify(event.event_data).substring(0, 50)}...`;
+          recentActions.push(action);
+
+          if (event.event_type === 'epic_started' && event.event_data?.epic_id) {
+            workState.current_epic = event.event_data.epic_id;
+          }
+          if (event.event_type === 'test_passed') {
+            workState.tests_passed = (workState.tests_passed || 0) + 1;
+          }
+        }
       }
-      if (event.event_type === 'test_passed') {
-        workState.tests_passed = (workState.tests_passed || 0) + 1;
+    } else {
+      // No user message found, just use recent events
+      for (const event of recentEvents.slice(0, 10)) {
+        const action = `${event.event_type}: ${JSON.stringify(event.event_data).substring(0, 50)}...`;
+        recentActions.push(action);
+
+        if (event.event_type === 'epic_started' && event.event_data?.epic_id) {
+          workState.current_epic = event.event_data.epic_id;
+        }
+        if (event.event_type === 'test_passed') {
+          workState.tests_passed = (workState.tests_passed || 0) + 1;
+        }
       }
     }
 
     const ageMinutes = Math.floor(
-      (Date.now() - new Date(result.rows[0].created_at).getTime()) / 60000
+      (Date.now() - new Date(recentEvents[0].timestamp).getTime()) / 60000
     );
 
-    // Calculate confidence (events provide moderate confidence)
+    // Calculate confidence (events provide good confidence with parent chains)
     let confidence = 85;
     if (ageMinutes > 30) confidence = 75;
     if (ageMinutes > 60) confidence = 65;
@@ -192,7 +236,7 @@ async function tryReplayEvents(
     return {
       source: ReconstructionSource.EVENTS,
       confidence_score: confidence,
-      confidence_reason: `Reconstructed from ${result.rows.length} events (age: ${ageMinutes} min)`,
+      confidence_reason: `Reconstructed from ${recentEvents.length} events with parent chain analysis (age: ${ageMinutes} min)`,
       work_state: workState,
       summary,
       age_minutes: ageMinutes,

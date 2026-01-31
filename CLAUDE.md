@@ -13,15 +13,13 @@
   - /home/samuel/sv/supervisor-service-s/.supervisor-core/11-handoff-workflow.md
   - /home/samuel/sv/supervisor-service-s/.supervisor-core/12-automatic-quality-workflows.md
   - /home/samuel/sv/supervisor-service-s/.supervisor-core/13-session-continuity.md
-  - /home/samuel/sv/supervisor-service-s/.supervisor-core/QUICK-START.md
-  - /home/samuel/sv/supervisor-service-s/.supervisor-core/README.md
   - /home/samuel/sv/supervisor-service-s/.supervisor-meta/00-meta-identity.md
   - /home/samuel/sv/supervisor-service-s/.supervisor-meta/01-meta-focus.md
   - /home/samuel/sv/supervisor-service-s/.supervisor-meta/02-dependencies.md
   - /home/samuel/sv/supervisor-service-s/.supervisor-meta/03-patterns.md
   - /home/samuel/sv/supervisor-service-s/.supervisor-meta/04-port-allocations.md
   - /home/samuel/sv/supervisor-service-s/.supervisor-specific/02-deployment-status.md -->
-<!-- Generated: 2026-01-29T15:10:32.548Z -->
+<!-- Generated: 2026-01-30T07:59:39.327Z -->
 
 # Supervisor Identity
 
@@ -1155,92 +1153,6 @@ EOF
 **Status**: ✅ LIVE - Database ready with selective critical logging
 **Last Updated**: 2026-01-29
 **Logging Strategy**: Selective (epic/git/spawn/deploy/error only, ~300 tokens/session overhead)
-
-# Quick Start: Add New Core Instruction
-
-**5-minute guide**
-
----
-
-## Workflow
-
-1. **Create core file**: `.supervisor-core/11-new-topic.md` (next number)
-2. **Keep lean**: 60-130 lines, core rules + checklists only
-3. **Extract details**: Templates → `/docs/templates/`, guides → `/docs/guides/`
-4. **Test**: `npm run init-projects -- --project consilio-s --verbose`
-5. **Verify size**: `wc -c CLAUDE.md  # Should be < 40k`
-6. **Deploy**: `npm run init-projects -- --verbose`
-
----
-
-## Template Structure
-
-```markdown
-# Topic Name
-
-## Critical Rules
-**MUST do X when Y**
-
-## Checklist
-1. ✅ Step 1
-2. ✅ Step 2
-
-## References
-**Guide**: `/home/samuel/sv/docs/guides/topic-guide.md`
-```
-
----
-
-**Full guide**: `/home/samuel/sv/docs/guides/instruction-system-maintenance.md`
-
-# Core Supervisor Instructions
-
-**Last Updated**: 2026-01-25
-
-This directory contains **core instructions** shared by all project-supervisors (PSes).
-
----
-
-## Files (Loaded Alphabetically)
-
-```
-01-identity.md          - PS role, principles
-02-workflow.md          - SOPs, workflows
-03-structure.md         - Directory organization
-04-tools.md             - Available commands
-05-autonomous-supervision.md - PIV loop, autonomy
-06-terminology.md       - Official terms (SSB, PS, MS)
-07-deployment-documentation.md - Keep deployment info current
-08-port-ranges.md       - Port management
-09-tunnel-management.md - CNAME creation, tunnel tools
-10-secrets-workflow.md  - Mandatory secrets management workflow
-```
-
----
-
-## Reference Pattern
-
-**Inline**: Core rules, checklists, quick refs
-**External**: Templates (`/docs/templates/`), guides (`/docs/guides/`), examples (`/docs/examples/`)
-
-**Size limits**: 30-60 (simple), 60-130 (medium), 130-270 (complex)
-
----
-
-## Regenerating CLAUDE.md
-
-**Test one**: `npm run init-projects -- --project consilio-s --verbose`
-**Regenerate all**: `npm run init-projects -- --verbose`
-**Verify**: `wc -c /home/samuel/sv/*/CLAUDE.md  # Should be < 40k chars`
-
----
-
-## References
-
-**Complete maintenance guide**: `/home/samuel/sv/docs/guides/instruction-system-maintenance.md`
-
-**Maintained by**: Meta-supervisor (MS)
-**Last optimized**: 2026-01-25 (Phase 7 slimming)
 
 # Supervisor Identity
 

@@ -16,6 +16,7 @@ import { InstanceType } from '../types/session.js';
 import { renderFooter, formatFooterComplete, FooterConfig } from './FooterRenderer.js';
 import { getCommandLogger } from './CommandLogger.js';
 import { Instance } from '../types/session.js';
+import { EventLogger } from './EventLogger.js';
 
 /**
  * PS session state
@@ -27,6 +28,9 @@ export interface PSSessionState {
   currentEpic?: string;
   contextPercent: number;
   registered: boolean;
+  logger?: EventLogger;
+  currentUserMessageId?: string;
+  currentProcessingId?: string;
 }
 
 /**
@@ -52,6 +56,7 @@ export class PSBootstrap {
   /**
    * Initialize PS session on startup
    * Registers instance and stores session state
+   * Initializes EventLogger for event lineage tracking
    *
    * @returns Instance ID
    * @throws Error if registration fails
@@ -69,6 +74,9 @@ export class PSBootstrap {
     try {
       const instance = await registerInstance(this.project, InstanceType.PS);
 
+      // Initialize EventLogger for event lineage tracking (Epic 008-C)
+      const logger = new EventLogger(instance.instance_id);
+
       this.state = {
         instanceId: instance.instance_id,
         project: instance.project,
@@ -76,6 +84,7 @@ export class PSBootstrap {
         currentEpic: instance.current_epic,
         contextPercent: instance.context_percent,
         registered: true,
+        logger,
       };
 
       console.log(`PS initialized: ${instance.instance_id}`);
@@ -106,6 +115,19 @@ export class PSBootstrap {
       throw new Error('PS not initialized. Call initialize() first.');
     }
     return this.state;
+  }
+
+  /**
+   * Get EventLogger instance for event lineage tracking
+   *
+   * @returns EventLogger instance
+   * @throws Error if not initialized
+   */
+  getLogger(): EventLogger {
+    if (!this.state?.logger) {
+      throw new Error('PS not initialized or logger not available');
+    }
+    return this.state.logger;
   }
 
   /**
@@ -165,6 +187,239 @@ export class PSBootstrap {
     });
 
     return responseText + footer;
+  }
+
+  /**
+   * Log a user message (root event for event lineage)
+   * Call this at the start of processing a user message
+   *
+   * @param message User message content
+   * @returns Event UUID for parent linkage
+   */
+  async logUserMessage(message: string): Promise<string> {
+    if (!this.state) {
+      console.warn('PS not initialized for user message log');
+      return '';
+    }
+
+    try {
+      const logger = this.state.logger;
+      if (!logger) {
+        console.warn('EventLogger not available for user message log');
+        return '';
+      }
+
+      // Log user message as root event (parent: null)
+      const userMsgId = await logger.log('user_message', {
+        content: message.substring(0, 500), // Truncate to 500 chars
+        timestamp: new Date().toISOString(),
+      });
+
+      this.state.currentUserMessageId = userMsgId;
+      return userMsgId;
+    } catch (error) {
+      console.error('Failed to log user message:', error);
+      return '';
+    }
+  }
+
+  /**
+   * Log processing start (linked to user message)
+   * Call this when PS begins processing a request
+   *
+   * @returns Event UUID for parent linkage
+   */
+  async logProcessingStart(): Promise<string> {
+    if (!this.state) {
+      console.warn('PS not initialized for processing start log');
+      return '';
+    }
+
+    try {
+      const logger = this.state.logger;
+      if (!logger || !this.state.currentUserMessageId) {
+        console.warn('EventLogger or user message ID not available');
+        return '';
+      }
+
+      // Log processing start with user message as parent
+      let processingId = '';
+      await logger.withParent(this.state.currentUserMessageId, async () => {
+        processingId = await logger.log('assistant_start', {
+          epic: this.state?.currentEpic,
+          context_percent: this.state?.contextPercent,
+          timestamp: new Date().toISOString(),
+        });
+      });
+
+      this.state.currentProcessingId = processingId;
+      return processingId;
+    } catch (error) {
+      console.error('Failed to log processing start:', error);
+      return '';
+    }
+  }
+
+  /**
+   * Log a spawn decision
+   * Call this whenever you decide to spawn a subagent
+   *
+   * @param subagentType Type of subagent (task, explore, plan, etc.)
+   * @param reason Why this spawn is needed
+   * @param model Model used (haiku, sonnet, opus)
+   * @param epicId Optional epic being worked on
+   * @returns Event UUID for parent linkage
+   */
+  async logSpawnDecision(
+    subagentType: string,
+    reason: string,
+    model?: string,
+    epicId?: string
+  ): Promise<string> {
+    if (!this.state) {
+      console.warn('PS not initialized for spawn decision log');
+      return '';
+    }
+
+    try {
+      const logger = this.state.logger;
+      if (!logger) {
+        console.warn('EventLogger not available for spawn decision log');
+        return '';
+      }
+
+      // Log spawn decision (will be child of current context if in withParent)
+      const spawnId = await logger.log('spawn_decision', {
+        reason,
+        subagent_type: subagentType,
+        model: model || 'haiku',
+        epic_id: epicId,
+        timestamp: new Date().toISOString(),
+      });
+
+      return spawnId;
+    } catch (error) {
+      console.error('Failed to log spawn decision:', error);
+      return '';
+    }
+  }
+
+  /**
+   * Log a tool use (e.g., Task tool invocation)
+   * Call this when invoking a tool
+   *
+   * @param tool Tool name (e.g., 'Task', 'Bash')
+   * @param parameters Tool parameters (will be sanitized)
+   * @param parentUuid Optional parent event UUID
+   * @returns Event UUID for parent linkage
+   */
+  async logToolUse(
+    tool: string,
+    parameters: Record<string, any>,
+    parentUuid?: string
+  ): Promise<string> {
+    if (!this.state) {
+      console.warn('PS not initialized for tool use log');
+      return '';
+    }
+
+    try {
+      const logger = this.state.logger;
+      if (!logger) {
+        console.warn('EventLogger not available for tool use log');
+        return '';
+      }
+
+      // Sanitize parameters (remove sensitive data)
+      const sanitized = sanitizeToolParameters(parameters);
+
+      const toolId = await logger.log('tool_use', {
+        tool,
+        parameters: sanitized,
+        timestamp: new Date().toISOString(),
+      }, { parentUuid });
+
+      return toolId;
+    } catch (error) {
+      console.error('Failed to log tool use:', error);
+      return '';
+    }
+  }
+
+  /**
+   * Log a tool result
+   * Call this after a tool completes
+   *
+   * @param parentUuid Parent tool_use event UUID
+   * @param success Whether tool succeeded
+   * @param durationMs How long tool took
+   * @param errorMessage Optional error message if failed
+   */
+  async logToolResult(
+    parentUuid: string,
+    success: boolean,
+    durationMs: number,
+    errorMessage?: string
+  ): Promise<void> {
+    if (!this.state) {
+      console.warn('PS not initialized for tool result log');
+      return;
+    }
+
+    try {
+      const logger = this.state.logger;
+      if (!logger) {
+        console.warn('EventLogger not available for tool result log');
+        return;
+      }
+
+      await logger.log('tool_result', {
+        success,
+        duration_ms: durationMs,
+        error_message: errorMessage,
+        timestamp: new Date().toISOString(),
+      }, { parentUuid });
+    } catch (error) {
+      console.error('Failed to log tool result:', error);
+    }
+  }
+
+  /**
+   * Log an error event
+   * Call this when an error occurs during processing
+   *
+   * @param errorType Type of error (e.g., 'spawn_failed', 'test_failure')
+   * @param message Error message
+   * @param stack Optional stack trace (truncated to 500 chars)
+   * @param parentUuid Optional parent event UUID
+   */
+  async logError(
+    errorType: string,
+    message: string,
+    stack?: string,
+    parentUuid?: string
+  ): Promise<void> {
+    if (!this.state) {
+      console.warn('PS not initialized for error log');
+      return;
+    }
+
+    try {
+      const logger = this.state.logger;
+      if (!logger) {
+        console.warn('EventLogger not available for error log');
+        return;
+      }
+
+      await logger.log('error', {
+        error_type: errorType,
+        message,
+        stack: stack?.substring(0, 500),
+        timestamp: new Date().toISOString(),
+      }, { parentUuid });
+    } catch (error) {
+      console.error('Failed to log error:', error);
+    }
   }
 
   /**
@@ -381,6 +636,43 @@ export class PSBootstrap {
       console.error('Failed to close PS session:', error);
     }
   }
+
+  /**
+   * Execute callback within processing context
+   * Ensures all logs within callback are properly linked to processing start
+   *
+   * @param callback Async function to execute
+   * @returns Callback result
+   */
+  async withProcessingContext<T>(
+    callback: () => Promise<T>
+  ): Promise<T> {
+    if (!this.state?.logger || !this.state?.currentProcessingId) {
+      return callback();
+    }
+
+    return this.state.logger.withParent(
+      this.state.currentProcessingId,
+      callback
+    );
+  }
+}
+
+/**
+ * Sanitize tool parameters to remove sensitive data
+ * Removes API keys, passwords, tokens, etc.
+ */
+function sanitizeToolParameters(params: Record<string, any>): Record<string, any> {
+  const sensitive = ['password', 'token', 'api_key', 'apiKey', 'secret', 'authorization', 'auth'];
+  const result = { ...params };
+
+  for (const key of Object.keys(result)) {
+    if (sensitive.some(s => key.toLowerCase().includes(s))) {
+      result[key] = '[REDACTED]';
+    }
+  }
+
+  return result;
 }
 
 /**
