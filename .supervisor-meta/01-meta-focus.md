@@ -7,6 +7,7 @@
 - Issue tracking system
 - Epic and task management
 - Health metrics storage
+- Event lineage tracking (parent UUID chains, Auto-depth computation)
 - Query optimization
 
 ### 2. MCP Server

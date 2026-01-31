@@ -63,8 +63,11 @@ Task({
 | **Tunnels** (3) | `tunnel_request_cname`, `tunnel_delete_cname`, `tunnel_list_cnames` |
 | **Secrets** (3) | `mcp_meta_set_secret`, `mcp_meta_get_secret`, `mcp_meta_list_secrets` |
 | **Ports** (3) | `mcp_meta_allocate_port`, `mcp_meta_get_port`, `mcp_meta_list_ports` |
+| **Event Lineage** (7) | `mcp_meta_get_parent_chain`, `mcp_meta_get_event_tree`, `mcp_meta_get_failure_chain`, `mcp_meta_analyze_performance`, `mcp_meta_smart_resume_context`, `mcp_meta_export_session`, `mcp_meta_get_event_lineage_stats` |
 
 **GCloud**: VM management across 3 projects (odin, odin3, openhorizon), OAuth 2.0, auto-scaling, health monitoring
+
+**Event Lineage** (Epic 008): Debug session state using automatic parent chain tracking. Understand: which user message led to which spawn? Which spawns led to which failures? Use `smart_resume_context` to intelligently restore sessions. Performance optimized with bounded chains (50 events). Automatic parent UUID propagation via AsyncLocalStorage.
 
 ---
 

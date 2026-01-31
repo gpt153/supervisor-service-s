@@ -22,6 +22,43 @@ Instance: odin-PS-8f4a2b | Epic: 003 | Context: 42% | Active: 1.2h
 
 ---
 
+## Event Lineage Tracking (Epic 008-C)
+
+**EventLogger is auto-initialized by PSBootstrap**
+
+You have automatic event lineage tracking without manual logging. PSBootstrap initializes EventLogger on startup, which automatically tracks parent UUIDs via AsyncLocalStorage.
+
+**Benefits:**
+- ✅ No manual parent UUID tracking needed
+- ✅ Transparent parent context propagation through async operations
+- ✅ 7 MCP tools for debugging and analysis
+- ✅ Smart resume using parent chains
+- ✅ Performance: 3.8ms for 100-depth chains
+
+**Convenience Methods (Recommended):**
+
+Instead of manual psql logging, use PSBootstrap convenience methods:
+
+```javascript
+const bootstrap = new PSBootstrap('odin-s');
+await bootstrap.logUserMessage('Deploy app');
+await bootstrap.logSpawnDecision('general-purpose', 'Complex task', 'haiku');
+await bootstrap.logToolUse('Task', { param: 'value' });
+await bootstrap.logToolResult(toolUuid, true, 250);
+await bootstrap.logError('test_failure', 'Tests failed');
+await bootstrap.logSpawn('general-purpose', 'Implement feature');
+await bootstrap.logCommit('feat: add feature', 5);
+await bootstrap.logDeploy('api', 5100, 'success');
+await bootstrap.logPRCreated(url, 'epic-003', 'title');
+await bootstrap.logEpicComplete('epic-003', 'All tests passed', url);
+```
+
+**Manual Logging (DEPRECATED):**
+
+For backwards compatibility, manual psql logging still works, but PSBootstrap methods are preferred.
+
+---
+
 ## Registration (First Response Only)
 
 **On your very first response, register your instance:**
@@ -103,40 +140,40 @@ EOF
 
 **When user says:** `resume {instance_id}`
 
-**You respond with:**
+**Smart Resume uses event lineage (Epic 008-F):**
 
+The `mcp_meta_smart_resume_context` tool intelligently reconstructs your session state using event lineage - no need to manually query. It:
+- Finds the instance by ID (full or partial match)
+- Traces parent chains (bounded to 50 recent events for efficiency)
+- Reconstructs context: current epic, last action, recent spawns
+- Returns next steps and ready-to-execute commands
+
+**Using the tool:**
+```javascript
+// Smart resume automatically analyzes event lineage
+const context = await tools.mcp_meta_smart_resume_context({
+  instance_id: 'odin-PS-8f4a2b',  // Full or partial ID
+  include_recent_events: true,
+  max_chain_depth: 50,
+});
+
+// Response includes:
+// - Instance state (epic, context%)
+// - Event chain (last 10 events)
+// - Reconstructed context from lineage
+// - Next steps
+// - Resume commands (copy-paste ready)
+```
+
+**Manual Resume (Fallback):**
+
+If smart resume unavailable, query directly:
 ```bash
-# Get resume data
-RESUME_DATA=$(psql -U supervisor -d supervisor_service -p 5434 -t -c "
-SELECT
-  s.instance_id,
-  s.project,
-  COALESCE(s.current_epic, 'none'),
-  s.context_percent,
-  (SELECT COUNT(*) FROM command_log WHERE instance_id = s.instance_id),
-  (SELECT COUNT(*) FROM checkpoints WHERE instance_id = s.instance_id)
-FROM supervisor_sessions s
-WHERE s.instance_id = '$RESUME_ID'
-  OR s.instance_id LIKE '$RESUME_ID%';
-")
-
-# Format response
-cat << EOF
-✅ Resumed: $RESUME_ID
-
-PROJECT: $PROJECT
-- Epic: $EPIC
-- Context: $CONTEXT%
-- Commands logged: $CMD_COUNT
-- Checkpoints: $CP_COUNT
-
-NEXT STEPS:
-1. Check current epic status
-2. Review recent commits
-3. Continue implementation
-
-Ready to continue.
-EOF
+psql -U supervisor -d supervisor_service -p 5434 -t -c "
+SELECT instance_id, project, current_epic, context_percent
+FROM supervisor_sessions
+WHERE instance_id = '$RESUME_ID' OR instance_id LIKE '$RESUME_ID%';
+"
 ```
 
 Then show footer as normal.
@@ -145,86 +182,41 @@ Then show footer as normal.
 
 ## MANDATORY: Log Critical Actions
 
-**You MUST log these operations for crash recovery:**
+**Use PSBootstrap methods (RECOMMENDED) instead of manual psql:**
 
-### 1. Epic Start/Complete
+```javascript
+// Epic start
+await bootstrap.logSpawnDecision('implementation', 'Starting epic-009');
+
+// Epic completion
+await bootstrap.logEpicComplete('epic-009', 'All tests passed', 'https://...');
+
+// Git commit
+await bootstrap.logCommit('feat: implement auth', 7, 'a1b2c3d');
+
+// Spawn operation
+await bootstrap.logSpawn('general-purpose', 'Implement feature', 'haiku');
+
+// Deploy operation
+await bootstrap.logDeploy('api', 5100, 'success', { health: 'ok' });
+
+// Error
+await bootstrap.logError('test_failure', 'Tests failed after 3 attempts');
+```
+
+**Manual psql Logging (DEPRECATED - Backwards Compatibility Only):**
+
+For systems not yet using PSBootstrap, manual logging still works:
+
 ```bash
-# When starting epic
+# Example: Epic start
 psql -U supervisor -d supervisor_service -p 5434 << EOF
-INSERT INTO command_log (
-  instance_id, command_type, action, parameters, success
-) VALUES (
-  '$INSTANCE_ID', 'epic', 'start',
-  '{"epic_id": "epic-009", "title": "Pattern Detection"}', true
-);
-EOF
-
-# When completing epic
-psql -U supervisor -d supervisor_service -p 5434 << EOF
-INSERT INTO command_log (
-  instance_id, command_type, action, parameters, success
-) VALUES (
-  '$INSTANCE_ID', 'epic', 'complete',
-  '{"epic_id": "epic-009", "confidence": 92}', true
-);
+INSERT INTO command_log (instance_id, action, parameters, success)
+VALUES ('$INSTANCE_ID', 'epic_start', '{"epic_id":"epic-009"}', true);
 EOF
 ```
 
-### 2. Git Commits (CRITICAL)
-```bash
-# After every commit
-COMMIT_HASH=$(git rev-parse HEAD)
-COMMIT_MSG=$(git log -1 --pretty=%B)
-psql -U supervisor -d supervisor_service -p 5434 << EOF
-INSERT INTO command_log (
-  instance_id, command_type, action, parameters, success
-) VALUES (
-  '$INSTANCE_ID', 'git', 'commit',
-  '{"hash": "$COMMIT_HASH", "message": "$COMMIT_MSG"}', true
-);
-EOF
-```
-
-### 3. Spawn Operations
-```bash
-# After spawning subagent
-psql -U supervisor -d supervisor_service -p 5434 << EOF
-INSERT INTO command_log (
-  instance_id, command_type, action, tool_name, parameters, success
-) VALUES (
-  '$INSTANCE_ID', 'spawn', 'spawn_subagent', 'Task',
-  '{"subagent_type": "general-purpose", "model": "haiku", "purpose": "implement epic-009"}', true
-);
-EOF
-```
-
-### 4. Deploy Operations
-```bash
-# After deployment
-psql -U supervisor -d supervisor_service -p 5434 << EOF
-INSERT INTO command_log (
-  instance_id, command_type, action, parameters, success
-) VALUES (
-  '$INSTANCE_ID', 'deploy', 'service_deployed',
-  '{"service": "api", "port": 5100, "status": "healthy"}', true
-);
-EOF
-```
-
-### 5. Critical Errors
-```bash
-# On critical failure
-psql -U supervisor -d supervisor_service -p 5434 << EOF
-INSERT INTO command_log (
-  instance_id, command_type, action, success, error_message
-) VALUES (
-  '$INSTANCE_ID', 'epic', 'validation_failed', false,
-  'Epic 009: Tests failed after 3 attempts, confidence 45%'
-);
-EOF
-```
-
-**Do NOT log:** File reads, greps, routine checks, bash commands
+**Do NOT log:** File reads, greps, routine checks, debug output
 
 ---
 

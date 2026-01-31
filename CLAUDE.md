@@ -13,13 +13,14 @@
   - /home/samuel/sv/supervisor-service-s/.supervisor-core/11-handoff-workflow.md
   - /home/samuel/sv/supervisor-service-s/.supervisor-core/12-automatic-quality-workflows.md
   - /home/samuel/sv/supervisor-service-s/.supervisor-core/13-session-continuity.md
+  - /home/samuel/sv/supervisor-service-s/.supervisor-core/14-deployment-safety.md
   - /home/samuel/sv/supervisor-service-s/.supervisor-meta/00-meta-identity.md
   - /home/samuel/sv/supervisor-service-s/.supervisor-meta/01-meta-focus.md
   - /home/samuel/sv/supervisor-service-s/.supervisor-meta/02-dependencies.md
   - /home/samuel/sv/supervisor-service-s/.supervisor-meta/03-patterns.md
   - /home/samuel/sv/supervisor-service-s/.supervisor-meta/04-port-allocations.md
   - /home/samuel/sv/supervisor-service-s/.supervisor-specific/02-deployment-status.md -->
-<!-- Generated: 2026-01-30T07:59:39.327Z -->
+<!-- Generated: 2026-01-31T14:37:35.803Z -->
 
 # Supervisor Identity
 
@@ -304,8 +305,11 @@ Task({
 | **Tunnels** (3) | `tunnel_request_cname`, `tunnel_delete_cname`, `tunnel_list_cnames` |
 | **Secrets** (3) | `mcp_meta_set_secret`, `mcp_meta_get_secret`, `mcp_meta_list_secrets` |
 | **Ports** (3) | `mcp_meta_allocate_port`, `mcp_meta_get_port`, `mcp_meta_list_ports` |
+| **Event Lineage** (7) | `mcp_meta_get_parent_chain`, `mcp_meta_get_event_tree`, `mcp_meta_get_failure_chain`, `mcp_meta_analyze_performance`, `mcp_meta_smart_resume_context`, `mcp_meta_export_session`, `mcp_meta_get_event_lineage_stats` |
 
 **GCloud**: VM management across 3 projects (odin, odin3, openhorizon), OAuth 2.0, auto-scaling, health monitoring
+
+**Event Lineage** (Epic 008): Debug session state using automatic parent chain tracking. Understand: which user message led to which spawn? Which spawns led to which failures? Use `smart_resume_context` to intelligently restore sessions. Performance optimized with bounded chains (50 events). Automatic parent UUID propagation via AsyncLocalStorage.
 
 ---
 
@@ -892,6 +896,43 @@ Instance: odin-PS-8f4a2b | Epic: 003 | Context: 42% | Active: 1.2h
 
 ---
 
+## Event Lineage Tracking (Epic 008-C)
+
+**EventLogger is auto-initialized by PSBootstrap**
+
+You have automatic event lineage tracking without manual logging. PSBootstrap initializes EventLogger on startup, which automatically tracks parent UUIDs via AsyncLocalStorage.
+
+**Benefits:**
+- ✅ No manual parent UUID tracking needed
+- ✅ Transparent parent context propagation through async operations
+- ✅ 7 MCP tools for debugging and analysis
+- ✅ Smart resume using parent chains
+- ✅ Performance: 3.8ms for 100-depth chains
+
+**Convenience Methods (Recommended):**
+
+Instead of manual psql logging, use PSBootstrap convenience methods:
+
+```javascript
+const bootstrap = new PSBootstrap('odin-s');
+await bootstrap.logUserMessage('Deploy app');
+await bootstrap.logSpawnDecision('general-purpose', 'Complex task', 'haiku');
+await bootstrap.logToolUse('Task', { param: 'value' });
+await bootstrap.logToolResult(toolUuid, true, 250);
+await bootstrap.logError('test_failure', 'Tests failed');
+await bootstrap.logSpawn('general-purpose', 'Implement feature');
+await bootstrap.logCommit('feat: add feature', 5);
+await bootstrap.logDeploy('api', 5100, 'success');
+await bootstrap.logPRCreated(url, 'epic-003', 'title');
+await bootstrap.logEpicComplete('epic-003', 'All tests passed', url);
+```
+
+**Manual Logging (DEPRECATED):**
+
+For backwards compatibility, manual psql logging still works, but PSBootstrap methods are preferred.
+
+---
+
 ## Registration (First Response Only)
 
 **On your very first response, register your instance:**
@@ -973,40 +1014,40 @@ EOF
 
 **When user says:** `resume {instance_id}`
 
-**You respond with:**
+**Smart Resume uses event lineage (Epic 008-F):**
 
+The `mcp_meta_smart_resume_context` tool intelligently reconstructs your session state using event lineage - no need to manually query. It:
+- Finds the instance by ID (full or partial match)
+- Traces parent chains (bounded to 50 recent events for efficiency)
+- Reconstructs context: current epic, last action, recent spawns
+- Returns next steps and ready-to-execute commands
+
+**Using the tool:**
+```javascript
+// Smart resume automatically analyzes event lineage
+const context = await tools.mcp_meta_smart_resume_context({
+  instance_id: 'odin-PS-8f4a2b',  // Full or partial ID
+  include_recent_events: true,
+  max_chain_depth: 50,
+});
+
+// Response includes:
+// - Instance state (epic, context%)
+// - Event chain (last 10 events)
+// - Reconstructed context from lineage
+// - Next steps
+// - Resume commands (copy-paste ready)
+```
+
+**Manual Resume (Fallback):**
+
+If smart resume unavailable, query directly:
 ```bash
-# Get resume data
-RESUME_DATA=$(psql -U supervisor -d supervisor_service -p 5434 -t -c "
-SELECT
-  s.instance_id,
-  s.project,
-  COALESCE(s.current_epic, 'none'),
-  s.context_percent,
-  (SELECT COUNT(*) FROM command_log WHERE instance_id = s.instance_id),
-  (SELECT COUNT(*) FROM checkpoints WHERE instance_id = s.instance_id)
-FROM supervisor_sessions s
-WHERE s.instance_id = '$RESUME_ID'
-  OR s.instance_id LIKE '$RESUME_ID%';
-")
-
-# Format response
-cat << EOF
-✅ Resumed: $RESUME_ID
-
-PROJECT: $PROJECT
-- Epic: $EPIC
-- Context: $CONTEXT%
-- Commands logged: $CMD_COUNT
-- Checkpoints: $CP_COUNT
-
-NEXT STEPS:
-1. Check current epic status
-2. Review recent commits
-3. Continue implementation
-
-Ready to continue.
-EOF
+psql -U supervisor -d supervisor_service -p 5434 -t -c "
+SELECT instance_id, project, current_epic, context_percent
+FROM supervisor_sessions
+WHERE instance_id = '$RESUME_ID' OR instance_id LIKE '$RESUME_ID%';
+"
 ```
 
 Then show footer as normal.
@@ -1015,86 +1056,41 @@ Then show footer as normal.
 
 ## MANDATORY: Log Critical Actions
 
-**You MUST log these operations for crash recovery:**
+**Use PSBootstrap methods (RECOMMENDED) instead of manual psql:**
 
-### 1. Epic Start/Complete
+```javascript
+// Epic start
+await bootstrap.logSpawnDecision('implementation', 'Starting epic-009');
+
+// Epic completion
+await bootstrap.logEpicComplete('epic-009', 'All tests passed', 'https://...');
+
+// Git commit
+await bootstrap.logCommit('feat: implement auth', 7, 'a1b2c3d');
+
+// Spawn operation
+await bootstrap.logSpawn('general-purpose', 'Implement feature', 'haiku');
+
+// Deploy operation
+await bootstrap.logDeploy('api', 5100, 'success', { health: 'ok' });
+
+// Error
+await bootstrap.logError('test_failure', 'Tests failed after 3 attempts');
+```
+
+**Manual psql Logging (DEPRECATED - Backwards Compatibility Only):**
+
+For systems not yet using PSBootstrap, manual logging still works:
+
 ```bash
-# When starting epic
+# Example: Epic start
 psql -U supervisor -d supervisor_service -p 5434 << EOF
-INSERT INTO command_log (
-  instance_id, command_type, action, parameters, success
-) VALUES (
-  '$INSTANCE_ID', 'epic', 'start',
-  '{"epic_id": "epic-009", "title": "Pattern Detection"}', true
-);
-EOF
-
-# When completing epic
-psql -U supervisor -d supervisor_service -p 5434 << EOF
-INSERT INTO command_log (
-  instance_id, command_type, action, parameters, success
-) VALUES (
-  '$INSTANCE_ID', 'epic', 'complete',
-  '{"epic_id": "epic-009", "confidence": 92}', true
-);
+INSERT INTO command_log (instance_id, action, parameters, success)
+VALUES ('$INSTANCE_ID', 'epic_start', '{"epic_id":"epic-009"}', true);
 EOF
 ```
 
-### 2. Git Commits (CRITICAL)
-```bash
-# After every commit
-COMMIT_HASH=$(git rev-parse HEAD)
-COMMIT_MSG=$(git log -1 --pretty=%B)
-psql -U supervisor -d supervisor_service -p 5434 << EOF
-INSERT INTO command_log (
-  instance_id, command_type, action, parameters, success
-) VALUES (
-  '$INSTANCE_ID', 'git', 'commit',
-  '{"hash": "$COMMIT_HASH", "message": "$COMMIT_MSG"}', true
-);
-EOF
-```
-
-### 3. Spawn Operations
-```bash
-# After spawning subagent
-psql -U supervisor -d supervisor_service -p 5434 << EOF
-INSERT INTO command_log (
-  instance_id, command_type, action, tool_name, parameters, success
-) VALUES (
-  '$INSTANCE_ID', 'spawn', 'spawn_subagent', 'Task',
-  '{"subagent_type": "general-purpose", "model": "haiku", "purpose": "implement epic-009"}', true
-);
-EOF
-```
-
-### 4. Deploy Operations
-```bash
-# After deployment
-psql -U supervisor -d supervisor_service -p 5434 << EOF
-INSERT INTO command_log (
-  instance_id, command_type, action, parameters, success
-) VALUES (
-  '$INSTANCE_ID', 'deploy', 'service_deployed',
-  '{"service": "api", "port": 5100, "status": "healthy"}', true
-);
-EOF
-```
-
-### 5. Critical Errors
-```bash
-# On critical failure
-psql -U supervisor -d supervisor_service -p 5434 << EOF
-INSERT INTO command_log (
-  instance_id, command_type, action, success, error_message
-) VALUES (
-  '$INSTANCE_ID', 'epic', 'validation_failed', false,
-  'Epic 009: Tests failed after 3 attempts, confidence 45%'
-);
-EOF
-```
-
-**Do NOT log:** File reads, greps, routine checks, bash commands
+**Do NOT log:** File reads, greps, routine checks, debug output
 
 ---
 
@@ -1154,6 +1150,155 @@ EOF
 **Last Updated**: 2026-01-29
 **Logging Strategy**: Selective (epic/git/spawn/deploy/error only, ~300 tokens/session overhead)
 
+# Deployment Safety Protocol
+
+**🚨 CRITICAL: ALWAYS Kill Old Instances Before Deploying**
+
+This is a **MANDATORY** rule that has prevented MANY hours of debugging phantom errors.
+
+---
+
+## The Problem
+
+**Multiple instances running simultaneously causes:**
+- Confusing errors (which instance is serving requests?)
+- Port conflicts
+- Wasted hours debugging
+- Stale code running
+- Database connection exhaustion
+
+**This happens with:**
+- ✅ Docker containers
+- ✅ Native backends (Node.js, Python, Go)
+- ✅ Native frontends (Vite, Next.js, webpack)
+
+---
+
+## MANDATORY RULE
+
+**Before EVERY deployment (Docker, native backend, native frontend):**
+
+```
+🚨 KILL ALL OLD INSTANCES FIRST
+🚨 VERIFY NONE REMAIN
+🚨 THEN START NEW INSTANCE
+🚨 VERIFY ONLY ONE INSTANCE RUNNING
+```
+
+**NO EXCEPTIONS.**
+
+---
+
+## Quick Checklist
+
+**Docker Deployments:**
+- [ ] `docker compose down` (stop old containers)
+- [ ] `docker compose rm -f` (remove old containers)
+- [ ] Verify: `docker ps | grep <project>` (should be empty)
+- [ ] `docker compose up -d` (start new)
+- [ ] Verify: `docker ps | grep <project>` (exactly one)
+
+**Native Deployments:**
+- [ ] Find old: `ps aux | grep <service>`
+- [ ] Kill all: `kill -9 <pids>`
+- [ ] Verify: `ps aux | grep <service>` (none)
+- [ ] Start new: `npm run dev` (or equivalent)
+- [ ] Verify: `ps aux | grep <service>` (exactly one)
+- [ ] Verify port: `lsof -i :<port>` (exactly one listener)
+
+---
+
+## Implementation
+
+**Use the deployment subagent:**
+- `/home/samuel/sv/.claude/commands/subagents/deployment/deploy-service-local.md`
+
+**This subagent AUTOMATICALLY:**
+- ✅ Kills ALL old instances (exhaustive search)
+- ✅ Verifies none remain
+- ✅ Rebuilds Docker images with `--no-cache`
+- ✅ Starts new instance
+- ✅ Verifies only ONE instance on port
+- ✅ Runs health checks
+- ✅ Cleans up old Docker artifacts
+
+**You MUST use this subagent for ALL local deployments.**
+
+---
+
+## When This Applies
+
+**ALWAYS when deploying:**
+- New feature implemented
+- Bug fix deployed
+- Config changed
+- Service restarted
+- Code updated
+
+**ALL deployment types:**
+- Docker containers
+- Native Node.js/npm services
+- Native Python/FastAPI services
+- Native Go services
+- Frontend dev servers (Vite, Next.js, webpack)
+
+---
+
+## Verification Steps
+
+**After EVERY deployment, verify:**
+
+```bash
+# Check port usage (MUST be exactly 1)
+lsof -i :<port> | grep LISTEN
+
+# For Docker
+docker ps | grep <project>  # Exactly one container
+
+# For native
+ps aux | grep <service> | grep -v grep  # Exactly one process
+```
+
+**If multiple instances found:**
+1. 🚨 STOP immediately
+2. Kill all instances
+3. Verify none remain
+4. Start deployment again
+
+---
+
+## Why This Is Critical
+
+**Real-world impact:**
+- User deploys new backend code
+- Old backend still running on port
+- New backend fails to start (port conflict)
+- OR new backend starts on different port (confusion)
+- OR both running (random requests go to old code)
+- Hours wasted debugging "why isn't my code change working"
+- **Fix**: Kill old instance first
+
+**This rule saves hours every week.**
+
+---
+
+## References
+
+**Detailed Workflow:**
+- `/home/samuel/sv/.claude/commands/subagents/deployment/deploy-service-local.md`
+
+**When to use deployment subagent:**
+- ALWAYS for local deployments (native or Docker)
+- After feature implementation
+- After code changes
+- When user says "deploy" or "restart service"
+
+---
+
+**Maintained by**: Documentation Expert
+**Applies to**: ALL supervisors (PSes and MS)
+**Priority**: 🚨 CRITICAL - Non-negotiable
+
 # Supervisor Identity
 
 You are a **Meta Supervisor** for the SV supervisor system.
@@ -1192,6 +1337,7 @@ You coordinate and manage the meta-infrastructure that powers all project superv
 - Issue tracking system
 - Epic and task management
 - Health metrics storage
+- Event lineage tracking (parent UUID chains, Auto-depth computation)
 - Query optimization
 
 ### 2. MCP Server
