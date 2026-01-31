@@ -24,6 +24,7 @@ import { EventLogger } from './EventLogger.js';
 export interface PSSessionState {
   instanceId: string;
   project: string;
+  hostMachine: string; // Machine where session is running (odin3, odin4, laptop)
   sessionStartTime: Date;
   currentEpic?: string;
   contextPercent: number;
@@ -47,10 +48,13 @@ export interface PSSessionState {
  */
 export class PSBootstrap {
   private project: string;
+  private hostMachine: string;
   private state: PSSessionState | null = null;
 
-  constructor(project: string) {
+  constructor(project: string, hostMachine?: string) {
     this.project = project;
+    // Read from parameter, env var, or default to 'odin3'
+    this.hostMachine = hostMachine || process.env.HOST_MACHINE || 'odin3';
   }
 
   /**
@@ -72,7 +76,7 @@ export class PSBootstrap {
     }
 
     try {
-      const instance = await registerInstance(this.project, InstanceType.PS);
+      const instance = await registerInstance(this.project, InstanceType.PS, undefined, this.hostMachine);
 
       // Initialize EventLogger for event lineage tracking (Epic 008-C)
       const logger = new EventLogger(instance.instance_id);
@@ -80,6 +84,7 @@ export class PSBootstrap {
       this.state = {
         instanceId: instance.instance_id,
         project: instance.project,
+        hostMachine: instance.host_machine || this.hostMachine,
         sessionStartTime: instance.created_at,
         currentEpic: instance.current_epic,
         contextPercent: instance.context_percent,
@@ -87,7 +92,7 @@ export class PSBootstrap {
         logger,
       };
 
-      console.log(`PS initialized: ${instance.instance_id}`);
+      console.log(`PS initialized: ${instance.instance_id}@${this.state.hostMachine}`);
       return instance.instance_id;
     } catch (error) {
       console.error('Failed to initialize PS:', error);
@@ -182,6 +187,7 @@ export class PSBootstrap {
       instanceId: this.state.instanceId,
       currentEpic: this.state.currentEpic,
       contextPercent: this.state.contextPercent,
+      hostMachine: this.state.hostMachine,
       sessionStartTime: this.state.sessionStartTime,
       showResumeHint: this.state.contextPercent > 30,
     });
@@ -679,14 +685,19 @@ function sanitizeToolParameters(params: Record<string, any>): Record<string, any
  * Create a PS bootstrap instance for a project
  *
  * @param project Project name (e.g., 'odin-s')
+ * @param hostMachine Optional machine name (odin3, odin4, laptop). Defaults to HOST_MACHINE env var or 'odin3'
  * @returns New PSBootstrap instance
  *
  * @example
  * const bootstrap = createPSBootstrap('odin-s');
  * const instanceId = await bootstrap.initialize();
+ *
+ * // With explicit machine
+ * const bootstrap2 = createPSBootstrap('consilio-s', 'laptop');
+ * const instanceId2 = await bootstrap2.initialize();
  */
-export function createPSBootstrap(project: string): PSBootstrap {
-  return new PSBootstrap(project);
+export function createPSBootstrap(project: string, hostMachine?: string): PSBootstrap {
+  return new PSBootstrap(project, hostMachine);
 }
 
 /**

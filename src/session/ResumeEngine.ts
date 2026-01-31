@@ -134,9 +134,10 @@ async function performResume(
       instance_type: string;
       current_epic: string | null;
       context_percent: number;
+      host_machine: string | null;
       last_heartbeat: Date;
     }>(
-      `SELECT project, instance_type, current_epic, context_percent, last_heartbeat
+      `SELECT project, instance_type, current_epic, context_percent, host_machine, last_heartbeat
       FROM supervisor_sessions
       WHERE instance_id = $1`,
       [instanceId]
@@ -221,6 +222,7 @@ export async function getInstanceDetails(
     last_heartbeat: Date;
     context_percent: number;
     current_epic: string | null;
+    host_machine: string | null;
   }>(
     `SELECT
       project,
@@ -229,7 +231,8 @@ export async function getInstanceDetails(
       created_at,
       last_heartbeat,
       context_percent,
-      current_epic
+      current_epic,
+      host_machine
     FROM supervisor_sessions
     WHERE instance_id = $1`,
     [instanceId]
@@ -330,13 +333,15 @@ export async function listStaleInstances(): Promise<ListStaleInstancesResponse> 
     instance_type: string;
     last_heartbeat: Date;
     current_epic: string | null;
+    host_machine: string | null;
   }>(
     `SELECT
       instance_id,
       project,
       instance_type,
       last_heartbeat,
-      current_epic
+      current_epic,
+      host_machine
     FROM supervisor_sessions
     WHERE status != 'closed'
     AND EXTRACT(EPOCH FROM (NOW() - last_heartbeat)) >= 120

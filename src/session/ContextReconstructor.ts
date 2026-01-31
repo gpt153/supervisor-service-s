@@ -319,9 +319,10 @@ async function loadBasicState(
     instance_type: string;
     context_percent: number;
     current_epic: string | null;
+    host_machine: string | null;
     last_heartbeat: Date;
   }>(
-    `SELECT project, instance_type, context_percent, current_epic, last_heartbeat
+    `SELECT project, instance_type, context_percent, current_epic, host_machine, last_heartbeat
     FROM supervisor_sessions
     WHERE instance_id = $1`,
     [instanceId]

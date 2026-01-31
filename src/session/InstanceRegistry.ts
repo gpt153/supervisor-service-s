@@ -45,28 +45,36 @@ export class InstanceNotFoundError extends Error {
  * @param project Project name
  * @param instanceType Instance type ('PS' or 'MS')
  * @param initialContext Optional initial context (reserved for future use)
+ * @param hostMachine Optional machine name (defaults to 'odin3' or env HOST_MACHINE)
  * @returns Instance record
  * @throws DuplicateInstanceError if collision occurs
  *
  * @example
- * const instance = await registerInstance('odin', 'PS', {});
- * // Returns: { instance_id: 'odin-PS-8f4a2b', project: 'odin', ..., status: 'active' }
+ * const instance = await registerInstance('odin', 'PS', {}, 'odin3');
+ * // Returns: { instance_id: 'odin-PS-8f4a2b', project: 'odin', ..., status: 'active', host_machine: 'odin3' }
  */
 export async function registerInstance(
   project: string,
   instanceType: InstanceType,
-  initialContext?: Record<string, any>
+  initialContext?: Record<string, any>,
+  hostMachine?: string
 ): Promise<Instance> {
   const instanceId = generateInstanceId(project, instanceType);
+
+  // Determine host machine: parameter > env var > default
+  let machine = hostMachine;
+  if (!machine) {
+    machine = process.env.HOST_MACHINE || 'odin3';
+  }
 
   try {
     const result = await pool.query<Instance>(
       `INSERT INTO supervisor_sessions (
-        instance_id, project, instance_type, status, context_percent, created_at, last_heartbeat
-      ) VALUES ($1, $2, $3, $4, $5, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+        instance_id, project, instance_type, status, context_percent, host_machine, created_at, last_heartbeat
+      ) VALUES ($1, $2, $3, $4, $5, $6, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
       RETURNING instance_id, project, instance_type, status, context_percent, current_epic,
-                last_heartbeat, created_at, closed_at`,
-      [instanceId, project, instanceType, 'active', 0]
+                host_machine, last_heartbeat, created_at, closed_at`,
+      [instanceId, project, instanceType, 'active', 0, machine]
     );
 
     if (result.rows.length === 0) {
@@ -81,6 +89,7 @@ export async function registerInstance(
       status: row.status as InstanceStatus,
       context_percent: row.context_percent,
       current_epic: row.current_epic,
+      host_machine: row.host_machine,
       last_heartbeat: new Date(row.last_heartbeat),
       created_at: new Date(row.created_at),
       closed_at: row.closed_at ? new Date(row.closed_at) : undefined,
@@ -158,7 +167,7 @@ export async function listInstances(
   activeOnly: boolean = false
 ): Promise<Instance[]> {
   let query = `SELECT instance_id, project, instance_type, status, context_percent,
-                      current_epic, last_heartbeat, created_at, closed_at
+                      current_epic, host_machine, last_heartbeat, created_at, closed_at
                FROM supervisor_sessions
                WHERE 1=1`;
 
@@ -184,6 +193,7 @@ export async function listInstances(
     status: markStaleIfNeeded(row.status, row.last_heartbeat),
     context_percent: row.context_percent,
     current_epic: row.current_epic,
+    host_machine: row.host_machine,
     last_heartbeat: new Date(row.last_heartbeat),
     created_at: new Date(row.created_at),
     closed_at: row.closed_at ? new Date(row.closed_at) : undefined,
@@ -205,7 +215,7 @@ export async function getInstanceDetails(instanceId: string): Promise<Instance |
   // Try exact match first
   const exactResult = await pool.query<Instance>(
     `SELECT instance_id, project, instance_type, status, context_percent, current_epic,
-            last_heartbeat, created_at, closed_at
+            host_machine, last_heartbeat, created_at, closed_at
      FROM supervisor_sessions
      WHERE instance_id = $1`,
     [instanceId]
@@ -220,6 +230,7 @@ export async function getInstanceDetails(instanceId: string): Promise<Instance |
       status: markStaleIfNeeded(row.status, row.last_heartbeat),
       context_percent: row.context_percent,
       current_epic: row.current_epic,
+      host_machine: row.host_machine,
       last_heartbeat: new Date(row.last_heartbeat),
       created_at: new Date(row.created_at),
       closed_at: row.closed_at ? new Date(row.closed_at) : undefined,
@@ -229,7 +240,7 @@ export async function getInstanceDetails(instanceId: string): Promise<Instance |
   // Try prefix match
   const prefixResult = await pool.query<Instance>(
     `SELECT instance_id, project, instance_type, status, context_percent, current_epic,
-            last_heartbeat, created_at, closed_at
+            host_machine, last_heartbeat, created_at, closed_at
      FROM supervisor_sessions
      WHERE instance_id LIKE $1 || '%'
      LIMIT 2`,
@@ -245,6 +256,7 @@ export async function getInstanceDetails(instanceId: string): Promise<Instance |
       status: markStaleIfNeeded(row.status, row.last_heartbeat),
       context_percent: row.context_percent,
       current_epic: row.current_epic,
+      host_machine: row.host_machine,
       last_heartbeat: new Date(row.last_heartbeat),
       created_at: new Date(row.created_at),
       closed_at: row.closed_at ? new Date(row.closed_at) : undefined,
@@ -263,7 +275,7 @@ export async function getInstanceDetails(instanceId: string): Promise<Instance |
 export async function getPrefixMatches(prefix: string): Promise<Instance[]> {
   const result = await pool.query<Instance>(
     `SELECT instance_id, project, instance_type, status, context_percent, current_epic,
-            last_heartbeat, created_at, closed_at
+            host_machine, last_heartbeat, created_at, closed_at
      FROM supervisor_sessions
      WHERE instance_id LIKE $1 || '%'
      ORDER BY last_heartbeat DESC
@@ -278,6 +290,7 @@ export async function getPrefixMatches(prefix: string): Promise<Instance[]> {
     status: markStaleIfNeeded(row.status, row.last_heartbeat),
     context_percent: row.context_percent,
     current_epic: row.current_epic,
+    host_machine: row.host_machine,
     last_heartbeat: new Date(row.last_heartbeat),
     created_at: new Date(row.created_at),
     closed_at: row.closed_at ? new Date(row.closed_at) : undefined,

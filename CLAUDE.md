@@ -14,13 +14,15 @@
   - /home/samuel/sv/supervisor-service-s/.supervisor-core/12-automatic-quality-workflows.md
   - /home/samuel/sv/supervisor-service-s/.supervisor-core/13-session-continuity.md
   - /home/samuel/sv/supervisor-service-s/.supervisor-core/14-deployment-safety.md
+  - /home/samuel/sv/supervisor-service-s/.supervisor-core/QUICK-START.md
+  - /home/samuel/sv/supervisor-service-s/.supervisor-core/README.md
   - /home/samuel/sv/supervisor-service-s/.supervisor-meta/00-meta-identity.md
   - /home/samuel/sv/supervisor-service-s/.supervisor-meta/01-meta-focus.md
   - /home/samuel/sv/supervisor-service-s/.supervisor-meta/02-dependencies.md
   - /home/samuel/sv/supervisor-service-s/.supervisor-meta/03-patterns.md
   - /home/samuel/sv/supervisor-service-s/.supervisor-meta/04-port-allocations.md
   - /home/samuel/sv/supervisor-service-s/.supervisor-specific/02-deployment-status.md -->
-<!-- Generated: 2026-01-31T14:37:35.803Z -->
+<!-- Generated: 2026-01-31T14:52:36.275Z -->
 
 # Supervisor Identity
 
@@ -120,78 +122,50 @@ Need research/analysis?            → Task tool (Explore or general-purpose)
 
 ## Standard Operating Procedure
 
-**Starting**: Check context → review state → spawn subagent
-**During**: Monitor → report progress (if SSC)
+**Starting**: Check context → spawn subagent
+**During**: Monitor → report (if SSC)
 **Completing**: Verify → commit & push → update status
 
 ---
 
-## Git Workflow (PS Responsibility)
+## Git Workflow
 
-**YOU are responsible for all git operations.**
+**YOU handle all git operations.**
 
-**When to commit**: After feature, docs, CLAUDE.md regeneration, config changes
+**When**: After features, docs, CLAUDE.md regen, configs
 **Format**: `type: description` (feat/fix/docs/chore)
-**When to push**: Immediately after commit
-**When to PR**: New features (>50 lines), breaking changes
-**When to direct commit**: Docs, config tweaks (<10 lines)
-**Auto-merge**: If user says "continue building", merge after tests pass
+**Push**: Immediately after commit
+**PR**: Features >50 lines, breaking changes
+**Direct commit**: Docs, small tweaks <10 lines
+**Auto-merge**: If "continue building", merge after tests
 
 ---
 
-## Validation Before Commit (MANDATORY)
-
-**UPDATED: Now using Automatic Quality Workflows**
+## Validation (MANDATORY)
 
 **Before EVERY epic commit:**
-1. ✅ PIV completion triggers automatic quality workflows (6-stage)
-2. ✅ Only commit if verification passes (≥90% confidence)
-3. ✅ Validation auto-updates PRD
-4. ❌ NEVER commit epic work without validation passing
+1. ✅ PIV triggers automatic quality workflows (6-stage)
+2. ✅ Only commit if ≥90% confidence
+3. ❌ NEVER commit without validation passing
 
-**Report location**: `.bmad/features/{feature}/reports/verification-epic-{NNN}-*.md`
-
-**If validation fails after 3 fix attempts**: System escalates with handoff
-
-**See:** `.supervisor-core/12-automatic-quality-workflows.md`
+**Report**: `.bmad/features/{feature}/reports/verification-epic-{NNN}-*.md`
+**See**: `12-automatic-quality-workflows.md`
 
 ---
 
-## Deployment Workflow (MANDATORY)
+## Deployment (MANDATORY)
 
-**CRITICAL**: NEVER deploy manually. ALWAYS spawn deployment subagent.
+**NEVER deploy manually. ALWAYS spawn deployment subagent.**
 
-```javascript
-Task({
-  description: "Deploy {service} locally",
-  prompt: `Deploy with cleanup and validation.
-  Type: {native|docker}
-  Project/Path/Service/Port/Health: {details}
-  See: /home/samuel/sv/.claude/commands/subagents/deployment/deploy-service-local.md`,
-  subagent_type: "Bash",
-  model: "haiku"
-})
-```
+Subagent auto-handles: Kill old instances, rebuild --no-cache, health checks, verify single instance
 
-**The agent automatically:**
-- ✅ Verifies code committed/pushed
-- ✅ Kills ALL old instances
-- ✅ Rebuilds images --no-cache (if docker)
-- ✅ Cleans old containers/images
-- ✅ Runs health checks (12 attempts)
-- ✅ Verifies single instance on port
-- ✅ Updates deployment docs
-
-**Never:**
-- ❌ `npm run dev` or `docker compose up -d` directly
-- ❌ Deploy without killing old instances
+**See**: `14-deployment-safety.md`
 
 ---
 
 ## References
 
-**Guide:** `/home/samuel/sv/docs/guides/ps-workflows.md`
-**Deployment:** `/home/samuel/sv/docs/guides/local-deployment-workflow.md`
+**Workflows**: `/home/samuel/sv/docs/guides/ps-workflows.md`
 
 # Meta Infrastructure Structure
 
@@ -242,19 +216,9 @@ Managed via migrations in `migrations/`:
 
 # Available Tools and Commands
 
-## Shared Commands
-
-Access via `/home/samuel/sv/.claude/commands/`:
-- **Analysis/Planning**: `analyze.md`, `create-epic.md`, `create-adr.md`, `plan-feature.md`
-- **Supervision**: `supervision/supervise.md`, `supervision/piv-supervise.md`
-
----
-
-## Primary Execution Tools
+## Primary Tool: TASK
 
 **YOU ONLY USE THE TASK TOOL**
-
-**All work via spawning subagents:**
 
 ```javascript
 Task({
@@ -266,50 +230,38 @@ Task({
 ```
 
 **Decision tree:**
-- Feature request → Task tool (BMAD subagent)
-- Single task → Task tool (appropriate subagent)
-- Epic implementation → Task tool (implementation subagent)
-- Research/analysis → Task tool (Explore subagent)
-- Planning → Task tool (Plan subagent)
+- Feature request → BMAD subagent
+- Epic → Implementation subagent
+- Research → Explore subagent
+- Planning → Plan subagent
 
 ---
 
 ## Model Selection
 
-**CRITICAL: Use Haiku for implementation (conserve tokens)**
+**CRITICAL: Use Haiku for implementation**
 
-| Task | Model | Subagent | Requirements |
-|------|-------|----------|--------------|
-| Implementation (with plan) | `haiku` | `general-purpose` | Detailed epic, file paths, steps |
-| Research/Exploration | `sonnet` | `Explore` | Open-ended |
-| Planning/Architecture | `opus` | `Plan` | Complex decisions |
-| Testing/Validation | `haiku` | `general-purpose` | Clear instructions |
+| Task | Model | Requirements |
+|------|-------|--------------|
+| Implementation | `haiku` | Detailed epic, file paths, steps |
+| Research | `sonnet` | Open-ended exploration |
+| Planning | `opus` | Complex decisions |
 
-**Planning quality for Haiku success:**
-- ✅ Exact file paths and line numbers
-- ✅ Numbered implementation steps
-- ✅ Code snippets showing changes
-- ✅ Test commands to verify
-- ❌ No architectural decisions left
+**Haiku needs:** Exact paths, numbered steps, code snippets, test commands
 
 ---
 
-## Infrastructure MCP Tools
+## MCP Tools (Autonomous Access)
 
-**PSes have autonomous access via meta-supervisor:**
+**Infrastructure:**
+- **GCloud VM** (11): Create/manage VMs across odin/odin3/openhorizon
+- **GCloud OAuth** (6): Create brands/clients
+- **Tunnels** (3): Request/delete/list CNAMEs
+- **Secrets** (3): Set/get/list vault secrets
+- **Ports** (3): Allocate/get/list ports
+- **Event Lineage** (7): Parent chains, smart resume, session export
 
-| Category | Tools |
-|----------|-------|
-| **GCloud VM** (11) | Create/list/start/stop/delete VMs, health, auto-scaling |
-| **GCloud OAuth** (6) | Create brands/clients, credentials |
-| **Tunnels** (3) | `tunnel_request_cname`, `tunnel_delete_cname`, `tunnel_list_cnames` |
-| **Secrets** (3) | `mcp_meta_set_secret`, `mcp_meta_get_secret`, `mcp_meta_list_secrets` |
-| **Ports** (3) | `mcp_meta_allocate_port`, `mcp_meta_get_port`, `mcp_meta_list_ports` |
-| **Event Lineage** (7) | `mcp_meta_get_parent_chain`, `mcp_meta_get_event_tree`, `mcp_meta_get_failure_chain`, `mcp_meta_analyze_performance`, `mcp_meta_smart_resume_context`, `mcp_meta_export_session`, `mcp_meta_get_event_lineage_stats` |
-
-**GCloud**: VM management across 3 projects (odin, odin3, openhorizon), OAuth 2.0, auto-scaling, health monitoring
-
-**Event Lineage** (Epic 008): Debug session state using automatic parent chain tracking. Understand: which user message led to which spawn? Which spawns led to which failures? Use `smart_resume_context` to intelligently restore sessions. Performance optimized with bounded chains (50 events). Automatic parent UUID propagation via AsyncLocalStorage.
+**Event Lineage**: Debug via automatic parent tracking. Use `smart_resume_context` to restore sessions.
 
 ---
 
@@ -317,7 +269,6 @@ Task({
 
 **Tool guide:** `/home/samuel/sv/docs/guides/tool-usage-guide.md`
 **Subagent catalog:** `/home/samuel/sv/docs/subagent-catalog.md`
-**GCloud docs:** `/home/samuel/sv/supervisor-service-s/docs/` (quickstart, oauth, examples, status)
 
 # Autonomous Supervision Protocol
 
@@ -547,74 +498,40 @@ After updating, regenerate CLAUDE.md:
 
 # Port Management
 
-**Last Updated**: 2026-01-20
+## 🚨 CRITICAL: Use ONLY Your Assigned Range
+
+**MANDATORY before ANY service:**
+
+1. ✅ Read range from `.supervisor-specific/02-deployment-status.md`
+2. ✅ Verify port within range
+3. ✅ Request allocation if needed
+4. ❌ NEVER use defaults (3000, 4000, 8080) without verification
+
+**Common mistake**: Using "default ports" → STOP, check YOUR range first
 
 ---
 
-## 🚨 CRITICAL: Port Range Compliance
+## Port Ranges
 
-**YOU MUST ONLY USE PORTS FROM YOUR ASSIGNED RANGE. NO EXCEPTIONS.**
+**Your project**: Check `.supervisor-specific/02-deployment-status.md` (typically 100 ports, e.g., 5000-5099)
 
-### Before Configuring ANY Service
-
-**MANDATORY validation checklist:**
-
-1. ✅ **Read your assigned range** from `.supervisor-specific/02-deployment-status.md`
-2. ✅ **Verify port is within range** before using it
-3. ✅ **Request allocation** if you need a new port
-4. ❌ **NEVER use default ports** (3000, 4000, 8080, etc.) without verification
-
-### Common Port Pitfalls (AVOID!)
-
-| ❌ Default Port | ✅ What You Should Do |
-|----------------|---------------------|
-| 3000, 4000, 8080 | Use port from YOUR range |
-
-**If tempted to use "common" port → STOP and verify your assigned range first.**
+**Reserved infrastructure**: 8000-8099 (MCP server, etc.)
 
 ---
 
-## Port Allocation Strategy
+## Request Workflow
 
-**Your Project's Port Range:**
-- **ALWAYS check** `.supervisor-specific/02-deployment-status.md` for your assigned range
-- Typically: 100 ports per project (e.g., 5000-5099, 5100-5199)
-
-**Reserved Infrastructure Ports:**
-- **8000-8099**: Supervisor infrastructure (MCP server, etc.)
-- **3000-3099**: Legacy/shared ports (DO NOT USE)
-
----
-
-## Requesting Ports
-
-**MANDATORY workflow:**
-
-1. Identify service (frontend, backend, database, etc.)
-2. Read your range from deployment status file
-3. Pick next available port from YOUR range
-4. Request allocation from meta-supervisor (backend service validates)
+1. Identify service
+2. Read your range
+3. Pick next available
+4. Request from meta-supervisor (validates range)
 5. Update `.env`, `docker-compose.yml`, deployment docs
 
-**Meta-supervisor validates**: Port in your range, not already allocated. Rejects if outside range.
-
 ---
 
-## Quick Deployment Workflow
+## References
 
-**CRITICAL: Port MUST be in your assigned range.**
-
-**Steps:**
-1. Verify port in YOUR range (check deployment docs)
-2. Allocate port via meta-supervisor
-3. Start service: `docker compose up -d`
-4. Request CNAME via tunnel service
-
----
-
-**Complete guide**: `/home/samuel/sv/docs/guides/port-management-guide.md`
-
-**Maintained by**: Meta-supervisor (MS)
+**Guide**: `/home/samuel/sv/docs/guides/port-management-guide.md`
 
 # Tunnel Management
 
@@ -721,71 +638,40 @@ After updating, regenerate CLAUDE.md:
 
 # Handoff Workflow
 
-**CRITICAL: Create handoffs when context ≥ 80% or switching tasks**
+**Create handoffs when context ≥ 80% or switching tasks**
 
 ---
 
 ## When to Create
 
 **MANDATORY:**
-- ✅ Context window ≥ 80%
-- ✅ Switching to different epic/task mid-work
-- ✅ End of session with incomplete work
-- ✅ Multiple parallel sessions on different tasks
+- Context ≥ 80%
+- Switching epic/task mid-work
+- Session ending with incomplete work
 
-**DO NOT:**
-- ❌ Work is complete and committed
+**Not needed:** Work complete and committed
 
 ---
 
-## Naming Convention
+## Format
 
-```
-YYYY-MM-DD-HHMM-{epic-or-task-id}-{brief-description}.md
-```
-
-**Examples:**
-- `2026-01-25-1430-epic-003-authentication.md`
-- `2026-01-25-1545-bug-gmail-headers.md`
-
-**Rules:** Date/time (24h), epic ID, 2-4 word description, kebab-case
-
----
-
-## Required Sections
+`YYYY-MM-DD-HHMM-{epic-id}-{description}.md`
 
 **Location**: `docs/handoffs/`
 
-1. ✅ Current state (working, in progress, blocked)
-2. ✅ Exact location (file path:line)
-3. ✅ Next steps (numbered checklist)
-4. ✅ Files modified (git status)
-5. ✅ Commands to resume (copy-paste ready)
-
----
-
-## Quick Checklist
-
-**Creating:**
-- [ ] Context ≥ 80%?
-- [ ] Used naming convention?
-- [ ] Filled all sections?
-- [ ] Commands copy-paste ready?
-- [ ] Updated README?
-- [ ] Committed?
-
-**Resuming:**
-- [ ] Found correct handoff?
-- [ ] Read full document?
-- [ ] Ran resume commands?
-- [ ] Checked git status?
+**Required:**
+1. Current state (working/blocked)
+2. Location (file path:line)
+3. Next steps (numbered)
+4. Files modified (git status)
+5. Resume commands (copy-paste)
 
 ---
 
 ## References
 
-**Template:** `/home/samuel/sv/templates/handoff-template.md`
-**Guide:** `/home/samuel/sv/docs/guides/handoff-workflow-guide.md`
+**Template**: `/home/samuel/sv/templates/handoff-template.md`
+**Guide**: `/home/samuel/sv/docs/guides/handoff-workflow-guide.md`
 
 # Automatic Quality Workflows
 
@@ -872,15 +758,15 @@ psql -d supervisor_meta -c "SELECT epic_id, verdict, confidence_score FROM verif
 **Guide:** `/home/samuel/sv/docs/guides/automatic-quality-workflows-guide.md`
 **PRD:** `.bmad/features/automatic-quality-workflows/prd.md`
 
-# Session Continuity System (Epic 007-F)
+# Session Continuity
 
 **YOU HAVE SESSION RECOVERY VIA DATABASE**
 
 ---
 
-## Your Instance Footer
+## CRITICAL: Footer Required
 
-**CRITICAL: Every PS response MUST include this footer:**
+**Every response MUST include this footer:**
 
 ```
 Instance: {id} | Epic: {epic} | Context: {%}% | Active: {hours}h
@@ -896,53 +782,14 @@ Instance: odin-PS-8f4a2b | Epic: 003 | Context: 42% | Active: 1.2h
 
 ---
 
-## Event Lineage Tracking (Epic 008-C)
+## Setup (First Response Only)
 
-**EventLogger is auto-initialized by PSBootstrap**
-
-You have automatic event lineage tracking without manual logging. PSBootstrap initializes EventLogger on startup, which automatically tracks parent UUIDs via AsyncLocalStorage.
-
-**Benefits:**
-- ✅ No manual parent UUID tracking needed
-- ✅ Transparent parent context propagation through async operations
-- ✅ 7 MCP tools for debugging and analysis
-- ✅ Smart resume using parent chains
-- ✅ Performance: 3.8ms for 100-depth chains
-
-**Convenience Methods (Recommended):**
-
-Instead of manual psql logging, use PSBootstrap convenience methods:
-
-```javascript
-const bootstrap = new PSBootstrap('odin-s');
-await bootstrap.logUserMessage('Deploy app');
-await bootstrap.logSpawnDecision('general-purpose', 'Complex task', 'haiku');
-await bootstrap.logToolUse('Task', { param: 'value' });
-await bootstrap.logToolResult(toolUuid, true, 250);
-await bootstrap.logError('test_failure', 'Tests failed');
-await bootstrap.logSpawn('general-purpose', 'Implement feature');
-await bootstrap.logCommit('feat: add feature', 5);
-await bootstrap.logDeploy('api', 5100, 'success');
-await bootstrap.logPRCreated(url, 'epic-003', 'title');
-await bootstrap.logEpicComplete('epic-003', 'All tests passed', url);
-```
-
-**Manual Logging (DEPRECATED):**
-
-For backwards compatibility, manual psql logging still works, but PSBootstrap methods are preferred.
-
----
-
-## Registration (First Response Only)
-
-**On your very first response, register your instance:**
+**Register your instance once:**
 
 ```bash
-# Generate instance ID
-PROJECT="odin"  # Use your project name
+PROJECT="odin"  # Your project name
 INSTANCE_ID="${PROJECT}-PS-$(openssl rand -hex 3)"
 
-# Register in database
 psql -U supervisor -d supervisor_service -p 5434 << EOF
 INSERT INTO supervisor_sessions (
   instance_id, project, instance_type, status,
@@ -952,61 +799,40 @@ INSERT INTO supervisor_sessions (
   0, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP
 );
 EOF
-
-# Store instance_id for future use
-echo $INSTANCE_ID
 ```
-
-**Store the instance_id** - you'll need it for every response.
 
 ---
 
 ## Heartbeat (Every 5-10 Responses)
 
-**Update your heartbeat periodically:**
-
 ```bash
 psql -U supervisor -d supervisor_service -p 5434 << EOF
 UPDATE supervisor_sessions
-SET
-  context_percent = 42,           -- Calculate from current usage
-  current_epic = 'epic-003',      -- Current epic or NULL
-  last_heartbeat = CURRENT_TIMESTAMP
+SET context_percent = 42, current_epic = 'epic-003',
+    last_heartbeat = CURRENT_TIMESTAMP
 WHERE instance_id = '$INSTANCE_ID';
 EOF
 ```
-
-**Frequency:** Every 5-10 responses, or when epic changes
 
 ---
 
-## Footer Generation
+## Event Logging
 
-**Query your session data and format footer:**
+**Use PSBootstrap convenience methods:**
 
-```bash
-# Get session data
-SESSION_DATA=$(psql -U supervisor -d supervisor_service -p 5434 -t -c "
-SELECT
-  instance_id,
-  COALESCE(current_epic, '—'),
-  context_percent,
-  EXTRACT(EPOCH FROM (CURRENT_TIMESTAMP - created_at))/3600
-FROM supervisor_sessions
-WHERE instance_id = '$INSTANCE_ID';
-")
+```javascript
+const bootstrap = new PSBootstrap('odin-s');
 
-# Parse and format
-IFS='|' read -r INST_ID EPIC CONTEXT AGE <<< "$SESSION_DATA"
-AGE_ROUNDED=$(printf "%.1f" $AGE)
-
-# Append to response
-cat << EOF
-────────────────────────────────────────
-Instance: $INST_ID | Epic: $EPIC | Context: ${CONTEXT}% | Active: ${AGE_ROUNDED}h
-[Use "resume $INST_ID" to restore this session]
-EOF
+// Critical actions only
+await bootstrap.logSpawnDecision('implementation', 'Starting epic');
+await bootstrap.logCommit('feat: implement auth', 7, 'a1b2c3d');
+await bootstrap.logDeploy('api', 5100, 'success');
+await bootstrap.logEpicComplete('epic-009', 'Done', 'https://...');
+await bootstrap.logError('test_failure', 'Tests failed');
 ```
+
+**Log ONLY:** Epic start/complete, git commits, spawns, deploys, errors
+**Don't log:** File reads, greps, routine checks (~300 tokens/session overhead)
 
 ---
 
@@ -1014,290 +840,195 @@ EOF
 
 **When user says:** `resume {instance_id}`
 
-**Smart Resume uses event lineage (Epic 008-F):**
-
-The `mcp_meta_smart_resume_context` tool intelligently reconstructs your session state using event lineage - no need to manually query. It:
-- Finds the instance by ID (full or partial match)
-- Traces parent chains (bounded to 50 recent events for efficiency)
-- Reconstructs context: current epic, last action, recent spawns
-- Returns next steps and ready-to-execute commands
-
-**Using the tool:**
-```javascript
-// Smart resume automatically analyzes event lineage
-const context = await tools.mcp_meta_smart_resume_context({
-  instance_id: 'odin-PS-8f4a2b',  // Full or partial ID
-  include_recent_events: true,
-  max_chain_depth: 50,
-});
-
-// Response includes:
-// - Instance state (epic, context%)
-// - Event chain (last 10 events)
-// - Reconstructed context from lineage
-// - Next steps
-// - Resume commands (copy-paste ready)
-```
-
-**Manual Resume (Fallback):**
-
-If smart resume unavailable, query directly:
-```bash
-psql -U supervisor -d supervisor_service -p 5434 -t -c "
-SELECT instance_id, project, current_epic, context_percent
-FROM supervisor_sessions
-WHERE instance_id = '$RESUME_ID' OR instance_id LIKE '$RESUME_ID%';
-"
-```
-
-Then show footer as normal.
-
----
-
-## MANDATORY: Log Critical Actions
-
-**Use PSBootstrap methods (RECOMMENDED) instead of manual psql:**
-
-```javascript
-// Epic start
-await bootstrap.logSpawnDecision('implementation', 'Starting epic-009');
-
-// Epic completion
-await bootstrap.logEpicComplete('epic-009', 'All tests passed', 'https://...');
-
-// Git commit
-await bootstrap.logCommit('feat: implement auth', 7, 'a1b2c3d');
-
-// Spawn operation
-await bootstrap.logSpawn('general-purpose', 'Implement feature', 'haiku');
-
-// Deploy operation
-await bootstrap.logDeploy('api', 5100, 'success', { health: 'ok' });
-
-// Error
-await bootstrap.logError('test_failure', 'Tests failed after 3 attempts');
-```
-
-**Manual psql Logging (DEPRECATED - Backwards Compatibility Only):**
-
-For systems not yet using PSBootstrap, manual logging still works:
-
-```bash
-# Example: Epic start
-psql -U supervisor -d supervisor_service -p 5434 << EOF
-INSERT INTO command_log (instance_id, action, parameters, success)
-VALUES ('$INSTANCE_ID', 'epic_start', '{"epic_id":"epic-009"}', true);
-EOF
-```
-
-**Do NOT log:** File reads, greps, routine checks, debug output
+Use `mcp_meta_smart_resume_context` tool - automatically reconstructs context using event lineage.
 
 ---
 
 ## Key Rules
 
 ✅ **ALWAYS show footer** (every response)
-✅ **REGISTER once** (first response only)
+✅ **REGISTER once** (first response)
 ✅ **UPDATE heartbeat** (every 5-10 responses)
-✅ **LOG critical actions** (epic start/complete, git commits, spawns, deploys, errors)
-✅ **DETECT resume** (check for "resume {id}")
-
-❌ **Don't skip registration**
-❌ **Don't skip heartbeat updates**
-❌ **Don't skip critical logging**
-❌ **Don't remove footer**
+✅ **LOG critical actions** (epic, git, spawn, deploy, error)
 
 ---
 
-## Database Connection
+## Database
 
-**All queries use:**
 - Database: `supervisor_service`
 - Port: `5434`
 - User: `supervisor`
-- Password: From environment (already configured)
-
----
-
-## Quick Checklist
-
-**First response:**
-- [ ] Generate instance_id
-- [ ] INSERT into supervisor_sessions
-- [ ] Store instance_id
-
-**Every response:**
-- [ ] Append footer with current data
-
-**Every 5-10 responses:**
-- [ ] UPDATE heartbeat with context%
-
-**After critical operations:**
-- [ ] Log epic start/complete
-- [ ] Log git commit (with hash)
-- [ ] Log subagent spawn
-- [ ] Log deploy operations
-- [ ] Log critical errors
-
-**When user says "resume":**
-- [ ] Query session data
-- [ ] Display resume summary
-- [ ] Continue working
-
----
-
-**Status**: ✅ LIVE - Database ready with selective critical logging
-**Last Updated**: 2026-01-29
-**Logging Strategy**: Selective (epic/git/spawn/deploy/error only, ~300 tokens/session overhead)
-
-# Deployment Safety Protocol
-
-**🚨 CRITICAL: ALWAYS Kill Old Instances Before Deploying**
-
-This is a **MANDATORY** rule that has prevented MANY hours of debugging phantom errors.
-
----
-
-## The Problem
-
-**Multiple instances running simultaneously causes:**
-- Confusing errors (which instance is serving requests?)
-- Port conflicts
-- Wasted hours debugging
-- Stale code running
-- Database connection exhaustion
-
-**This happens with:**
-- ✅ Docker containers
-- ✅ Native backends (Node.js, Python, Go)
-- ✅ Native frontends (Vite, Next.js, webpack)
-
----
-
-## MANDATORY RULE
-
-**Before EVERY deployment (Docker, native backend, native frontend):**
-
-```
-🚨 KILL ALL OLD INSTANCES FIRST
-🚨 VERIFY NONE REMAIN
-🚨 THEN START NEW INSTANCE
-🚨 VERIFY ONLY ONE INSTANCE RUNNING
-```
-
-**NO EXCEPTIONS.**
-
----
-
-## Quick Checklist
-
-**Docker Deployments:**
-- [ ] `docker compose down` (stop old containers)
-- [ ] `docker compose rm -f` (remove old containers)
-- [ ] Verify: `docker ps | grep <project>` (should be empty)
-- [ ] `docker compose up -d` (start new)
-- [ ] Verify: `docker ps | grep <project>` (exactly one)
-
-**Native Deployments:**
-- [ ] Find old: `ps aux | grep <service>`
-- [ ] Kill all: `kill -9 <pids>`
-- [ ] Verify: `ps aux | grep <service>` (none)
-- [ ] Start new: `npm run dev` (or equivalent)
-- [ ] Verify: `ps aux | grep <service>` (exactly one)
-- [ ] Verify port: `lsof -i :<port>` (exactly one listener)
-
----
-
-## Implementation
-
-**Use the deployment subagent:**
-- `/home/samuel/sv/.claude/commands/subagents/deployment/deploy-service-local.md`
-
-**This subagent AUTOMATICALLY:**
-- ✅ Kills ALL old instances (exhaustive search)
-- ✅ Verifies none remain
-- ✅ Rebuilds Docker images with `--no-cache`
-- ✅ Starts new instance
-- ✅ Verifies only ONE instance on port
-- ✅ Runs health checks
-- ✅ Cleans up old Docker artifacts
-
-**You MUST use this subagent for ALL local deployments.**
-
----
-
-## When This Applies
-
-**ALWAYS when deploying:**
-- New feature implemented
-- Bug fix deployed
-- Config changed
-- Service restarted
-- Code updated
-
-**ALL deployment types:**
-- Docker containers
-- Native Node.js/npm services
-- Native Python/FastAPI services
-- Native Go services
-- Frontend dev servers (Vite, Next.js, webpack)
-
----
-
-## Verification Steps
-
-**After EVERY deployment, verify:**
-
-```bash
-# Check port usage (MUST be exactly 1)
-lsof -i :<port> | grep LISTEN
-
-# For Docker
-docker ps | grep <project>  # Exactly one container
-
-# For native
-ps aux | grep <service> | grep -v grep  # Exactly one process
-```
-
-**If multiple instances found:**
-1. 🚨 STOP immediately
-2. Kill all instances
-3. Verify none remain
-4. Start deployment again
-
----
-
-## Why This Is Critical
-
-**Real-world impact:**
-- User deploys new backend code
-- Old backend still running on port
-- New backend fails to start (port conflict)
-- OR new backend starts on different port (confusion)
-- OR both running (random requests go to old code)
-- Hours wasted debugging "why isn't my code change working"
-- **Fix**: Kill old instance first
-
-**This rule saves hours every week.**
 
 ---
 
 ## References
 
-**Detailed Workflow:**
-- `/home/samuel/sv/.claude/commands/subagents/deployment/deploy-service-local.md`
+**Complete Guide:** `/home/samuel/sv/docs/guides/session-continuity-guide.md`
 
-**When to use deployment subagent:**
-- ALWAYS for local deployments (native or Docker)
-- After feature implementation
-- After code changes
-- When user says "deploy" or "restart service"
+**Includes:**
+- Detailed registration workflow
+- Footer generation code
+- Smart resume usage
+- Manual logging examples
+- Troubleshooting
 
 ---
 
-**Maintained by**: Documentation Expert
-**Applies to**: ALL supervisors (PSes and MS)
-**Priority**: 🚨 CRITICAL - Non-negotiable
+**Status**: ✅ LIVE
+**Overhead**: ~300 tokens/session (selective logging)
+
+# Deployment Safety
+
+**🚨 CRITICAL: ALWAYS Kill Old Instances Before Deploying**
+
+---
+
+## MANDATORY RULE
+
+**Before EVERY deployment:**
+
+```
+🚨 KILL ALL OLD INSTANCES
+🚨 VERIFY NONE REMAIN
+🚨 START NEW
+🚨 VERIFY ONLY ONE RUNNING
+```
+
+**NO EXCEPTIONS. Applies to: Docker, native backends, native frontends.**
+
+---
+
+## Verification
+
+**After deployment:**
+```bash
+lsof -i :<port> | grep LISTEN  # Must be exactly 1
+docker ps | grep <project>     # Exactly 1 (if Docker)
+ps aux | grep <service>        # Exactly 1 (if native)
+```
+
+**If multiple: STOP, kill all, redeploy.**
+
+---
+
+## Implementation
+
+**Use deployment subagent:**
+`/home/samuel/sv/.claude/commands/subagents/deployment/deploy-service-local.md`
+
+**Triggers:** "deploy", "restart service", after code/config changes
+
+**Subagent auto-handles:** Kill old, verify none, rebuild Docker with `--no-cache`, verify one, health checks
+
+---
+
+## Why Critical
+
+Multiple instances cause:
+- Port conflicts
+- Random requests to old code
+- Hours wasted debugging
+
+**Saves 10+ hours/week.**
+
+---
+
+## References
+
+**Guide**: `/home/samuel/sv/docs/guides/deployment-safety-guide.md`
+- Detailed workflows
+- Issue resolution
+- Real scenarios
+
+---
+
+**Priority**: 🚨 CRITICAL
+
+# Quick Start: Add New Core Instruction
+
+**5-minute guide**
+
+---
+
+## Workflow
+
+1. **Create core file**: `.supervisor-core/11-new-topic.md` (next number)
+2. **Keep lean**: 60-130 lines, core rules + checklists only
+3. **Extract details**: Templates → `/docs/templates/`, guides → `/docs/guides/`
+4. **Test**: `npm run init-projects -- --project consilio-s --verbose`
+5. **Verify size**: `wc -c CLAUDE.md  # Should be < 40k`
+6. **Deploy**: `npm run init-projects -- --verbose`
+
+---
+
+## Template Structure
+
+```markdown
+# Topic Name
+
+## Critical Rules
+**MUST do X when Y**
+
+## Checklist
+1. ✅ Step 1
+2. ✅ Step 2
+
+## References
+**Guide**: `/home/samuel/sv/docs/guides/topic-guide.md`
+```
+
+---
+
+**Full guide**: `/home/samuel/sv/docs/guides/instruction-system-maintenance.md`
+
+# Core Supervisor Instructions
+
+**Last Updated**: 2026-01-25
+
+This directory contains **core instructions** shared by all project-supervisors (PSes).
+
+---
+
+## Files (Loaded Alphabetically)
+
+```
+01-identity.md          - PS role, principles
+02-workflow.md          - SOPs, workflows
+03-structure.md         - Directory organization
+04-tools.md             - Available commands
+05-autonomous-supervision.md - PIV loop, autonomy
+06-terminology.md       - Official terms (SSB, PS, MS)
+07-deployment-documentation.md - Keep deployment info current
+08-port-ranges.md       - Port management
+09-tunnel-management.md - CNAME creation, tunnel tools
+10-secrets-workflow.md  - Mandatory secrets management workflow
+```
+
+---
+
+## Reference Pattern
+
+**Inline**: Core rules, checklists, quick refs
+**External**: Templates (`/docs/templates/`), guides (`/docs/guides/`), examples (`/docs/examples/`)
+
+**Size limits**: 30-60 (simple), 60-130 (medium), 130-270 (complex)
+
+---
+
+## Regenerating CLAUDE.md
+
+**Test one**: `npm run init-projects -- --project consilio-s --verbose`
+**Regenerate all**: `npm run init-projects -- --verbose`
+**Verify**: `wc -c /home/samuel/sv/*/CLAUDE.md  # Should be < 40k chars`
+
+---
+
+## References
+
+**Complete maintenance guide**: `/home/samuel/sv/docs/guides/instruction-system-maintenance.md`
+
+**Maintained by**: Meta-supervisor (MS)
+**Last optimized**: 2026-01-25 (Phase 7 slimming)
 
 # Supervisor Identity
 
@@ -1695,81 +1426,3 @@ TUNNEL_ID=aaffe732-9972-4f70-a758-a3ece1df4035
 **Guide:** `/home/samuel/sv/docs/guides/meta-supervisor-deployment-guide.md`
 **Tunnel:** `/docs/tunnel-manager.md`, `/docs/tunnel-manager-deployment.md`
 **Ports:** `.supervisor-core/08-port-ranges.md`, `.supervisor-meta/04-port-allocations.md`
----
-
-## 🔄 Session Continuity System
-
-**CRITICAL: Register your session when starting work!**
-
-### MCP Server Configuration
-
-The supervisor MCP server is available at:
-- **URL:** https://super.153.se/mcp/meta
-- **Location:** odin3-vm via Cloudflare tunnel
-- **Status:** Check ~/.claude.json for mcpServers.supervisor
-
-### Session Registration (REQUIRED)
-
-**When starting a new Claude Code session:**
-
-1. **Register Instance:**
-   ```
-   Use MCP tool: mcp_meta_register_instance
-   Arguments: {
-     "project": "<project-name>",  # odin, consilio, health-agent, etc.
-     "instance_type": "PS"          # PS for Project-Supervisor, MS for Meta-Supervisor
-   }
-   Returns: { instance_id: "project-PS-xxxxxx", ... }
-   ```
-
-2. **Send Heartbeats (every 120 seconds):**
-   ```
-   Use MCP tool: mcp_meta_heartbeat
-   Arguments: {
-     "instance_id": "<your-instance-id>",
-     "context_percent": <0-100>,      # Your context usage %
-     "current_epic": "007-A"         # Optional: current epic/task
-   }
-   ```
-
-3. **List Active Instances:**
-   ```
-   Use MCP tool: mcp_meta_list_instances
-   Arguments: { "active_only": true }
-   ```
-
-### Instance ID Format
-
-**Format:** `{project}-{type}-{6-char-hash}`
-- Example: `odin-PS-8f4a2b`
-- Example: `health-agent-PS-1a2b3c`
-- Example: `meta-MS-9x8y7z`
-
-### Stale Timeout
-
-- **Timeout:** 120 seconds without heartbeat
-- **Status:** Instance marked as `stale`
-- **Action:** Send heartbeat or resume using `mcp_meta_resume_instance`
-
-### Available Session Tools
-
-- `mcp_meta_register_instance` - Register new instance
-- `mcp_meta_heartbeat` - Update heartbeat
-- `mcp_meta_list_instances` - List all instances
-- `mcp_meta_get_instance_details` - Get instance info
-- `mcp_meta_resume_instance` - Resume stale instance
-- `mcp_meta_log_command` - Log commands
-- `mcp_meta_emit_event` - Emit state events
-- `mcp_meta_create_checkpoint` - Create checkpoints
-
-### Best Practices
-
-1. **Always register** when starting a new session
-2. **Send heartbeats** every 2 minutes during active work
-3. **Update context_percent** to track memory usage
-4. **Log major decisions** using mcp_meta_log_command
-5. **Create checkpoints** before major changes
-6. **List instances** to see other active sessions
-7. **Resume instances** instead of creating duplicates
-
----

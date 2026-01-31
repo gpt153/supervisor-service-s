@@ -32,6 +32,7 @@ export interface Instance {
   status: InstanceStatus;
   context_percent: number;
   current_epic?: string;
+  host_machine?: string; // Machine where session is running (odin3, odin4, laptop)
   last_heartbeat: Date;
   created_at: Date;
   closed_at?: Date;
@@ -44,6 +45,7 @@ export interface RegisterInstanceInput {
   project: string;
   instance_type: InstanceType;
   initial_context?: Record<string, any>;
+  hostMachine?: string; // Optional machine name (defaults to 'odin3' or env HOST_MACHINE)
 }
 
 /**
@@ -56,6 +58,7 @@ export interface RegisterInstanceOutput {
   status: InstanceStatus;
   created_at: string; // ISO 8601
   context_percent: number;
+  host_machine?: string; // Machine where session is running
 }
 
 /**
@@ -99,6 +102,7 @@ export interface InstanceListItem {
   age_seconds: number;
   context_percent: number;
   current_epic?: string;
+  host_machine?: string; // Machine where session is running
 }
 
 /**
@@ -136,6 +140,7 @@ export interface InstanceMatch {
   type: InstanceType;
   status: InstanceStatus;
   age_seconds: number;
+  host_machine?: string; // Machine where session is running
 }
 
 /**

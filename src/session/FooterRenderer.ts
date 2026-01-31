@@ -20,6 +20,7 @@ export interface FooterConfig {
   instanceId: string;
   currentEpic?: string;
   contextPercent: number;
+  hostMachine?: string; // Machine where session is running (odin3, odin4, laptop)
   sessionStartTime: Date;
   showResumeHint?: boolean;
 }
@@ -35,9 +36,10 @@ export interface FooterConfig {
  *   instanceId: 'odin-PS-8f4a2b',
  *   currentEpic: '003',
  *   contextPercent: 42,
+ *   hostMachine: 'odin3',
  *   sessionStartTime: new Date('2026-01-28T10:00:00Z')
  * });
- * // Returns: "\n---\nInstance: odin-PS-8f4a2b | Epic: 003 | Context: 42% | Active: 1.2h"
+ * // Returns: "Instance: odin-PS-8f4a2b@odin3 | Epic: 003 | Context: 42% | Active: 1.2h"
  */
 export function renderFooter(config: FooterConfig): string {
   const start = Date.now();
@@ -50,8 +52,12 @@ export function renderFooter(config: FooterConfig): string {
     // Format epic display
     const epicDisplay = config.currentEpic ? config.currentEpic : '—';
 
+    // Format instance with machine (if available)
+    const machine = config.hostMachine ? `@${config.hostMachine}` : '';
+    const instanceDisplay = `${config.instanceId}${machine}`;
+
     // Build footer line
-    const footer = `Instance: ${config.instanceId} | Epic: ${epicDisplay} | Context: ${config.contextPercent}% | Active: ${durationHours}h`;
+    const footer = `Instance: ${instanceDisplay} | Epic: ${epicDisplay} | Context: ${config.contextPercent}% | Active: ${durationHours}h`;
 
     // Check performance
     const duration = Date.now() - start;
@@ -172,9 +178,10 @@ export function isValidFooterFormat(footer: string): boolean {
  * Example footer outputs for documentation
  */
 export const FOOTER_EXAMPLES = {
-  minimal: 'Instance: odin-PS-8f4a2b | Epic: — | Context: 0% | Active: 0.1h',
-  working: 'Instance: odin-PS-8f4a2b | Epic: 003 | Context: 42% | Active: 1.2h',
-  complete: 'Instance: odin-PS-8f4a2b | Epic: 003 | Context: 92% | Active: 4.5h',
+  minimal: 'Instance: odin-PS-8f4a2b@odin3 | Epic: — | Context: 0% | Active: 0.1h',
+  working: 'Instance: odin-PS-8f4a2b@odin3 | Epic: 003 | Context: 42% | Active: 1.2h',
+  complete: 'Instance: odin-PS-8f4a2b@odin3 | Epic: 003 | Context: 92% | Active: 4.5h',
+  laptop: 'Instance: consilio-PS-a1b2c3@laptop | Epic: 005 | Context: 55% | Active: 2.3h',
   withHint:
-    'Instance: odin-PS-8f4a2b | Epic: 003 | Context: 42% | Active: 1.2h\n[Use "resume odin-PS-8f4a2b" to restore this session]',
+    'Instance: odin-PS-8f4a2b@odin3 | Epic: 003 | Context: 42% | Active: 1.2h\n[Use "resume odin-PS-8f4a2b" to restore this session]',
 };

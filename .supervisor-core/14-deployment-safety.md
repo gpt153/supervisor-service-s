@@ -1,148 +1,66 @@
-# Deployment Safety Protocol
+# Deployment Safety
 
 **🚨 CRITICAL: ALWAYS Kill Old Instances Before Deploying**
-
-This is a **MANDATORY** rule that has prevented MANY hours of debugging phantom errors.
-
----
-
-## The Problem
-
-**Multiple instances running simultaneously causes:**
-- Confusing errors (which instance is serving requests?)
-- Port conflicts
-- Wasted hours debugging
-- Stale code running
-- Database connection exhaustion
-
-**This happens with:**
-- ✅ Docker containers
-- ✅ Native backends (Node.js, Python, Go)
-- ✅ Native frontends (Vite, Next.js, webpack)
 
 ---
 
 ## MANDATORY RULE
 
-**Before EVERY deployment (Docker, native backend, native frontend):**
+**Before EVERY deployment:**
 
 ```
-🚨 KILL ALL OLD INSTANCES FIRST
+🚨 KILL ALL OLD INSTANCES
 🚨 VERIFY NONE REMAIN
-🚨 THEN START NEW INSTANCE
-🚨 VERIFY ONLY ONE INSTANCE RUNNING
+🚨 START NEW
+🚨 VERIFY ONLY ONE RUNNING
 ```
 
-**NO EXCEPTIONS.**
+**NO EXCEPTIONS. Applies to: Docker, native backends, native frontends.**
 
 ---
 
-## Quick Checklist
+## Verification
 
-**Docker Deployments:**
-- [ ] `docker compose down` (stop old containers)
-- [ ] `docker compose rm -f` (remove old containers)
-- [ ] Verify: `docker ps | grep <project>` (should be empty)
-- [ ] `docker compose up -d` (start new)
-- [ ] Verify: `docker ps | grep <project>` (exactly one)
+**After deployment:**
+```bash
+lsof -i :<port> | grep LISTEN  # Must be exactly 1
+docker ps | grep <project>     # Exactly 1 (if Docker)
+ps aux | grep <service>        # Exactly 1 (if native)
+```
 
-**Native Deployments:**
-- [ ] Find old: `ps aux | grep <service>`
-- [ ] Kill all: `kill -9 <pids>`
-- [ ] Verify: `ps aux | grep <service>` (none)
-- [ ] Start new: `npm run dev` (or equivalent)
-- [ ] Verify: `ps aux | grep <service>` (exactly one)
-- [ ] Verify port: `lsof -i :<port>` (exactly one listener)
+**If multiple: STOP, kill all, redeploy.**
 
 ---
 
 ## Implementation
 
-**Use the deployment subagent:**
-- `/home/samuel/sv/.claude/commands/subagents/deployment/deploy-service-local.md`
+**Use deployment subagent:**
+`/home/samuel/sv/.claude/commands/subagents/deployment/deploy-service-local.md`
 
-**This subagent AUTOMATICALLY:**
-- ✅ Kills ALL old instances (exhaustive search)
-- ✅ Verifies none remain
-- ✅ Rebuilds Docker images with `--no-cache`
-- ✅ Starts new instance
-- ✅ Verifies only ONE instance on port
-- ✅ Runs health checks
-- ✅ Cleans up old Docker artifacts
+**Triggers:** "deploy", "restart service", after code/config changes
 
-**You MUST use this subagent for ALL local deployments.**
+**Subagent auto-handles:** Kill old, verify none, rebuild Docker with `--no-cache`, verify one, health checks
 
 ---
 
-## When This Applies
+## Why Critical
 
-**ALWAYS when deploying:**
-- New feature implemented
-- Bug fix deployed
-- Config changed
-- Service restarted
-- Code updated
+Multiple instances cause:
+- Port conflicts
+- Random requests to old code
+- Hours wasted debugging
 
-**ALL deployment types:**
-- Docker containers
-- Native Node.js/npm services
-- Native Python/FastAPI services
-- Native Go services
-- Frontend dev servers (Vite, Next.js, webpack)
-
----
-
-## Verification Steps
-
-**After EVERY deployment, verify:**
-
-```bash
-# Check port usage (MUST be exactly 1)
-lsof -i :<port> | grep LISTEN
-
-# For Docker
-docker ps | grep <project>  # Exactly one container
-
-# For native
-ps aux | grep <service> | grep -v grep  # Exactly one process
-```
-
-**If multiple instances found:**
-1. 🚨 STOP immediately
-2. Kill all instances
-3. Verify none remain
-4. Start deployment again
-
----
-
-## Why This Is Critical
-
-**Real-world impact:**
-- User deploys new backend code
-- Old backend still running on port
-- New backend fails to start (port conflict)
-- OR new backend starts on different port (confusion)
-- OR both running (random requests go to old code)
-- Hours wasted debugging "why isn't my code change working"
-- **Fix**: Kill old instance first
-
-**This rule saves hours every week.**
+**Saves 10+ hours/week.**
 
 ---
 
 ## References
 
-**Detailed Workflow:**
-- `/home/samuel/sv/.claude/commands/subagents/deployment/deploy-service-local.md`
-
-**When to use deployment subagent:**
-- ALWAYS for local deployments (native or Docker)
-- After feature implementation
-- After code changes
-- When user says "deploy" or "restart service"
+**Guide**: `/home/samuel/sv/docs/guides/deployment-safety-guide.md`
+- Detailed workflows
+- Issue resolution
+- Real scenarios
 
 ---
 
-**Maintained by**: Documentation Expert
-**Applies to**: ALL supervisors (PSes and MS)
-**Priority**: 🚨 CRITICAL - Non-negotiable
+**Priority**: 🚨 CRITICAL
