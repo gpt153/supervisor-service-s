@@ -147,8 +147,8 @@ EOF
 ```bash
 # Direct database access
 psql -U supervisor -d supervisor_service -p 5434 << EOF
-INSERT INTO command_log (instance_id, action, description, parameters, tags, success)
-VALUES ('$INSTANCE_ID', 'spawn', 'Task description', '{"subagent":"haiku"}', '{"spawn"}', true);
+INSERT INTO command_log (instance_id, command_type, action, parameters, tags, success)
+VALUES ('$INSTANCE_ID', 'spawn', 'Task description', '{"subagent":"haiku"}', '["spawn"]', true);
 EOF
 ```
 
