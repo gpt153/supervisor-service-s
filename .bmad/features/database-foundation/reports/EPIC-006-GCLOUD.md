@@ -269,7 +269,7 @@ curl -X POST http://localhost:8080/meta/tools/gcloud-get-vm \
     "cpus": 2,
     "memoryMB": 7680,
     "diskGB": 50,
-    "internalIP": "10.128.0.2",
+    "internalIP": "10.226.0.3",
     "externalIP": "34.91.182.200"
   }
 }

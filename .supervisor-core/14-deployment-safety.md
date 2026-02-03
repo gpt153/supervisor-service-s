@@ -34,12 +34,28 @@ ps aux | grep <service>        # Exactly 1 (if native)
 
 ## Implementation
 
-**Use deployment subagent:**
+❌ **NEVER DEPLOY MANUALLY**
+✅ **MUST USE DEPLOYMENT SUBAGENT**
+
+**MANDATORY**: ALL deployments MUST use Task tool to invoke:
 `/home/samuel/sv/.claude/commands/subagents/deployment/deploy-service-local.md`
 
-**Triggers:** "deploy", "restart service", after code/config changes
+**DO NOT**:
+- ❌ Run `npm run dev` directly
+- ❌ Run `docker compose up` directly
+- ❌ Run `npm start` directly
+- ❌ Start services without using the subagent
 
-**Subagent auto-handles:** Kill old, verify none, rebuild Docker with `--no-cache`, verify one, health checks
+**ONLY THE SUBAGENT** can deploy because it:
+- Kills ALL old instances (exhaustive search patterns)
+- Verifies NONE remain (ps/docker ps verification)
+- Rebuilds Docker with `--no-cache` (prevents stale code)
+- Verifies ONLY ONE instance on port (lsof check)
+- Runs health checks (ensures service actually works)
+
+**Triggers:** User says "deploy", "restart service", after code/config changes, after commits
+
+**If you deploy manually, you WILL create multiple instances. Use the subagent.**
 
 ---
 

@@ -227,7 +227,7 @@ export async function queryEvents(
     params
   );
 
-  const totalCount = parseInt(countResult.rows[0]?.count || '0', 10);
+  const totalCount = parseInt((countResult.rows[0]?.count || '0').toString(), 10);
 
   // Get paginated results
   const queryResult = await pool.query<EventItem>(
@@ -246,14 +246,24 @@ export async function queryEvents(
   }
 
   return {
-    events: queryResult.rows.map((row) => ({
-      event_id: row.event_id,
-      event_type: row.event_type,
-      sequence_num: row.sequence_num,
-      timestamp: row.timestamp instanceof Date ? row.timestamp.toISOString() : row.timestamp,
-      event_data: row.event_data,
-      metadata: row.metadata,
-    })),
+    events: queryResult.rows.map((row) => {
+      let timestamp: string;
+      if (typeof row.timestamp === 'string') {
+        timestamp = row.timestamp;
+      } else if (row.timestamp && typeof row.timestamp === 'object' && 'toISOString' in row.timestamp) {
+        timestamp = (row.timestamp as Date).toISOString();
+      } else {
+        timestamp = new Date(row.timestamp as any).toISOString();
+      }
+      return {
+        event_id: row.event_id,
+        event_type: row.event_type,
+        sequence_num: row.sequence_num,
+        timestamp,
+        event_data: row.event_data,
+        metadata: row.metadata,
+      };
+    }),
     total_count: totalCount,
     has_more: offset + limit < totalCount,
   };
@@ -309,7 +319,13 @@ export async function replayEvents(
   }>(query, params);
 
   // Aggregate state by replaying events
-  const state: Record<string, any> = {
+  const state: {
+    last_epic?: string;
+    last_event_type?: string;
+    latest_timestamp?: string;
+    total_events_replayed: number;
+    checkpoint_state: Record<string, any>;
+  } = {
     last_epic: undefined,
     last_event_type: undefined,
     latest_timestamp: undefined,
@@ -319,8 +335,13 @@ export async function replayEvents(
 
   for (const event of result.rows) {
     state.last_event_type = event.event_type;
-    state.latest_timestamp =
-      event.timestamp instanceof Date ? event.timestamp.toISOString() : event.timestamp;
+    if (typeof event.timestamp === 'string') {
+      state.latest_timestamp = event.timestamp;
+    } else if (event.timestamp && typeof event.timestamp === 'object' && 'toISOString' in event.timestamp) {
+      state.latest_timestamp = (event.timestamp as Date).toISOString();
+    } else {
+      state.latest_timestamp = new Date(event.timestamp as any).toISOString();
+    }
 
     // Extract epic_id if present in event_data
     if (event.event_data?.epic_id) {
@@ -405,14 +426,24 @@ export async function getLatestEvents(
 
   return result.rows
     .reverse()
-    .map((row) => ({
-      event_id: row.event_id,
-      event_type: row.event_type,
-      sequence_num: row.sequence_num,
-      timestamp: row.timestamp instanceof Date ? row.timestamp.toISOString() : row.timestamp,
-      event_data: row.event_data,
-      metadata: row.metadata,
-    }));
+    .map((row) => {
+      let timestamp: string;
+      if (typeof row.timestamp === 'string') {
+        timestamp = row.timestamp;
+      } else if (row.timestamp && typeof row.timestamp === 'object' && 'toISOString' in row.timestamp) {
+        timestamp = (row.timestamp as Date).toISOString();
+      } else {
+        timestamp = new Date(row.timestamp as any).toISOString();
+      }
+      return {
+        event_id: row.event_id,
+        event_type: row.event_type,
+        sequence_num: row.sequence_num,
+        timestamp,
+        event_data: row.event_data,
+        metadata: row.metadata,
+      };
+    });
 }
 
 /**
@@ -434,11 +465,19 @@ export async function getEventById(eventId: string): Promise<EventItem | null> {
   }
 
   const row = result.rows[0];
+  let timestamp: string;
+  if (typeof row.timestamp === 'string') {
+    timestamp = row.timestamp;
+  } else if (row.timestamp && typeof row.timestamp === 'object' && 'toISOString' in row.timestamp) {
+    timestamp = (row.timestamp as Date).toISOString();
+  } else {
+    timestamp = new Date(row.timestamp as any).toISOString();
+  }
   return {
     event_id: row.event_id,
     event_type: row.event_type,
     sequence_num: row.sequence_num,
-    timestamp: row.timestamp instanceof Date ? row.timestamp.toISOString() : row.timestamp,
+    timestamp,
     event_data: row.event_data,
     metadata: row.metadata,
   };
@@ -456,7 +495,7 @@ export async function getEventCount(instanceId: string): Promise<number> {
     [instanceId]
   );
 
-  return parseInt(result.rows[0]?.count || '0', 10);
+  return parseInt((result.rows[0]?.count || '0').toString(), 10);
 }
 
 /**

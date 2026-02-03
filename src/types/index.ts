@@ -80,10 +80,30 @@ export * from './design-system.js';
 // Re-export UI-001 Requirements Analysis Engine types
 export * from './ui-001.js';
 
-// Re-export evidence types
-export * from './evidence.js';
+// Re-export evidence types (but exclude TestType to avoid conflict with red-flags)
+export type {
+  EvidenceArtifact,
+  PassFailStatus,
+  VerificationLevel,
+  ConsoleLog,
+  NetworkTrace,
+  UITestEvidence,
+  HttpRequest,
+  HttpResponse,
+  MCPToolCall,
+  APITestEvidence,
+  TestFrameworkOutput,
+  CoverageReport,
+  AssertionLog,
+  TestFailureInfo,
+  UnitTestEvidence,
+  EvidenceCollectorConfig,
+  EvidenceStorageParams,
+  EvidenceQueryOptions,
+  EvidenceQueryResult
+} from './evidence.js';
 
-// Re-export red flag types
+// Re-export red flag types (TestType comes from here)
 export * from './red-flags.js';
 
 // Re-export verification types

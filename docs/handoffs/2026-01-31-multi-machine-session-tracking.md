@@ -268,7 +268,7 @@ pool.query('SELECT NOW()').then(r => {
 npm run test-ps-session
 
 # Check it registered with correct machine
-psql -h 10.128.0.2 -p 5434 -U supervisor -d supervisor_service \
+psql -h 10.226.0.3 -p 5434 -U supervisor -d supervisor_service \
   -c "SELECT instance_id, host_machine FROM supervisor_sessions ORDER BY created_at DESC LIMIT 1;"
 
 # Should show: host_machine = 'odin4'
@@ -548,7 +548,7 @@ SELECT * FROM active_sessions_by_machine;
 | Variable | odin3 | odin4 | laptop |
 |----------|-------|-------|--------|
 | HOST_MACHINE | odin3 | odin4 | laptop |
-| PGHOST | localhost | 10.128.0.2 | db.153.se |
+| PGHOST | localhost | 10.226.0.3 | db.153.se |
 | MCP_SERVER_URL | localhost:8081 | odin3:8081 | mcp.153.se |
 ```
 

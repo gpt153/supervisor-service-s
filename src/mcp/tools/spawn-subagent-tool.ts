@@ -385,6 +385,12 @@ async function spawnAgent(
   error?: string;
   duration_ms: number;
   output_file: string;
+  task_tool_params?: {
+    model: 'sonnet' | 'opus' | 'haiku';
+    max_turns: number;
+    instructions_file: string;
+    project_path: string;
+  };
 }> {
   // Generate agent ID
   const agent_id = `agent-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
