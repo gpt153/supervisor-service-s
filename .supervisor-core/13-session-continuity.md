@@ -135,20 +135,32 @@ EOF
 
 ## Event Logging
 
-**Critical:** PSes MUST log events for session recovery to work.
+**Critical:** PSes MUST log events to `event_store` table for session recovery to work.
 
-**Method 1: MCP Tools (Preferred):**
+**Method 1: Helper Function (Recommended):**
 ```bash
-# Via MCP tools (if available)
-# Use mcp_meta_log_command tool with instance_id and event details
+# Source helper once per session
+source /home/samuel/sv/.claude/helpers/log-event.sh
+
+# Then log events easily
+log_event "spawn" '{"description":"Implement epic-003","subagent_type":"general-purpose","model":"haiku"}'
+log_event "epic_start" '{"epic_id":"epic-003","feature":"authentication"}'
+log_event "commit" '{"message":"feat: implement auth","files_changed":7,"commit_hash":"a1b2c3d"}'
+log_event "deploy" '{"service":"api","port":5100,"status":"success"}'
+log_event "epic_completed" '{"epic_id":"epic-003","status":"passed","pr_url":"https://..."}'
 ```
 
-**Method 2: Bash Commands (Fallback):**
+**Method 2: Direct Database (Fallback):**
 ```bash
-# Direct database access
-psql -U supervisor -d supervisor_service -p 5434 << EOF
-INSERT INTO command_log (instance_id, command_type, action, parameters, tags, success)
-VALUES ('$INSTANCE_ID', 'spawn', 'Task description', '{"subagent":"haiku"}', '["spawn"]', true);
+# Get next sequence number
+NEXT_SEQ=$(psql -U supervisor -d supervisor_service -h $PGHOST -p $PGPORT -t -c "
+  SELECT COALESCE(MAX(sequence_num), 0) + 1 FROM event_store WHERE instance_id = '$INSTANCE_ID'
+" | tr -d ' ')
+
+# Insert event
+psql -U supervisor -d supervisor_service -h $PGHOST -p $PGPORT << EOF
+INSERT INTO event_store (instance_id, event_type, sequence_num, event_data, metadata)
+VALUES ('$INSTANCE_ID', 'spawn', $NEXT_SEQ, '{"description":"..."}', '{"tags":["spawn"]}');
 EOF
 ```
 

@@ -83,11 +83,14 @@ EOF
 ## Event Logging
 
 ```bash
-# Log events (use auto-detected connection)
-psql -U supervisor -d supervisor_service -h $PGHOST -p $PGPORT << EOF
-INSERT INTO command_log (instance_id, action, description, parameters, tags, success)
-VALUES ('$INSTANCE_ID', 'spawn', 'Description', '{"subagent":"haiku"}', '{"spawn"}', true);
-EOF
+# Source helper function
+source /home/samuel/sv/.claude/helpers/log-event.sh
+
+# Log events (helper uses auto-detected $PGHOST/$PGPORT)
+log_event "spawn" '{"description":"Description","subagent":"haiku"}' '{"tags":["spawn"]}'
+log_event "epic_start" '{"epic_id":"epic-003","feature":"authentication"}'
+log_event "commit" '{"message":"feat: implement auth","files_changed":7,"commit_hash":"a1b2c3d"}'
+log_event "deploy" '{"service":"api","port":5100,"status":"success"}'
 ```
 
 ---
