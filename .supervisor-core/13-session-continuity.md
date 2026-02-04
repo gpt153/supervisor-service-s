@@ -4,96 +4,40 @@
 
 ---
 
-## 🚨 CRITICAL: Auto-Initialization Hook
-
-**On EVERY first response, check for SessionStart auto-registration:**
-
-Look for this in the conversation context:
-```
-🔄 **Session Auto-Registered**
-✅ Instance: `[project]-PS-[id]`
-```
-
-**If you see it:**
-```bash
-# Hook already registered! Just export the ID:
-export INSTANCE_ID="[the-id-from-SessionStart]"
-# Example: export INSTANCE_ID="consilio-PS-abc123"
-```
-
-**✅ DONE - Skip manual registration. DO NOT register again!**
-
-**If NOT present:** Follow manual registration steps below.
-
-**Hook location:** `.claude/hooks/session-start.sh` (future implementation)
-
----
-
 ## Multi-Machine Architecture
 
-**Infrastructure Host: odin3**
-- PostgreSQL: `localhost:5434`
-- MCP Server: `localhost:8081`
-
-**Development Machines: odin4, laptop**
-- Connect remotely to odin3 services
-- Parallel development environments
+**Infrastructure Host: odin3** - PostgreSQL + MCP Server
+**Development Machines: odin4, laptop** - Remote connections
 
 **Check `.supervisor-specific/03-machine-config.md` for connection details**
 
 ---
 
-## CRITICAL: Footer Required
+## 🚨 MANDATORY: Register on First Response
 
-**Every response MUST include this footer:**
+**On your VERY FIRST response:**
 
-```
-Instance: {id}@{machine} | Epic: {epic} | Context: {%}% | Active: {hours}h
-[Use "resume {id}" to restore this session]
-```
+### 1. Check for Auto-Registration
 
-**Example:**
-```
-Instance: odin-PS-8f4a2b@odin4 | Epic: 003 | Context: 42% | Active: 1.2h
-```
-
-**Never remove the footer** - it's how users recover from disconnects.
-
----
-
-## 🚨 MANDATORY: Check Registration Status FIRST
-
-**On your VERY FIRST response, check if session is already registered:**
-
-### Step 1: Check for Auto-Registration
-
-**Look for this in the conversation context (SessionStart output):**
+Look for this in conversation context:
 ```
 🔄 **Session Auto-Registered**
 ✅ Instance: `[project]-PS-[id]`
 ```
 
-**If you see it:**
+**If present:** Export the ID and skip to step 3
 ```bash
-# Hook already registered! Just export the ID:
 export INSTANCE_ID="[the-id-from-SessionStart]"
-# Example: export INSTANCE_ID="consilio-PS-abc123"
 ```
 
-**✅ DONE - Skip to Step 3. DO NOT register again!**
-
----
-
-### Step 2: Manual Registration (If No Auto-Registration)
-
-**Only if you did NOT see "Session Auto-Registered" above:**
+### 2. Manual Registration (If Not Auto-Registered)
 
 ```bash
 PROJECT="odin"  # Your project name
 HOST_MACHINE="${HOST_MACHINE:-odin3}"
 INSTANCE_ID="${PROJECT}-PS-$(openssl rand -hex 3)"
 
-# Connection varies by machine - see .supervisor-specific/03-machine-config.md
+# See .supervisor-specific/03-machine-config.md for connection details
 psql -U supervisor -d supervisor_service -p 5434 << EOF
 INSERT INTO supervisor_sessions (
   instance_id, project, instance_type, status,
@@ -107,16 +51,25 @@ EOF
 export INSTANCE_ID
 ```
 
----
+### 3. Confirm Registration
 
-### Step 3: Confirm Registration
-
-**Every first response must confirm:**
+**Every first response must show:**
 ```
 ✅ Registered: [instance-id]@[machine]
 ```
 
-**⚠️ NEVER skip registration check** - prevents duplicate registrations.
+---
+
+## CRITICAL: Footer Required
+
+**Every response MUST include:**
+
+```
+Instance: {id}@{machine} | Epic: {epic} | Context: {%}% | Active: {hours}h
+[Use "resume {id}" to restore this session]
+```
+
+**Never remove** - users need this to recover from disconnects.
 
 ---
 
@@ -133,50 +86,74 @@ EOF
 
 ---
 
-## Event Logging
+## Event Logging (MANDATORY)
 
-**Critical:** PSes MUST log events to `event_store` table for session recovery to work.
+**🚨 CRITICAL: You MUST log events or resume will be EMPTY**
 
-**Method 1: Helper Function (Recommended):**
-```bash
-# Source helper once per session
-source /home/samuel/sv/.claude/helpers/log-event.sh
+**Use MCP tool `mcp_meta_emit_event` for ALL critical actions:**
 
-# Then log events easily
-log_event "spawn" '{"description":"Implement epic-003","subagent_type":"general-purpose","model":"haiku"}'
-log_event "epic_start" '{"epic_id":"epic-003","feature":"authentication"}'
-log_event "commit" '{"message":"feat: implement auth","files_changed":7,"commit_hash":"a1b2c3d"}'
-log_event "deploy" '{"service":"api","port":5100,"status":"success"}'
-log_event "epic_completed" '{"epic_id":"epic-003","status":"passed","pr_url":"https://..."}'
+```typescript
+// After spawning subagent
+ToolSearch({ query: "select:mcp_meta_emit_event" })
+mcp_meta_emit_event({
+  instance_id: INSTANCE_ID,
+  event_type: "task_spawned",
+  event_data: {
+    task_type: "epic_implementation",
+    subagent_type: "haiku",
+    epic_id: "epic-003",
+    description: "Implement authentication system"
+  }
+})
+
+// After git commit
+mcp_meta_emit_event({
+  instance_id: INSTANCE_ID,
+  event_type: "commit_created",
+  event_data: {
+    commit_hash: "a1b2c3d",
+    message: "feat: implement auth system",
+    files_changed: 7,
+    epic_id: "epic-003"
+  }
+})
+
+// After deployment
+mcp_meta_emit_event({
+  instance_id: INSTANCE_ID,
+  event_type: "deployment_completed",
+  event_data: {
+    service: "api",
+    environment: "development",
+    health_status: "healthy",
+    duration_seconds: 45,
+    port: 5100
+  }
+})
+
+// After epic completion
+mcp_meta_emit_event({
+  instance_id: INSTANCE_ID,
+  event_type: "epic_completed",
+  event_data: {
+    epic_id: "epic-003",
+    duration_hours: 2.5,
+    files_changed: 12,
+    tests_passed: true,
+    validation_confidence: 95
+  }
+})
 ```
 
-**Method 2: Direct Database (Fallback):**
-```bash
-# Get next sequence number
-NEXT_SEQ=$(psql -U supervisor -d supervisor_service -h $PGHOST -p $PGPORT -t -c "
-  SELECT COALESCE(MAX(sequence_num), 0) + 1 FROM event_store WHERE instance_id = '$INSTANCE_ID'
-" | tr -d ' ')
+**MANDATORY - Log these IMMEDIATELY after they happen:**
+- ✅ **task_spawned** - After EVERY Task tool call
+- ✅ **commit_created** - After EVERY git commit
+- ✅ **deployment_completed** - After EVERY deployment
+- ✅ **epic_completed** - After marking epic done
+- ✅ **epic_started** - When starting new epic
+- ✅ **pr_created** - After creating PR
 
-# Insert event
-psql -U supervisor -d supervisor_service -h $PGHOST -p $PGPORT << EOF
-INSERT INTO event_store (instance_id, event_type, sequence_num, event_data, metadata)
-VALUES ('$INSTANCE_ID', 'spawn', $NEXT_SEQ, '{"description":"..."}', '{"tags":["spawn"]}');
-EOF
-```
-
-**What to log:**
-- ✅ Epic start/complete
-- ✅ Git commits
-- ✅ Spawns
-- ✅ Deploys
-- ✅ Errors
-
-**Don't log:**
-- ❌ File reads, greps, routine checks
-
-**Complete examples:** `/home/samuel/sv/docs/guides/ps-event-logging-guide.md`
-
-**Overhead:** ~300 tokens/session (selective logging)
+**Skip routine checks** (file reads, greps, status checks)
 
 ---
 
@@ -184,26 +161,16 @@ EOF
 
 **When user says:** `resume {instance_id}`
 
-Use `mcp_meta_smart_resume_context` tool - automatically reconstructs context using event lineage.
+Use `mcp_meta_smart_resume_context` tool.
 
 ---
 
-## Key Rules (MANDATORY)
+## Key Rules
 
 🚨 **REGISTER FIRST** (very first response - NO EXCEPTIONS)
-🚨 **ALWAYS show footer** (every single response)
+🚨 **ALWAYS show footer** (every response)
 ✅ **UPDATE heartbeat** (every 5-10 responses)
 ✅ **LOG critical actions** (epic, git, spawn, deploy, error)
-
-**If you forget to register, user will remind you. DON'T forget.**
-
----
-
-## Database
-
-- Database: `supervisor_service`
-- Port: `5434`
-- User: `supervisor`
 
 ---
 
@@ -212,13 +179,7 @@ Use `mcp_meta_smart_resume_context` tool - automatically reconstructs context us
 **Complete Guide:** `/home/samuel/sv/docs/guides/session-continuity-guide.md`
 
 **Includes:**
-- Detailed registration workflow
+- Detailed registration examples
 - Footer generation code
-- Smart resume usage
-- Manual logging examples
+- Manual database logging (fallback)
 - Troubleshooting
-
----
-
-**Status**: ✅ LIVE
-**Overhead**: ~300 tokens/session (selective logging)
