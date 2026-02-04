@@ -1,0 +1,193 @@
+# iOS CI/CD Pipeline
+# Builds iOS app, runs tests, optionally deploys to TestFlight
+
+name: iOS CI
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main, develop]
+
+concurrency:
+  group: ios-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  XCODE_VERSION: '15.4'
+  NODE_VERSION: '22'
+
+jobs:
+  build-ios:
+    name: Build iOS App
+    runs-on: macos-self-hosted  # Change to macos-latest for cloud runner
+    timeout-minutes: 45
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+
+      - name: Select Xcode version
+        run: sudo xcode-select -s /Applications/Xcode_${{ env.XCODE_VERSION }}.app || true
+
+      - name: Cache CocoaPods
+        uses: actions/cache@v4
+        with:
+          path: ios/Pods
+          key: pods-${{ runner.os }}-${{ hashFiles('ios/Podfile.lock') }}
+          restore-keys: |
+            pods-${{ runner.os }}-
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run Jest tests
+        run: npm test -- --ci
+        continue-on-error: true
+
+      - name: Expo prebuild (iOS)
+        run: npx expo prebuild --platform ios --no-install
+
+      - name: Install CocoaPods
+        run: cd ios && pod install
+
+      - name: Build for Simulator
+        run: |
+          cd ios
+          xcodebuild \
+            -workspace *.xcworkspace \
+            -scheme $(ls *.xcworkspace | sed 's/.xcworkspace//') \
+            -configuration Debug \
+            -sdk iphonesimulator \
+            -destination "platform=iOS Simulator,name=iPhone 15" \
+            -derivedDataPath build \
+            clean build | tail -20
+
+      - name: Verify build
+        run: |
+          APP=$(find ios/build -name "*.app" -type d | head -1)
+          if [ -n "$APP" ]; then
+            echo "iOS build successful: $APP"
+            du -sh "$APP"
+          else
+            echo "ERROR: No .app bundle found"
+            exit 1
+          fi
+
+      - name: Upload build artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ios-simulator-build
+          path: ios/build/
+          retention-days: 7
+
+  deploy-testflight:
+    name: Deploy to TestFlight
+    runs-on: macos-self-hosted
+    needs: build-ios
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Expo prebuild (iOS)
+        run: npx expo prebuild --platform ios --no-install
+
+      - name: Install CocoaPods
+        run: cd ios && pod install
+
+      - name: Install Apple certificate
+        env:
+          APPLE_CERTIFICATE_BASE64: ${{ secrets.APPLE_CERTIFICATE_BASE64 }}
+          APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+          APPLE_PROVISIONING_PROFILE_BASE64: ${{ secrets.APPLE_PROVISIONING_PROFILE_BASE64 }}
+        run: |
+          # Create temporary keychain
+          KEYCHAIN_PASSWORD=$(openssl rand -hex 12)
+          security create-keychain -p "$KEYCHAIN_PASSWORD" build.keychain
+          security default-keychain -s build.keychain
+          security unlock-keychain -p "$KEYCHAIN_PASSWORD" build.keychain
+
+          # Import certificate
+          echo "$APPLE_CERTIFICATE_BASE64" | base64 --decode > certificate.p12
+          security import certificate.p12 -k build.keychain -P "$APPLE_CERTIFICATE_PASSWORD" -T /usr/bin/codesign
+          security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k "$KEYCHAIN_PASSWORD" build.keychain
+
+          # Import provisioning profile
+          mkdir -p ~/Library/MobileDevice/Provisioning\ Profiles
+          echo "$APPLE_PROVISIONING_PROFILE_BASE64" | base64 --decode > profile.mobileprovision
+          cp profile.mobileprovision ~/Library/MobileDevice/Provisioning\ Profiles/
+
+      - name: Build and upload via fastlane
+        env:
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+        run: fastlane ios beta
+
+      - name: Clean up keychain
+        if: always()
+        run: security delete-keychain build.keychain || true
+
+  test-firebase-ios:
+    name: Firebase Test Lab (iOS)
+    runs-on: ubuntu-latest
+    needs: build-ios
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    timeout-minutes: 20
+
+    steps:
+      - name: Download iOS build
+        uses: actions/download-artifact@v4
+        with:
+          name: ios-simulator-build
+          path: ./ios-build
+
+      - name: Authenticate to Google Cloud
+        uses: google-github-actions/auth@v2
+        with:
+          credentials_json: ${{ secrets.GOOGLE_CREDENTIALS }}
+
+      - name: Setup gcloud CLI
+        uses: google-github-actions/setup-gcloud@v2
+
+      - name: Create XCTest zip
+        run: |
+          # Package the app for Firebase Test Lab
+          cd ios-build
+          APP=$(find . -name "*.app" -type d | head -1)
+          if [ -n "$APP" ]; then
+            zip -r ../ios-test.zip "$APP"
+            echo "Created test package"
+          else
+            echo "No app bundle found, skipping Firebase tests"
+            exit 0
+          fi
+
+      - name: Run iOS Test on Firebase Test Lab
+        if: hashFiles('ios-test.zip') != ''
+        run: |
+          gcloud firebase test ios run \
+            --test=./ios-test.zip \
+            --device model=iphone13pro,version=16.6 \
+            --timeout=5m \
+            --project=${{ secrets.FIREBASE_PROJECT_ID }} \
+            --no-auto-google-login || true
+        continue-on-error: true

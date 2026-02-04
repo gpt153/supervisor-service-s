@@ -39,6 +39,7 @@ export function getMobileTools(): ToolDefinition[] {
     mobileGetTestResultsTool,
     mobileBuildIOSTool,
     mobileListSimulatorsTool,
+    mobileDeployBetaTool,
   ];
 }
 
@@ -764,5 +765,121 @@ const mobileListSimulatorsTool: ToolDefinition = {
   handler: async (params: any, context: ProjectContext) => {
     const manager = new IOSBuildManager(params.mac_host);
     return await manager.listSimulators();
+  },
+};
+
+/**
+ * mobile_deploy_beta - Deploy to TestFlight or Play Store Internal
+ */
+const mobileDeployBetaTool: ToolDefinition = {
+  name: 'mobile_deploy_beta',
+  description: 'Deploy mobile app to beta testing. iOS: TestFlight, Android: Play Store Internal Testing. Uses fastlane.',
+  inputSchema: {
+    type: 'object',
+    properties: {
+      project_name: {
+        type: 'string',
+        description: 'Name of the mobile project',
+      },
+      platform: {
+        type: 'string',
+        enum: ['android', 'ios'],
+        description: 'Platform to deploy. Default: android',
+      },
+      version_name: {
+        type: 'string',
+        description: 'Version name (e.g., "1.0.1"). Auto-incremented if omitted.',
+      },
+      release_notes: {
+        type: 'string',
+        description: 'Release notes for this beta version',
+      },
+    },
+    required: ['project_name'],
+  },
+  handler: async (params: any, context: ProjectContext) => {
+    try {
+      const projectManager = new MobileProjectManager(pool);
+      const project = await projectManager.getProject(params.project_name);
+
+      if (!project) {
+        return { success: false, error: `Project "${params.project_name}" not found` };
+      }
+
+      const platform = params.platform || 'android';
+
+      // Get latest deployment to auto-increment version
+      const lastDeploy = await pool.query(
+        `SELECT version_code, build_number FROM mobile_deployments
+         WHERE project_id = $1 AND platform = $2
+         ORDER BY deployed_at DESC LIMIT 1`,
+        [project.id, platform]
+      );
+
+      const versionCode = lastDeploy.rows.length > 0
+        ? lastDeploy.rows[0].version_code + 1
+        : 1;
+      const buildNumber = lastDeploy.rows.length > 0
+        ? lastDeploy.rows[0].build_number + 1
+        : 1;
+      const versionName = params.version_name || `1.0.${versionCode}`;
+
+      // Insert deployment record
+      const deployResult = await pool.query(
+        `INSERT INTO mobile_deployments
+         (project_id, platform, version_code, version_name, build_number,
+          deployment_type, status, release_notes)
+         VALUES ($1, $2, $3, $4, $5, $6, 'uploading', $7)
+         RETURNING id`,
+        [
+          project.id, platform, versionCode, versionName, buildNumber,
+          platform === 'ios' ? 'testflight' : 'play-internal',
+          params.release_notes || `Beta build v${versionName}`,
+        ]
+      );
+      const deploymentId = deployResult.rows[0].id;
+
+      // Execute fastlane deploy
+      const lane = platform === 'ios' ? 'ios beta' : 'android beta';
+      try {
+        const { stdout } = await execAsync(
+          `cd "${project.project_path}" && fastlane ${lane}`,
+          { timeout: 900000 } // 15 min
+        );
+
+        await pool.query(
+          `UPDATE mobile_deployments SET status = 'available' WHERE id = $1`,
+          [deploymentId]
+        );
+
+        return {
+          success: true,
+          deployment_id: deploymentId,
+          platform,
+          version: versionName,
+          build_number: buildNumber,
+          status: 'available',
+          distribution: platform === 'ios'
+            ? 'TestFlight (users get notification)'
+            : 'Play Store Internal Testing',
+        };
+      } catch (error: any) {
+        await pool.query(
+          `UPDATE mobile_deployments SET status = 'failed' WHERE id = $1`,
+          [deploymentId]
+        );
+
+        return {
+          success: false,
+          deployment_id: deploymentId,
+          error: error.message,
+        };
+      }
+    } catch (error) {
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Unknown error',
+      };
+    }
   },
 };

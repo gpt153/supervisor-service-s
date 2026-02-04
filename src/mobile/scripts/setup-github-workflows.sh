@@ -17,6 +17,12 @@ mkdir -p "$PROJECT_PATH/.github/workflows"
 cp "$TEMPLATE_DIR/android-ci.yml" "$PROJECT_PATH/.github/workflows/android-ci.yml"
 echo "Copied: android-ci.yml"
 
+# Copy iOS CI workflow (if template exists)
+if [ -f "$TEMPLATE_DIR/ios-ci.yml" ]; then
+  cp "$TEMPLATE_DIR/ios-ci.yml" "$PROJECT_PATH/.github/workflows/ios-ci.yml"
+  echo "Copied: ios-ci.yml"
+fi
+
 # Verify
 if [ -f "$PROJECT_PATH/.github/workflows/android-ci.yml" ]; then
   echo "=== GitHub Actions setup complete ==="

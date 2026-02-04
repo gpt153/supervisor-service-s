@@ -81,3 +81,12 @@ VALUES
   ('android', 'Samsung Galaxy S21', 'x1q', '31', false, 'x1q', 'phone'),
   ('android', 'Pixel Tablet', 'tangorpro', '33', true, 'tangorpro', 'tablet')
 ON CONFLICT (firebase_device_id) DO NOTHING;
+
+-- Seed common iOS devices (Firebase Test Lab)
+INSERT INTO mobile_devices (platform, model_name, model_id, os_version, is_virtual, firebase_device_id, form_factor)
+VALUES
+  ('ios', 'iPhone 13 Pro', 'iphone13pro', '16.6', false, 'iphone13pro', 'phone'),
+  ('ios', 'iPhone 14', 'iphone14', '17.0', false, 'iphone14', 'phone'),
+  ('ios', 'iPhone 15', 'iphone15', '17.5', false, 'iphone15', 'phone'),
+  ('ios', 'iPad Pro 12.9"', 'ipadpro129', '17.0', false, 'ipadpro129', 'tablet')
+ON CONFLICT (firebase_device_id) DO NOTHING;
