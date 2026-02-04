@@ -34,6 +34,7 @@ import { getLineageTools } from './lineage-tools.js';
 import { getMobileTools } from './mobile-tools.js';
 import { getEventStoreTools } from './event-tools.js';
 import { getTranscriptTools } from './transcript-tools.js';
+import { backupTools } from './backup-tools.js';
 
 const execAsync = promisify(exec);
 
@@ -438,6 +439,9 @@ export function getAllTools(): ToolDefinition[] {
 
     // Transcript lookup tools for Claude Code sessions (Epic 009-C)
     ...getTranscriptTools(),
+
+    // Backup automation tools for Claude Code sessions (Epic 009-D)
+    ...backupTools,
   ];
 }
 

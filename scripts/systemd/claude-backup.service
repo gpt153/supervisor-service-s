@@ -1,0 +1,13 @@
+[Unit]
+Description=Backup Claude Code sessions to Google Drive
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+ExecStart=%h/sv/supervisor-service-s/scripts/backup-claude-sessions.sh
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=default.target
