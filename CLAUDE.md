@@ -23,7 +23,7 @@
   - /home/samuel/sv/supervisor-service-s/.supervisor-meta/04-port-allocations.md
   - /home/samuel/sv/supervisor-service-s/.supervisor-specific/02-deployment-status.md
   - /home/samuel/sv/supervisor-service-s/.supervisor-specific/03-machine-config.md -->
-<!-- Generated: 2026-02-04T10:17:01.258Z -->
+<!-- Generated: 2026-02-04T11:07:54.688Z -->
 
 # Supervisor Identity
 
@@ -795,11 +795,25 @@ export INSTANCE_ID="[the-id-from-SessionStart]"
 
 ```bash
 PROJECT="odin"  # Your project name
-HOST_MACHINE="${HOST_MACHINE:-odin3}"
+
+# Auto-detect machine
+HOST_MACHINE=$(hostname)
+
+# Set database connection based on machine
+if [[ "$HOST_MACHINE" == "odin3"* ]] || [[ "$HOST_MACHINE" == "gcp-odin3"* ]]; then
+  PGHOST="localhost"
+  PGPORT="5434"
+elif [[ "$HOST_MACHINE" == "odin4"* ]]; then
+  PGHOST="odin3"
+  PGPORT="5434"
+else
+  PGHOST="localhost"
+  PGPORT="5434"
+fi
+
 INSTANCE_ID="${PROJECT}-PS-$(openssl rand -hex 3)"
 
-# See .supervisor-specific/03-machine-config.md for connection details
-psql -U supervisor -d supervisor_service -p 5434 << EOF
+psql -U supervisor -d supervisor_service -h $PGHOST -p $PGPORT << EOF
 INSERT INTO supervisor_sessions (
   instance_id, project, instance_type, status,
   context_percent, host_machine, created_at, last_heartbeat
@@ -810,6 +824,9 @@ INSERT INTO supervisor_sessions (
 EOF
 
 export INSTANCE_ID
+export HOST_MACHINE
+export PGHOST
+export PGPORT
 ```
 
 ### 3. Log Registration Event (MANDATORY)
