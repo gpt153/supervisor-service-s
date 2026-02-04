@@ -38,6 +38,7 @@ import {
   getPrefixMatches,
   calculateInstanceAge,
   isInstanceStale,
+  linkClaudeSession,
   getCommandLogger,
   getSanitizationService,
   // Epic 007-C: Event Store
@@ -55,6 +56,9 @@ import {
   CheckpointNotFoundError,
   CheckpointInstanceNotFoundError,
   CheckpointError,
+  // Epic 009-A: Claude Session Reference
+  resolveClaudeSessionPath,
+  InstanceNotFoundError,
 } from '../../session/index.js';
 // Epic 007-E: Resume Engine
 import {
@@ -96,6 +100,14 @@ export const registerInstanceTool: ToolDefinition = {
         type: 'object',
         description: 'Optional initial context for future checkpoint use',
       },
+      claude_session_uuid: {
+        type: 'string',
+        description: 'Optional Claude Code session UUID from ~/.claude/projects/[project]/[uuid].jsonl (Epic 009-A)',
+      },
+      claude_session_path: {
+        type: 'string',
+        description: 'Optional full path to Claude Code transcript file (Epic 009-A). Auto-resolved from UUID if not provided.',
+      },
     },
     required: ['project', 'instance_type'],
   },
@@ -106,16 +118,19 @@ export const registerInstanceTool: ToolDefinition = {
       const instance = await registerInstance(
         input.project,
         input.instance_type as InstanceType,
-        input.initial_context
+        input.initial_context,
+        undefined, // hostMachine (will use env or default)
+        input.claude_session_uuid,
+        input.claude_session_path
       );
 
       const duration = Date.now() - start;
 
-      if (duration > 50) {
+      if (duration > 55) {
         console.warn(`Register instance slow: ${duration}ms for ${instance.instance_id}`);
       }
 
-      return {
+      const response: any = {
         success: true,
         instance_id: instance.instance_id,
         project: instance.project,
@@ -124,6 +139,14 @@ export const registerInstanceTool: ToolDefinition = {
         created_at: instance.created_at.toISOString(),
         context_percent: instance.context_percent,
       };
+
+      // Include Claude session reference if present
+      if (instance.claude_session_uuid) {
+        response.claude_session_uuid = instance.claude_session_uuid;
+        response.claude_session_path = instance.claude_session_path;
+      }
+
+      return response;
     } catch (error: any) {
       console.error('Register instance failed:', error);
       return {
@@ -238,16 +261,23 @@ export const listInstancesTool: ToolDefinition = {
 
       return {
         success: true,
-        instances: instances.map((instance) => ({
-          instance_id: instance.instance_id,
-          project: instance.project,
-          type: instance.instance_type,
-          status: instance.status,
-          last_heartbeat: instance.last_heartbeat.toISOString(),
-          age_seconds: calculateInstanceAge(instance.last_heartbeat),
-          context_percent: instance.context_percent,
-          current_epic: instance.current_epic,
-        })),
+        instances: instances.map((instance) => {
+          const item: any = {
+            instance_id: instance.instance_id,
+            project: instance.project,
+            type: instance.instance_type,
+            status: instance.status,
+            last_heartbeat: instance.last_heartbeat.toISOString(),
+            age_seconds: calculateInstanceAge(instance.last_heartbeat),
+            context_percent: instance.context_percent,
+            current_epic: instance.current_epic,
+          };
+          // Include Claude session UUID if present (Epic 009-A)
+          if (instance.claude_session_uuid) {
+            item.claude_session_uuid = instance.claude_session_uuid;
+          }
+          return item;
+        }),
         total_count: instances.length,
         active_count: activeCount,
         stale_count: staleCount,
@@ -294,7 +324,7 @@ export const getInstanceDetailsTool: ToolDefinition = {
           console.warn(`Get instance details slow: ${duration}ms for ${instance.instance_id}`);
         }
 
-        return {
+        const result: any = {
           success: true,
           instance: {
             instance_id: instance.instance_id,
@@ -308,6 +338,12 @@ export const getInstanceDetailsTool: ToolDefinition = {
             created_at: instance.created_at.toISOString(),
           },
         };
+        // Include Claude session UUID if present (Epic 009-A)
+        if (instance.claude_session_uuid) {
+          result.instance.claude_session_uuid = instance.claude_session_uuid;
+          result.instance.claude_session_path = instance.claude_session_path;
+        }
+        return result;
       }
 
       // Try prefix match
@@ -323,7 +359,7 @@ export const getInstanceDetailsTool: ToolDefinition = {
 
       if (matches.length === 1) {
         // Single match - return as if exact match
-        return {
+        const result: any = {
           success: true,
           instance: {
             instance_id: matches[0].instance_id,
@@ -337,6 +373,12 @@ export const getInstanceDetailsTool: ToolDefinition = {
             created_at: matches[0].created_at.toISOString(),
           },
         };
+        // Include Claude session UUID if present (Epic 009-A)
+        if (matches[0].claude_session_uuid) {
+          result.instance.claude_session_uuid = matches[0].claude_session_uuid;
+          result.instance.claude_session_path = matches[0].claude_session_path;
+        }
+        return result;
       }
 
       // Multiple matches - disambiguation
@@ -1310,6 +1352,73 @@ export const listStaleInstancesTool: ToolDefinition = {
 };
 
 /**
+ * Tool: mcp_meta_link_claude_session
+ * Link a Claude Code session to an existing instance (Epic 009-A)
+ * Used for post-registration linking when Claude session UUID is discovered later
+ */
+export const linkClaudeSessionTool: ToolDefinition = {
+  name: 'mcp_meta_link_claude_session',
+  description:
+    'Link a Claude Code session transcript to an existing supervisor instance for transcript lookup (Epic 009-A)',
+  inputSchema: {
+    type: 'object',
+    properties: {
+      instance_id: {
+        type: 'string',
+        description: 'Instance ID to link to',
+      },
+      claude_session_uuid: {
+        type: 'string',
+        description: 'Claude Code session UUID from ~/.claude/projects/[project]/[uuid].jsonl',
+      },
+      claude_session_path: {
+        type: 'string',
+        description: 'Optional full path to Claude Code transcript file. Auto-resolved from UUID if not provided.',
+      },
+    },
+    required: ['instance_id', 'claude_session_uuid'],
+  },
+  handler: async (input: any, context: ProjectContext) => {
+    const start = Date.now();
+
+    try {
+      const instance = await linkClaudeSession(
+        input.instance_id,
+        input.claude_session_uuid,
+        input.claude_session_path
+      );
+
+      const duration = Date.now() - start;
+
+      if (duration > 50) {
+        console.warn(`Link Claude session slow: ${duration}ms for ${instance.instance_id}`);
+      }
+
+      return {
+        success: true,
+        instance_id: instance.instance_id,
+        project: instance.project,
+        claude_session_uuid: instance.claude_session_uuid,
+        claude_session_path: instance.claude_session_path,
+      };
+    } catch (error: any) {
+      if (error instanceof InstanceNotFoundError) {
+        return {
+          success: false,
+          error: error.message,
+        };
+      }
+
+      console.error('Link Claude session failed:', error);
+      return {
+        success: false,
+        error: error.message || 'Failed to link Claude session',
+      };
+    }
+  },
+};
+
+/**
  * Export all session tools
  */
 export function getSessionTools(): ToolDefinition[] {
@@ -1319,6 +1428,8 @@ export function getSessionTools(): ToolDefinition[] {
     heartbeatTool,
     listInstancesTool,
     getInstanceDetailsTool,
+    // Epic 009-A: Claude Session Reference
+    linkClaudeSessionTool,
     // Epic 007-B: Command Logging
     logCommandTool,
     searchCommandsTool,

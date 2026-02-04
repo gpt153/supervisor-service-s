@@ -33,6 +33,8 @@ export interface Instance {
   context_percent: number;
   current_epic?: string;
   host_machine?: string; // Machine where session is running (odin3, odin4, laptop)
+  claude_session_uuid?: string; // Claude Code session UUID from ~/.claude/projects/[project]/[uuid].jsonl (Epic 009-A)
+  claude_session_path?: string; // Full path to Claude Code transcript file (Epic 009-A)
   last_heartbeat: Date;
   created_at: Date;
   closed_at?: Date;
@@ -46,6 +48,8 @@ export interface RegisterInstanceInput {
   instance_type: InstanceType;
   initial_context?: Record<string, any>;
   hostMachine?: string; // Optional machine name (defaults to 'odin3' or env HOST_MACHINE)
+  claudeSessionUuid?: string; // Optional Claude Code session UUID (Epic 009-A)
+  claudeSessionPath?: string; // Optional path to Claude Code transcript (Epic 009-A)
 }
 
 /**
@@ -59,6 +63,8 @@ export interface RegisterInstanceOutput {
   created_at: string; // ISO 8601
   context_percent: number;
   host_machine?: string; // Machine where session is running
+  claude_session_uuid?: string; // Claude Code session UUID if provided (Epic 009-A)
+  claude_session_path?: string; // Path to Claude Code transcript if provided (Epic 009-A)
 }
 
 /**
@@ -103,6 +109,7 @@ export interface InstanceListItem {
   context_percent: number;
   current_epic?: string;
   host_machine?: string; // Machine where session is running
+  claude_session_uuid?: string; // Claude Code session UUID if present (Epic 009-A)
 }
 
 /**
@@ -141,6 +148,7 @@ export interface InstanceMatch {
   status: InstanceStatus;
   age_seconds: number;
   host_machine?: string; // Machine where session is running
+  claude_session_uuid?: string; // Claude Code session UUID if present (Epic 009-A)
 }
 
 /**

@@ -14,9 +14,17 @@ export {
   markInstanceClosed,
   calculateInstanceAge,
   isInstanceStale,
+  linkClaudeSession,
   DuplicateInstanceError,
   InstanceNotFoundError,
 } from './InstanceRegistry.js';
+
+// Epic 009-A: Claude Session Reference
+export {
+  resolveClaudeSessionPath,
+  claudeSessionExists,
+  getClaudeSessionSize,
+} from './ClaudeSessionResolver.js';
 
 export {
   generateInstanceId,

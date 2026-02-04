@@ -12,6 +12,7 @@
 
 import { pool } from '../db/client.js';
 import { generateInstanceId } from './InstanceIdGenerator.js';
+import { resolveClaudeSessionPath } from './ClaudeSessionResolver.js';
 import {
   Instance,
   InstanceStatus,
@@ -46,18 +47,26 @@ export class InstanceNotFoundError extends Error {
  * @param instanceType Instance type ('PS' or 'MS')
  * @param initialContext Optional initial context (reserved for future use)
  * @param hostMachine Optional machine name (defaults to 'odin3' or env HOST_MACHINE)
+ * @param claudeSessionUuid Optional Claude Code session UUID (Epic 009-A)
+ * @param claudeSessionPath Optional path to Claude Code transcript (Epic 009-A). If not provided and UUID is given, path is auto-resolved.
  * @returns Instance record
  * @throws DuplicateInstanceError if collision occurs
  *
  * @example
  * const instance = await registerInstance('odin', 'PS', {}, 'odin3');
  * // Returns: { instance_id: 'odin-PS-8f4a2b', project: 'odin', ..., status: 'active', host_machine: 'odin3' }
+ *
+ * @example
+ * const instance = await registerInstance('odin', 'PS', {}, 'odin3', 'abc123def456');
+ * // Returns: { instance_id: 'odin-PS-8f4a2b', ..., claude_session_uuid: 'abc123def456', claude_session_path: '~/.claude/projects/odin/abc123def456.jsonl' }
  */
 export async function registerInstance(
   project: string,
   instanceType: InstanceType,
   initialContext?: Record<string, any>,
-  hostMachine?: string
+  hostMachine?: string,
+  claudeSessionUuid?: string,
+  claudeSessionPath?: string
 ): Promise<Instance> {
   const instanceId = generateInstanceId(project, instanceType);
 
@@ -67,14 +76,20 @@ export async function registerInstance(
     machine = process.env.HOST_MACHINE || 'odin3';
   }
 
+  // Auto-resolve Claude session path from UUID if UUID provided but path not provided
+  let resolvedPath = claudeSessionPath;
+  if (claudeSessionUuid && !claudeSessionPath) {
+    resolvedPath = resolveClaudeSessionPath(project, claudeSessionUuid);
+  }
+
   try {
     const result = await pool.query<Instance>(
       `INSERT INTO supervisor_sessions (
-        instance_id, project, instance_type, status, context_percent, host_machine, created_at, last_heartbeat
-      ) VALUES ($1, $2, $3, $4, $5, $6, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+        instance_id, project, instance_type, status, context_percent, host_machine, claude_session_uuid, claude_session_path, created_at, last_heartbeat
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
       RETURNING instance_id, project, instance_type, status, context_percent, current_epic,
-                host_machine, last_heartbeat, created_at, closed_at`,
-      [instanceId, project, instanceType, 'active', 0, machine]
+                host_machine, claude_session_uuid, claude_session_path, last_heartbeat, created_at, closed_at`,
+      [instanceId, project, instanceType, 'active', 0, machine, claudeSessionUuid || null, resolvedPath || null]
     );
 
     if (result.rows.length === 0) {
@@ -90,6 +105,8 @@ export async function registerInstance(
       context_percent: row.context_percent,
       current_epic: row.current_epic,
       host_machine: row.host_machine,
+      claude_session_uuid: row.claude_session_uuid,
+      claude_session_path: row.claude_session_path,
       last_heartbeat: new Date(row.last_heartbeat),
       created_at: new Date(row.created_at),
       closed_at: row.closed_at ? new Date(row.closed_at) : undefined,
@@ -129,7 +146,7 @@ export async function updateHeartbeat(
     SET context_percent = $1, current_epic = $2, last_heartbeat = CURRENT_TIMESTAMP
     WHERE instance_id = $3
     RETURNING instance_id, project, instance_type, status, context_percent, current_epic,
-              last_heartbeat, created_at, closed_at`,
+              host_machine, claude_session_uuid, claude_session_path, last_heartbeat, created_at, closed_at`,
     [contextPercent, currentEpic || null, instanceId]
   );
 
@@ -145,6 +162,9 @@ export async function updateHeartbeat(
     status: row.status as InstanceStatus,
     context_percent: row.context_percent,
     current_epic: row.current_epic,
+    host_machine: row.host_machine,
+    claude_session_uuid: row.claude_session_uuid,
+    claude_session_path: row.claude_session_path,
     last_heartbeat: new Date(row.last_heartbeat),
     created_at: new Date(row.created_at),
     closed_at: row.closed_at ? new Date(row.closed_at) : undefined,
@@ -167,7 +187,8 @@ export async function listInstances(
   activeOnly: boolean = false
 ): Promise<Instance[]> {
   let query = `SELECT instance_id, project, instance_type, status, context_percent,
-                      current_epic, host_machine, last_heartbeat, created_at, closed_at
+                      current_epic, host_machine, claude_session_uuid, claude_session_path,
+                      last_heartbeat, created_at, closed_at
                FROM supervisor_sessions
                WHERE 1=1`;
 
@@ -194,6 +215,8 @@ export async function listInstances(
     context_percent: row.context_percent,
     current_epic: row.current_epic,
     host_machine: row.host_machine,
+    claude_session_uuid: row.claude_session_uuid,
+    claude_session_path: row.claude_session_path,
     last_heartbeat: new Date(row.last_heartbeat),
     created_at: new Date(row.created_at),
     closed_at: row.closed_at ? new Date(row.closed_at) : undefined,
@@ -215,7 +238,7 @@ export async function getInstanceDetails(instanceId: string): Promise<Instance |
   // Try exact match first
   const exactResult = await pool.query<Instance>(
     `SELECT instance_id, project, instance_type, status, context_percent, current_epic,
-            host_machine, last_heartbeat, created_at, closed_at
+            host_machine, claude_session_uuid, claude_session_path, last_heartbeat, created_at, closed_at
      FROM supervisor_sessions
      WHERE instance_id = $1`,
     [instanceId]
@@ -231,6 +254,8 @@ export async function getInstanceDetails(instanceId: string): Promise<Instance |
       context_percent: row.context_percent,
       current_epic: row.current_epic,
       host_machine: row.host_machine,
+      claude_session_uuid: row.claude_session_uuid,
+      claude_session_path: row.claude_session_path,
       last_heartbeat: new Date(row.last_heartbeat),
       created_at: new Date(row.created_at),
       closed_at: row.closed_at ? new Date(row.closed_at) : undefined,
@@ -240,7 +265,7 @@ export async function getInstanceDetails(instanceId: string): Promise<Instance |
   // Try prefix match
   const prefixResult = await pool.query<Instance>(
     `SELECT instance_id, project, instance_type, status, context_percent, current_epic,
-            host_machine, last_heartbeat, created_at, closed_at
+            host_machine, claude_session_uuid, claude_session_path, last_heartbeat, created_at, closed_at
      FROM supervisor_sessions
      WHERE instance_id LIKE $1 || '%'
      LIMIT 2`,
@@ -257,6 +282,8 @@ export async function getInstanceDetails(instanceId: string): Promise<Instance |
       context_percent: row.context_percent,
       current_epic: row.current_epic,
       host_machine: row.host_machine,
+      claude_session_uuid: row.claude_session_uuid,
+      claude_session_path: row.claude_session_path,
       last_heartbeat: new Date(row.last_heartbeat),
       created_at: new Date(row.created_at),
       closed_at: row.closed_at ? new Date(row.closed_at) : undefined,
@@ -275,7 +302,7 @@ export async function getInstanceDetails(instanceId: string): Promise<Instance |
 export async function getPrefixMatches(prefix: string): Promise<Instance[]> {
   const result = await pool.query<Instance>(
     `SELECT instance_id, project, instance_type, status, context_percent, current_epic,
-            host_machine, last_heartbeat, created_at, closed_at
+            host_machine, claude_session_uuid, claude_session_path, last_heartbeat, created_at, closed_at
      FROM supervisor_sessions
      WHERE instance_id LIKE $1 || '%'
      ORDER BY last_heartbeat DESC
@@ -291,6 +318,8 @@ export async function getPrefixMatches(prefix: string): Promise<Instance[]> {
     context_percent: row.context_percent,
     current_epic: row.current_epic,
     host_machine: row.host_machine,
+    claude_session_uuid: row.claude_session_uuid,
+    claude_session_path: row.claude_session_path,
     last_heartbeat: new Date(row.last_heartbeat),
     created_at: new Date(row.created_at),
     closed_at: row.closed_at ? new Date(row.closed_at) : undefined,
@@ -310,7 +339,7 @@ export async function markInstanceClosed(instanceId: string): Promise<Instance> 
      SET status = 'closed', closed_at = CURRENT_TIMESTAMP
      WHERE instance_id = $1
      RETURNING instance_id, project, instance_type, status, context_percent, current_epic,
-               last_heartbeat, created_at, closed_at`,
+               host_machine, claude_session_uuid, claude_session_path, last_heartbeat, created_at, closed_at`,
     [instanceId]
   );
 
@@ -326,6 +355,69 @@ export async function markInstanceClosed(instanceId: string): Promise<Instance> 
     status: row.status as InstanceStatus,
     context_percent: row.context_percent,
     current_epic: row.current_epic,
+    host_machine: row.host_machine,
+    claude_session_uuid: row.claude_session_uuid,
+    claude_session_path: row.claude_session_path,
+    last_heartbeat: new Date(row.last_heartbeat),
+    created_at: new Date(row.created_at),
+    closed_at: row.closed_at ? new Date(row.closed_at) : undefined,
+  };
+}
+
+/**
+ * Link a Claude Code session to an existing instance (Epic 009-A)
+ *
+ * @param instanceId Instance ID to update
+ * @param claudeSessionUuid Claude Code session UUID
+ * @param claudeSessionPath Optional path to Claude Code transcript. If not provided, path is auto-resolved from UUID.
+ * @returns Updated instance record
+ * @throws InstanceNotFoundError if instance doesn't exist
+ *
+ * @example
+ * const instance = await linkClaudeSession('odin-PS-8f4a2b', 'abc123def456');
+ * // Returns: { ..., claude_session_uuid: 'abc123def456', claude_session_path: '~/.claude/projects/odin/abc123def456.jsonl' }
+ */
+export async function linkClaudeSession(
+  instanceId: string,
+  claudeSessionUuid: string,
+  claudeSessionPath?: string
+): Promise<Instance> {
+  // Get the instance first to know the project
+  const instance = await getInstanceDetails(instanceId);
+  if (!instance) {
+    throw new InstanceNotFoundError(instanceId);
+  }
+
+  // Auto-resolve path from UUID if not provided
+  let resolvedPath = claudeSessionPath;
+  if (!claudeSessionPath) {
+    resolvedPath = resolveClaudeSessionPath(instance.project, claudeSessionUuid);
+  }
+
+  const result = await pool.query<Instance>(
+    `UPDATE supervisor_sessions
+     SET claude_session_uuid = $1, claude_session_path = $2
+     WHERE instance_id = $3
+     RETURNING instance_id, project, instance_type, status, context_percent, current_epic,
+               host_machine, claude_session_uuid, claude_session_path, last_heartbeat, created_at, closed_at`,
+    [claudeSessionUuid, resolvedPath, instanceId]
+  );
+
+  if (result.rows.length === 0) {
+    throw new InstanceNotFoundError(instanceId);
+  }
+
+  const row = result.rows[0];
+  return {
+    instance_id: row.instance_id,
+    project: row.project,
+    instance_type: row.instance_type as InstanceType,
+    status: row.status as InstanceStatus,
+    context_percent: row.context_percent,
+    current_epic: row.current_epic,
+    host_machine: row.host_machine,
+    claude_session_uuid: row.claude_session_uuid,
+    claude_session_path: row.claude_session_path,
     last_heartbeat: new Date(row.last_heartbeat),
     created_at: new Date(row.created_at),
     closed_at: row.closed_at ? new Date(row.closed_at) : undefined,
