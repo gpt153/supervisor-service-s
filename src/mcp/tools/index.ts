@@ -31,6 +31,7 @@ import { getPRDStalenessTools } from './prd-staleness-tools.js';
 import { getSessionTools } from './session-tools.js';
 import { getLineageTools } from './lineage-tools.js';
 import { getMobileTools } from './mobile-tools.js';
+import { getEventStoreTools } from './event-tools.js';
 
 const execAsync = promisify(exec);
 
@@ -420,6 +421,9 @@ export function getAllTools(): ToolDefinition[] {
 
     // Session continuity and instance registry tools (Epic 007-A)
     ...getSessionTools(),
+
+    // Event store tools for session state tracking (Epic 007-C)
+    ...getEventStoreTools(),
 
     // Event lineage debugging and analysis tools (Epic 008-D)
     ...getLineageTools(),
