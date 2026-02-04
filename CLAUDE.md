@@ -23,7 +23,7 @@
   - /home/samuel/sv/supervisor-service-s/.supervisor-meta/04-port-allocations.md
   - /home/samuel/sv/supervisor-service-s/.supervisor-specific/02-deployment-status.md
   - /home/samuel/sv/supervisor-service-s/.supervisor-specific/03-machine-config.md -->
-<!-- Generated: 2026-02-04T11:07:54.688Z -->
+<!-- Generated: 2026-02-04T11:14:11.660Z -->
 
 # Supervisor Identity
 
@@ -800,10 +800,10 @@ PROJECT="odin"  # Your project name
 HOST_MACHINE=$(hostname)
 
 # Set database connection based on machine
-if [[ "$HOST_MACHINE" == "odin3"* ]] || [[ "$HOST_MACHINE" == "gcp-odin3"* ]]; then
+if [[ "$HOST_MACHINE" == "odin3"* ]] || [[ "$HOST_MACHINE" == *"odin3"* ]]; then
   PGHOST="localhost"
   PGPORT="5434"
-elif [[ "$HOST_MACHINE" == "odin4"* ]]; then
+elif [[ "$HOST_MACHINE" == "odin4"* ]] || [[ "$HOST_MACHINE" == *"odin4"* ]]; then
   PGHOST="odin3"
   PGPORT="5434"
 else
@@ -1581,11 +1581,11 @@ TUNNEL_ID=aaffe732-9972-4f70-a758-a3ece1df4035
 HOST_MACHINE=$(hostname)
 
 # Set database connection based on machine
-if [[ "$HOST_MACHINE" == "odin3"* ]] || [[ "$HOST_MACHINE" == "gcp-odin3"* ]]; then
+if [[ "$HOST_MACHINE" == "odin3"* ]] || [[ "$HOST_MACHINE" == *"odin3"* ]]; then
   # Infrastructure host - local connection
   PGHOST="localhost"
   PGPORT="5434"
-elif [[ "$HOST_MACHINE" == "odin4"* ]]; then
+elif [[ "$HOST_MACHINE" == "odin4"* ]] || [[ "$HOST_MACHINE" == *"odin4"* ]]; then
   # Development machine - remote connection to odin3
   PGHOST="odin3"
   PGPORT="5434"

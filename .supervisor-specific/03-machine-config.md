@@ -21,11 +21,11 @@
 HOST_MACHINE=$(hostname)
 
 # Set database connection based on machine
-if [[ "$HOST_MACHINE" == "odin3"* ]] || [[ "$HOST_MACHINE" == "gcp-odin3"* ]]; then
+if [[ "$HOST_MACHINE" == "odin3"* ]] || [[ "$HOST_MACHINE" == *"odin3"* ]]; then
   # Infrastructure host - local connection
   PGHOST="localhost"
   PGPORT="5434"
-elif [[ "$HOST_MACHINE" == "odin4"* ]]; then
+elif [[ "$HOST_MACHINE" == "odin4"* ]] || [[ "$HOST_MACHINE" == *"odin4"* ]]; then
   # Development machine - remote connection to odin3
   PGHOST="odin3"
   PGPORT="5434"

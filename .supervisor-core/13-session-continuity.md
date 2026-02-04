@@ -39,10 +39,10 @@ PROJECT="odin"  # Your project name
 HOST_MACHINE=$(hostname)
 
 # Set database connection based on machine
-if [[ "$HOST_MACHINE" == "odin3"* ]] || [[ "$HOST_MACHINE" == "gcp-odin3"* ]]; then
+if [[ "$HOST_MACHINE" == "odin3"* ]] || [[ "$HOST_MACHINE" == *"odin3"* ]]; then
   PGHOST="localhost"
   PGPORT="5434"
-elif [[ "$HOST_MACHINE" == "odin4"* ]]; then
+elif [[ "$HOST_MACHINE" == "odin4"* ]] || [[ "$HOST_MACHINE" == *"odin4"* ]]; then
   PGHOST="odin3"
   PGPORT="5434"
 else
