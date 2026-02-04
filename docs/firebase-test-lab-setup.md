@@ -4,11 +4,21 @@ Complete instructions for setting up Firebase Test Lab for the Mobile Platform.
 
 ---
 
+## Project Information
+
+**Firebase Project:** odin-mobile-lab
+- **Project ID:** odin-mobile-lab
+- **Project Number:** 995989795517
+- **Organization:** 153.se
+- **Created:** 2026-02-04
+
+---
+
 ## Prerequisites
 
 - ✅ Android SDK installed (done)
 - ✅ gcloud CLI installed (done)
-- Firebase project created
+- ✅ Firebase project created (odin-mobile-lab)
 
 ---
 
@@ -31,10 +41,10 @@ Complete instructions for setting up Firebase Test Lab for the Mobile Platform.
 
 ### 3. Create Service Account
 
-Replace `YOUR_PROJECT_ID` with your actual project ID:
+**For odin-mobile-lab project:**
 
 ```bash
-export FIREBASE_PROJECT_ID="YOUR_PROJECT_ID"
+export FIREBASE_PROJECT_ID="odin-mobile-lab"
 
 # Create service account
 gcloud iam service-accounts create mobile-testlab \
@@ -44,7 +54,7 @@ gcloud iam service-accounts create mobile-testlab \
 # Grant Test Lab permissions
 gcloud projects add-iam-policy-binding "$FIREBASE_PROJECT_ID" \
   --member="serviceAccount:mobile-testlab@${FIREBASE_PROJECT_ID}.iam.gserviceaccount.com" \
-  --role="roles/firebase.testlab.admin"
+  --role="roles/cloudtestservice.testAdmin"
 
 gcloud projects add-iam-policy-binding "$FIREBASE_PROJECT_ID" \
   --member="serviceAccount:mobile-testlab@${FIREBASE_PROJECT_ID}.iam.gserviceaccount.com" \
@@ -54,6 +64,13 @@ gcloud projects add-iam-policy-binding "$FIREBASE_PROJECT_ID" \
 gcloud iam service-accounts keys create /tmp/firebase-testlab-key.json \
   --iam-account="mobile-testlab@${FIREBASE_PROJECT_ID}.iam.gserviceaccount.com"
 ```
+
+**Alternative:** Use web console (easier if CLI has permission issues):
+1. Go to https://console.cloud.google.com/iam-admin/serviceaccounts?project=odin-mobile-lab
+2. Click "CREATE SERVICE ACCOUNT"
+3. Name: `mobile-testlab`
+4. Add roles: "Cloud Test Lab Admin" + "Storage Object Viewer"
+5. Create JSON key and download
 
 ### 4. Store Credentials Securely
 
