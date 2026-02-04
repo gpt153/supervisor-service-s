@@ -1,0 +1,291 @@
+/**
+ * MCP tools for mobile app development platform
+ *
+ * Provides tools for creating, managing, and testing mobile projects.
+ * Integrates with Firebase Test Lab, fastlane, and GitHub Actions.
+ *
+ * @module mcp/tools/mobile-tools
+ */
+
+import { ToolDefinition, ProjectContext } from '../../types/project.js';
+import { MobileProjectManager } from '../../mobile/MobileProjectManager.js';
+import { pool } from '../../db/client.js';
+
+/**
+ * Get all mobile development MCP tools
+ *
+ * @returns Array of mobile tool definitions
+ */
+export function getMobileTools(): ToolDefinition[] {
+  return [
+    mobileCreateProjectTool,
+    mobileListProjectsTool,
+    mobileGetProjectTool,
+    mobileListDevicesTool,
+    mobileCheckQuotaTool,
+  ];
+}
+
+/**
+ * mobile_create_project - Create a new mobile project with scaffold
+ */
+const mobileCreateProjectTool: ToolDefinition = {
+  name: 'mobile_create_project',
+  description: 'Create a new mobile project with React Native or Flutter scaffold, .bmad structure, and database tracking. Creates the project directory at /home/samuel/sv/{project_name}-s/',
+  inputSchema: {
+    type: 'object',
+    properties: {
+      project_name: {
+        type: 'string',
+        description: 'Name of the mobile project (e.g., "my-app"). Will create directory at /home/samuel/sv/{project_name}-s/',
+      },
+      framework: {
+        type: 'string',
+        enum: ['react-native', 'flutter'],
+        description: 'Mobile framework to use. Default: react-native',
+      },
+      android_package_id: {
+        type: 'string',
+        description: 'Android package ID (e.g., com.company.app). Auto-generated if not provided.',
+      },
+      ios_bundle_id: {
+        type: 'string',
+        description: 'iOS bundle ID (e.g., com.company.app). Auto-generated if not provided.',
+      },
+    },
+    required: ['project_name'],
+  },
+  handler: async (params: any, context: ProjectContext) => {
+    try {
+      const manager = new MobileProjectManager(pool);
+
+      const project = await manager.createProject({
+        project_name: params.project_name,
+        framework: params.framework || 'react-native',
+        android_package_id: params.android_package_id,
+        ios_bundle_id: params.ios_bundle_id,
+      });
+
+      return {
+        success: true,
+        project: {
+          id: project.id,
+          name: project.project_name,
+          framework: project.framework,
+          path: project.project_path,
+          android_package_id: project.android_package_id,
+          ios_bundle_id: project.ios_bundle_id,
+        },
+        next_steps: [
+          `cd ${project.project_path} && npm install`,
+          'npx expo start (to run Metro bundler)',
+          'Create epics in .bmad/epics/ for your features',
+        ],
+      };
+    } catch (error) {
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Unknown error',
+      };
+    }
+  },
+};
+
+/**
+ * mobile_list_projects - List all mobile projects
+ */
+const mobileListProjectsTool: ToolDefinition = {
+  name: 'mobile_list_projects',
+  description: 'List all mobile projects tracked in the database',
+  inputSchema: {
+    type: 'object',
+    properties: {
+      status: {
+        type: 'string',
+        enum: ['active', 'archived', 'error'],
+        description: 'Filter by project status. Omit for all projects.',
+      },
+    },
+  },
+  handler: async (params: any, context: ProjectContext) => {
+    try {
+      const manager = new MobileProjectManager(pool);
+      const projects = await manager.listProjects(params.status);
+
+      return {
+        success: true,
+        count: projects.length,
+        projects: projects.map(p => ({
+          id: p.id,
+          name: p.project_name,
+          framework: p.framework,
+          path: p.project_path,
+          status: p.status,
+          created_at: p.created_at,
+        })),
+      };
+    } catch (error) {
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Unknown error',
+      };
+    }
+  },
+};
+
+/**
+ * mobile_get_project - Get details of a specific mobile project
+ */
+const mobileGetProjectTool: ToolDefinition = {
+  name: 'mobile_get_project',
+  description: 'Get detailed information about a specific mobile project',
+  inputSchema: {
+    type: 'object',
+    properties: {
+      project_name: {
+        type: 'string',
+        description: 'Name of the mobile project',
+      },
+    },
+    required: ['project_name'],
+  },
+  handler: async (params: any, context: ProjectContext) => {
+    try {
+      const manager = new MobileProjectManager(pool);
+      const project = await manager.getProject(params.project_name);
+
+      if (!project) {
+        return { success: false, error: `Project "${params.project_name}" not found` };
+      }
+
+      // Get recent test runs
+      const testRuns = await pool.query(
+        'SELECT * FROM mobile_test_runs WHERE project_id = $1 ORDER BY started_at DESC LIMIT 5',
+        [project.id]
+      );
+
+      // Get recent deployments
+      const deployments = await pool.query(
+        'SELECT * FROM mobile_deployments WHERE project_id = $1 ORDER BY deployed_at DESC LIMIT 5',
+        [project.id]
+      );
+
+      return {
+        success: true,
+        project,
+        recent_test_runs: testRuns.rows,
+        recent_deployments: deployments.rows,
+      };
+    } catch (error) {
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Unknown error',
+      };
+    }
+  },
+};
+
+/**
+ * mobile_list_devices - List available Firebase Test Lab devices
+ */
+const mobileListDevicesTool: ToolDefinition = {
+  name: 'mobile_list_devices',
+  description: 'List available devices in Firebase Test Lab for testing',
+  inputSchema: {
+    type: 'object',
+    properties: {
+      platform: {
+        type: 'string',
+        enum: ['android', 'ios'],
+        description: 'Filter by platform. Omit for all devices.',
+      },
+      form_factor: {
+        type: 'string',
+        enum: ['phone', 'tablet'],
+        description: 'Filter by form factor. Omit for all.',
+      },
+    },
+  },
+  handler: async (params: any, context: ProjectContext) => {
+    try {
+      let query = 'SELECT * FROM mobile_devices WHERE available = true';
+      const queryParams: any[] = [];
+      let paramIndex = 1;
+
+      if (params.platform) {
+        query += ` AND platform = $${paramIndex++}`;
+        queryParams.push(params.platform);
+      }
+      if (params.form_factor) {
+        query += ` AND form_factor = $${paramIndex++}`;
+        queryParams.push(params.form_factor);
+      }
+      query += ' ORDER BY platform, model_name';
+
+      const result = await pool.query(query, queryParams);
+      return {
+        success: true,
+        count: result.rows.length,
+        devices: result.rows,
+      };
+    } catch (error) {
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Unknown error',
+      };
+    }
+  },
+};
+
+/**
+ * mobile_check_quota - Check Firebase Test Lab free tier usage
+ */
+const mobileCheckQuotaTool: ToolDefinition = {
+  name: 'mobile_check_quota',
+  description: 'Check Firebase Test Lab free tier quota usage for today',
+  inputSchema: {
+    type: 'object',
+    properties: {},
+  },
+  handler: async (params: any, context: ProjectContext) => {
+    try {
+      // Calculate today's usage from test runs
+      const result = await pool.query(`
+        SELECT
+          COALESCE(SUM(test_duration_seconds), 0) as total_seconds,
+          COUNT(*) as total_runs,
+          COUNT(*) FILTER (WHERE status = 'passed') as passed,
+          COUNT(*) FILTER (WHERE status = 'failed') as failed,
+          COUNT(*) FILTER (WHERE status = 'running') as running
+        FROM mobile_test_runs
+        WHERE started_at >= CURRENT_DATE
+      `);
+
+      const usage = result.rows[0];
+      const usedMinutes = Math.ceil(usage.total_seconds / 60);
+      const dailyLimitMinutes = 60; // Firebase free tier
+
+      return {
+        success: true,
+        quota: {
+          minutes_used_today: usedMinutes,
+          minutes_remaining: Math.max(0, dailyLimitMinutes - usedMinutes),
+          daily_limit_minutes: dailyLimitMinutes,
+          percentage_used: Math.round((usedMinutes / dailyLimitMinutes) * 100),
+          resets_at: 'midnight UTC',
+        },
+        today_runs: {
+          total: parseInt(usage.total_runs),
+          passed: parseInt(usage.passed),
+          failed: parseInt(usage.failed),
+          running: parseInt(usage.running),
+        },
+      };
+    } catch (error) {
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Unknown error',
+      };
+    }
+  },
+};

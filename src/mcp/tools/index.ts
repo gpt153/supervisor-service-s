@@ -30,6 +30,7 @@ import { getBMADFullWorkflowTools } from './bmad-full-workflow.js';
 import { getPRDStalenessTools } from './prd-staleness-tools.js';
 import { getSessionTools } from './session-tools.js';
 import { getLineageTools } from './lineage-tools.js';
+import { getMobileTools } from './mobile-tools.js';
 
 const execAsync = promisify(exec);
 
@@ -422,6 +423,9 @@ export function getAllTools(): ToolDefinition[] {
 
     // Event lineage debugging and analysis tools (Epic 008-D)
     ...getLineageTools(),
+
+    // Mobile app development platform tools (Epic M-001)
+    ...getMobileTools(),
   ];
 }
 
