@@ -26,6 +26,32 @@ export {
   getClaudeSessionSize,
 } from './ClaudeSessionResolver.js';
 
+// Epic 009-B: Conversation Snippet Extraction
+export {
+  SnippetStore,
+  getSnippetStore,
+  resetSnippetStore,
+  InstanceNotFoundError as SnippetInstanceNotFoundError,
+  EventNotFoundError,
+  InvalidSnippetError,
+} from './SnippetStore.js';
+
+export {
+  SnippetExtractor,
+  getSnippetExtractor,
+  resetSnippetExtractor,
+  FileNotFoundError,
+  InvalidLineRangeError,
+  ExtractionError,
+} from './SnippetExtractor.js';
+
+// Epic 009-C: Transcript Lookup Tools
+export {
+  TranscriptFileService,
+  getTranscriptFileService,
+  resetTranscriptFileService,
+} from './TranscriptFileService.js';
+
 export {
   generateInstanceId,
   validateInstanceId,
@@ -158,3 +184,5 @@ export * from '../types/command-log.js';
 export * from '../types/event-store.js';
 export * from '../types/checkpoint.js';
 export * from '../types/resume.js';
+export * from '../types/transcript.js';
+export * from '../types/snippet.js';

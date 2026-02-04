@@ -29,9 +29,11 @@ import { getBMADTools } from './bmad-tools.js';
 import { getBMADFullWorkflowTools } from './bmad-full-workflow.js';
 import { getPRDStalenessTools } from './prd-staleness-tools.js';
 import { getSessionTools } from './session-tools.js';
+import { getSnippetTools } from './snippet-tools.js';
 import { getLineageTools } from './lineage-tools.js';
 import { getMobileTools } from './mobile-tools.js';
 import { getEventStoreTools } from './event-tools.js';
+import { getTranscriptTools } from './transcript-tools.js';
 
 const execAsync = promisify(exec);
 
@@ -422,6 +424,9 @@ export function getAllTools(): ToolDefinition[] {
     // Session continuity and instance registry tools (Epic 007-A)
     ...getSessionTools(),
 
+    // Snippet extraction tools for conversation analysis (Epic 009-B)
+    ...getSnippetTools(),
+
     // Event store tools for session state tracking (Epic 007-C)
     ...getEventStoreTools(),
 
@@ -430,6 +435,9 @@ export function getAllTools(): ToolDefinition[] {
 
     // Mobile app development platform tools (Epic M-001)
     ...getMobileTools(),
+
+    // Transcript lookup tools for Claude Code sessions (Epic 009-C)
+    ...getTranscriptTools(),
   ];
 }
 
