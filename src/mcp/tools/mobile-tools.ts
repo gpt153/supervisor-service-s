@@ -9,6 +9,7 @@
 
 import { ToolDefinition, ProjectContext } from '../../types/project.js';
 import { MobileProjectManager } from '../../mobile/MobileProjectManager.js';
+import { AndroidBuildManager } from '../../mobile/AndroidBuildManager.js';
 import { pool } from '../../db/client.js';
 
 /**
@@ -23,6 +24,9 @@ export function getMobileTools(): ToolDefinition[] {
     mobileGetProjectTool,
     mobileListDevicesTool,
     mobileCheckQuotaTool,
+    mobileCheckSdkTool,
+    mobileBuildAndroidTool,
+    mobileEmulatorStatusTool,
   ];
 }
 
@@ -287,5 +291,120 @@ const mobileCheckQuotaTool: ToolDefinition = {
         error: error instanceof Error ? error.message : 'Unknown error',
       };
     }
+  },
+};
+
+/**
+ * mobile_check_sdk - Check Android SDK installation status
+ */
+const mobileCheckSdkTool: ToolDefinition = {
+  name: 'mobile_check_sdk',
+  description: 'Check if Android SDK, JDK, and build tools are properly installed on the host machine',
+  inputSchema: {
+    type: 'object',
+    properties: {},
+  },
+  handler: async (params: any, context: ProjectContext) => {
+    const manager = new AndroidBuildManager();
+    return await manager.checkSdkInstallation();
+  },
+};
+
+/**
+ * mobile_build_android - Build Android APK locally
+ */
+const mobileBuildAndroidTool: ToolDefinition = {
+  name: 'mobile_build_android',
+  description: 'Build Android APK from a React Native project. Runs expo prebuild if needed, then Gradle assembleDebug.',
+  inputSchema: {
+    type: 'object',
+    properties: {
+      project_name: {
+        type: 'string',
+        description: 'Name of the mobile project',
+      },
+      build_type: {
+        type: 'string',
+        enum: ['debug', 'release'],
+        description: 'Build type. Default: debug',
+      },
+      skip_prebuild: {
+        type: 'boolean',
+        description: 'Skip expo prebuild step if android/ already exists. Default: false',
+      },
+    },
+    required: ['project_name'],
+  },
+  handler: async (params: any, context: ProjectContext) => {
+    try {
+      const projectManager = new MobileProjectManager(pool);
+      const project = await projectManager.getProject(params.project_name);
+
+      if (!project) {
+        return { success: false, error: `Project "${params.project_name}" not found` };
+      }
+
+      const buildManager = new AndroidBuildManager();
+
+      // Check SDK first
+      const sdk = await buildManager.checkSdkInstallation();
+      if (!sdk.installed) {
+        return {
+          success: false,
+          error: 'Android SDK not properly installed',
+          missing: sdk.missing,
+          instructions: [
+            'sudo apt install -y openjdk-17-jdk',
+            'Install Android SDK command-line tools',
+            'Set ANDROID_HOME and JAVA_HOME',
+          ],
+        };
+      }
+
+      // Run prebuild if needed
+      if (!params.skip_prebuild) {
+        const prebuild = await buildManager.runPrebuild(project.project_path);
+        if (!prebuild.success) {
+          return { success: false, error: `Prebuild failed: ${prebuild.error}` };
+        }
+      }
+
+      // Build APK
+      const buildType = params.build_type || 'debug';
+      const result = buildType === 'release'
+        ? await buildManager.buildReleaseApk(project.project_path)
+        : await buildManager.buildDebugApk(project.project_path);
+
+      // Update last_build in database
+      if (result.success) {
+        await pool.query(
+          'UPDATE mobile_projects SET last_build = NOW() WHERE id = $1',
+          [project.id]
+        );
+      }
+
+      return result;
+    } catch (error) {
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Unknown error',
+      };
+    }
+  },
+};
+
+/**
+ * mobile_emulator_status - Check Android emulator status
+ */
+const mobileEmulatorStatusTool: ToolDefinition = {
+  name: 'mobile_emulator_status',
+  description: 'Check if an Android emulator is currently running',
+  inputSchema: {
+    type: 'object',
+    properties: {},
+  },
+  handler: async (params: any, context: ProjectContext) => {
+    const manager = new AndroidBuildManager();
+    return await manager.getEmulatorStatus();
   },
 };
