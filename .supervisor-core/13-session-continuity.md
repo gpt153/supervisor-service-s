@@ -51,11 +51,28 @@ EOF
 export INSTANCE_ID
 ```
 
-### 3. Confirm Registration
+### 3. Log Registration Event (MANDATORY)
+
+**Immediately after registration, log the event:**
+```typescript
+ToolSearch({ query: "select:mcp_meta_emit_event" })
+mcp_meta_emit_event({
+  instance_id: INSTANCE_ID,
+  event_type: "instance_registered",
+  event_data: {
+    instance_type: "PS",  // or "MS"
+    project: PROJECT,
+    created_at: new Date().toISOString()
+  }
+})
+```
+
+### 4. Confirm Registration
 
 **Every first response must show:**
 ```
 ✅ Registered: [instance-id]@[machine]
+✅ Logged: instance_registered event
 ```
 
 ---
@@ -82,6 +99,19 @@ SET context_percent = 42, current_epic = 'epic-003',
     last_heartbeat = CURRENT_TIMESTAMP
 WHERE instance_id = '$INSTANCE_ID';
 EOF
+```
+
+**Optional: Log heartbeat event for better debugging:**
+```typescript
+mcp_meta_emit_event({
+  instance_id: INSTANCE_ID,
+  event_type: "instance_heartbeat",
+  event_data: {
+    context_percent: 42,
+    current_epic: "epic-003",
+    age_seconds: 1800
+  }
+})
 ```
 
 ---
