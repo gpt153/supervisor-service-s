@@ -81,6 +81,9 @@ export class MobileProjectManager {
     // Set up GitHub Actions workflows
     await this.setupGitHubWorkflows(projectDir);
 
+    // Copy fastlane template
+    await this.setupFastlane(projectDir);
+
     // Insert database record
     const result = await this.pool.query(
       `INSERT INTO mobile_projects
@@ -412,6 +415,24 @@ epics: []
       }
     } catch {
       // Templates may not exist yet, skip silently
+    }
+  }
+
+  /**
+   * Set up fastlane configuration for the project
+   */
+  private async setupFastlane(projectDir: string): Promise<void> {
+    const fastlaneDir = path.join(projectDir, 'fastlane');
+    await fs.mkdir(fastlaneDir, { recursive: true });
+
+    const templatePath = path.join(
+      '/home/samuel/sv/supervisor-service-s/src/mobile/templates/fastlane/Fastfile'
+    );
+
+    try {
+      await fs.copyFile(templatePath, path.join(fastlaneDir, 'Fastfile'));
+    } catch {
+      // Template may not exist yet, skip silently
     }
   }
 }

@@ -10,6 +10,7 @@
 import { ToolDefinition, ProjectContext } from '../../types/project.js';
 import { MobileProjectManager } from '../../mobile/MobileProjectManager.js';
 import { AndroidBuildManager } from '../../mobile/AndroidBuildManager.js';
+import { IOSBuildManager } from '../../mobile/IOSBuildManager.js';
 import { FirebaseTestLabClient } from '../../mobile/FirebaseTestLabClient.js';
 import { pool } from '../../db/client.js';
 import { exec } from 'child_process';
@@ -36,6 +37,8 @@ export function getMobileTools(): ToolDefinition[] {
     mobileSetupCITool,
     mobileRunTestsTool,
     mobileGetTestResultsTool,
+    mobileBuildIOSTool,
+    mobileListSimulatorsTool,
   ];
 }
 
@@ -658,5 +661,108 @@ const mobileGetTestResultsTool: ToolDefinition = {
         error: error instanceof Error ? error.message : 'Unknown error',
       };
     }
+  },
+};
+
+/**
+ * mobile_build_ios - Build iOS app
+ */
+const mobileBuildIOSTool: ToolDefinition = {
+  name: 'mobile_build_ios',
+  description: 'Build iOS app from a React Native project. Requires macOS with Xcode. Can run locally on Mac or via SSH.',
+  inputSchema: {
+    type: 'object',
+    properties: {
+      project_name: {
+        type: 'string',
+        description: 'Name of the mobile project',
+      },
+      build_target: {
+        type: 'string',
+        enum: ['simulator', 'device'],
+        description: 'Build for simulator (Debug) or device/TestFlight (Release). Default: simulator',
+      },
+      mac_host: {
+        type: 'string',
+        description: 'SSH host for Mac (e.g., "macbook.local"). Omit if running on Mac.',
+      },
+    },
+    required: ['project_name'],
+  },
+  handler: async (params: any, context: ProjectContext) => {
+    try {
+      const projectManager = new MobileProjectManager(pool);
+      const project = await projectManager.getProject(params.project_name);
+
+      if (!project) {
+        return { success: false, error: `Project "${params.project_name}" not found` };
+      }
+
+      const buildManager = new IOSBuildManager(params.mac_host);
+
+      // Check environment
+      const env = await buildManager.checkEnvironment();
+      if (!env.ready) {
+        return {
+          success: false,
+          error: 'iOS build environment not ready',
+          missing: env.missing,
+          instructions: [
+            'Install Xcode from App Store',
+            'sudo xcodebuild -license accept',
+            'sudo gem install cocoapods',
+            'sudo gem install fastlane -NV',
+          ],
+        };
+      }
+
+      const buildTarget = params.build_target || 'simulator';
+
+      if (buildTarget === 'simulator') {
+        // Prebuild if needed
+        const prebuild = await buildManager.runPrebuild(project.project_path);
+        if (!prebuild.success) {
+          return { success: false, error: `Prebuild failed: ${prebuild.error}` };
+        }
+
+        // Pod install
+        const pods = await buildManager.podInstall(project.project_path);
+        if (!pods.success) {
+          return { success: false, error: `Pod install failed: ${pods.error}` };
+        }
+
+        // Build
+        return await buildManager.buildForSimulator(project.project_path);
+      } else {
+        // Build IPA via fastlane
+        return await buildManager.buildIPA(project.project_path);
+      }
+    } catch (error) {
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Unknown error',
+      };
+    }
+  },
+};
+
+/**
+ * mobile_list_simulators - List available iOS simulators
+ */
+const mobileListSimulatorsTool: ToolDefinition = {
+  name: 'mobile_list_simulators',
+  description: 'List available iOS simulators on the Mac',
+  inputSchema: {
+    type: 'object',
+    properties: {
+      mac_host: {
+        type: 'string',
+        description: 'SSH host for Mac. Omit if running on Mac.',
+      },
+    },
+  },
+  handler: async (params: any, context: ProjectContext) => {
+    const manager = new IOSBuildManager(params.mac_host);
+    return await manager.listSimulators();
   },
 };
