@@ -78,6 +78,9 @@ export class MobileProjectManager {
     // Create .bmad structure
     await this.createBmadStructure(projectDir, options.project_name);
 
+    // Set up GitHub Actions workflows
+    await this.setupGitHubWorkflows(projectDir);
+
     // Insert database record
     const result = await this.pool.query(
       `INSERT INTO mobile_projects
@@ -384,5 +387,31 @@ epics: []
       'UPDATE mobile_projects SET status = $1 WHERE project_name = $2',
       [status, projectName]
     );
+  }
+
+  /**
+   * Set up GitHub Actions CI/CD workflows for the project
+   */
+  private async setupGitHubWorkflows(projectDir: string): Promise<void> {
+    const workflowDir = path.join(projectDir, '.github/workflows');
+    await fs.mkdir(workflowDir, { recursive: true });
+
+    const templateDir = path.join(
+      '/home/samuel/sv/supervisor-service-s/src/mobile/templates/github-workflows'
+    );
+
+    try {
+      const templates = await fs.readdir(templateDir);
+      for (const template of templates) {
+        if (template.endsWith('.yml') || template.endsWith('.yaml')) {
+          await fs.copyFile(
+            path.join(templateDir, template),
+            path.join(workflowDir, template)
+          );
+        }
+      }
+    } catch {
+      // Templates may not exist yet, skip silently
+    }
   }
 }

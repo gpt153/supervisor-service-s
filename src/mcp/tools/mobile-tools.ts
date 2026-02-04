@@ -11,6 +11,10 @@ import { ToolDefinition, ProjectContext } from '../../types/project.js';
 import { MobileProjectManager } from '../../mobile/MobileProjectManager.js';
 import { AndroidBuildManager } from '../../mobile/AndroidBuildManager.js';
 import { pool } from '../../db/client.js';
+import { exec } from 'child_process';
+import { promisify } from 'util';
+
+const execAsync = promisify(exec);
 
 /**
  * Get all mobile development MCP tools
@@ -27,6 +31,8 @@ export function getMobileTools(): ToolDefinition[] {
     mobileCheckSdkTool,
     mobileBuildAndroidTool,
     mobileEmulatorStatusTool,
+    mobileGithubStatusTool,
+    mobileSetupCITool,
   ];
 }
 
@@ -406,5 +412,114 @@ const mobileEmulatorStatusTool: ToolDefinition = {
   handler: async (params: any, context: ProjectContext) => {
     const manager = new AndroidBuildManager();
     return await manager.getEmulatorStatus();
+  },
+};
+
+/**
+ * mobile_github_status - Check GitHub Actions build status
+ */
+const mobileGithubStatusTool: ToolDefinition = {
+  name: 'mobile_github_status',
+  description: 'Check the latest GitHub Actions build status for a mobile project. Requires gh CLI installed.',
+  inputSchema: {
+    type: 'object',
+    properties: {
+      project_name: {
+        type: 'string',
+        description: 'Name of the mobile project',
+      },
+      workflow: {
+        type: 'string',
+        description: 'Workflow name to check. Default: "Android CI"',
+      },
+    },
+    required: ['project_name'],
+  },
+  handler: async (params: any, context: ProjectContext) => {
+    try {
+      const projectManager = new MobileProjectManager(pool);
+      const project = await projectManager.getProject(params.project_name);
+
+      if (!project) {
+        return { success: false, error: `Project "${params.project_name}" not found` };
+      }
+
+      // Use gh CLI to check workflow runs
+      const workflowName = params.workflow || 'Android CI';
+      try {
+        const { stdout } = await execAsync(
+          `cd "${project.project_path}" && gh run list --workflow="${workflowName}" --limit=5 --json status,conclusion,createdAt,headBranch,databaseId 2>&1`,
+          { timeout: 15000 }
+        );
+        const runs = JSON.parse(stdout);
+        return {
+          success: true,
+          workflow: workflowName,
+          recent_runs: runs,
+        };
+      } catch (error: any) {
+        return {
+          success: false,
+          error: 'gh CLI not available or not in a git repo',
+          hint: 'Ensure gh CLI is installed and project has a GitHub remote',
+        };
+      }
+    } catch (error) {
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Unknown error',
+      };
+    }
+  },
+};
+
+/**
+ * mobile_setup_ci - Set up GitHub Actions CI/CD for a mobile project
+ */
+const mobileSetupCITool: ToolDefinition = {
+  name: 'mobile_setup_ci',
+  description: 'Copy GitHub Actions workflow templates to a mobile project. Sets up Android CI pipeline.',
+  inputSchema: {
+    type: 'object',
+    properties: {
+      project_name: {
+        type: 'string',
+        description: 'Name of the mobile project',
+      },
+    },
+    required: ['project_name'],
+  },
+  handler: async (params: any, context: ProjectContext) => {
+    try {
+      const projectManager = new MobileProjectManager(pool);
+      const project = await projectManager.getProject(params.project_name);
+
+      if (!project) {
+        return { success: false, error: `Project "${params.project_name}" not found` };
+      }
+
+      // Run setup script
+      const { stdout, stderr } = await execAsync(
+        `/home/samuel/sv/supervisor-service-s/src/mobile/scripts/setup-github-workflows.sh "${project.project_path}"`,
+        { timeout: 10000 }
+      );
+
+      return {
+        success: true,
+        output: stdout,
+        workflows_installed: ['android-ci.yml'],
+        next_steps: [
+          'git add .github/workflows/',
+          'git commit -m "ci: add Android CI pipeline"',
+          'git push origin main',
+          'Check GitHub Actions tab for build status',
+        ],
+      };
+    } catch (error) {
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Unknown error',
+      };
+    }
   },
 };
