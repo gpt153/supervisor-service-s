@@ -10,6 +10,7 @@
 import { ToolDefinition, ProjectContext } from '../../types/project.js';
 import { MobileProjectManager } from '../../mobile/MobileProjectManager.js';
 import { AndroidBuildManager } from '../../mobile/AndroidBuildManager.js';
+import { FirebaseTestLabClient } from '../../mobile/FirebaseTestLabClient.js';
 import { pool } from '../../db/client.js';
 import { exec } from 'child_process';
 import { promisify } from 'util';
@@ -33,6 +34,8 @@ export function getMobileTools(): ToolDefinition[] {
     mobileEmulatorStatusTool,
     mobileGithubStatusTool,
     mobileSetupCITool,
+    mobileRunTestsTool,
+    mobileGetTestResultsTool,
   ];
 }
 
@@ -515,6 +518,140 @@ const mobileSetupCITool: ToolDefinition = {
           'Check GitHub Actions tab for build status',
         ],
       };
+    } catch (error) {
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Unknown error',
+      };
+    }
+  },
+};
+
+/**
+ * mobile_run_tests - Submit APK to Firebase Test Lab
+ */
+const mobileRunTestsTool: ToolDefinition = {
+  name: 'mobile_run_tests',
+  description: 'Submit an Android APK to Firebase Test Lab for testing on virtual or physical devices. Free tier: 60 min/day.',
+  inputSchema: {
+    type: 'object',
+    properties: {
+      project_name: {
+        type: 'string',
+        description: 'Name of the mobile project',
+      },
+      apk_path: {
+        type: 'string',
+        description: 'Path to the APK file to test. If omitted, uses latest debug build.',
+      },
+      device_model: {
+        type: 'string',
+        description: 'Firebase device model ID (e.g., "redfin" for Pixel 5). Default: redfin',
+      },
+      os_version: {
+        type: 'string',
+        description: 'Android API level (e.g., "30"). Default: 30',
+      },
+      test_type: {
+        type: 'string',
+        enum: ['robo', 'instrumentation'],
+        description: 'Type of test. "robo" requires no test code. Default: robo',
+      },
+    },
+    required: ['project_name'],
+  },
+  handler: async (params: any, context: ProjectContext) => {
+    try {
+      const projectManager = new MobileProjectManager(pool);
+      const project = await projectManager.getProject(params.project_name);
+
+      if (!project) {
+        return { success: false, error: `Project "${params.project_name}" not found` };
+      }
+
+      // Get Firebase project ID from environment or vault
+      const firebaseProjectId = process.env.FIREBASE_PROJECT_ID;
+      if (!firebaseProjectId) {
+        return {
+          success: false,
+          error: 'FIREBASE_PROJECT_ID not set. Configure in .env or vault.',
+        };
+      }
+
+      const client = new FirebaseTestLabClient(pool, firebaseProjectId);
+
+      // Authenticate
+      const auth = await client.authenticate();
+      if (!auth.success) {
+        return { success: false, error: `Authentication failed: ${auth.error}` };
+      }
+
+      // Check quota
+      const quota = await client.getQuotaUsage();
+      if (quota.minutes_remaining <= 0) {
+        return {
+          success: false,
+          error: 'Firebase Test Lab daily quota exceeded (60 min/day)',
+          quota,
+        };
+      }
+
+      // Determine APK path
+      const apkPath = params.apk_path ||
+        `${project.project_path}/android/app/build/outputs/apk/debug/app-debug.apk`;
+
+      const result = await client.submitTest({
+        project_id: project.id,
+        apk_path: apkPath,
+        device_model: params.device_model || 'redfin',
+        os_version: params.os_version || '30',
+        test_type: params.test_type || 'robo',
+      });
+
+      return {
+        ...result,
+        quota_remaining_minutes: quota.minutes_remaining,
+      };
+    } catch (error) {
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Unknown error',
+      };
+    }
+  },
+};
+
+/**
+ * mobile_get_test_results - Get Firebase Test Lab results
+ */
+const mobileGetTestResultsTool: ToolDefinition = {
+  name: 'mobile_get_test_results',
+  description: 'Get test results from Firebase Test Lab by test run ID',
+  inputSchema: {
+    type: 'object',
+    properties: {
+      test_run_id: {
+        type: 'number',
+        description: 'Test run ID from mobile_run_tests response',
+      },
+    },
+    required: ['test_run_id'],
+  },
+  handler: async (params: any, context: ProjectContext) => {
+    try {
+      const firebaseProjectId = process.env.FIREBASE_PROJECT_ID;
+      if (!firebaseProjectId) {
+        return { success: false, error: 'FIREBASE_PROJECT_ID not set' };
+      }
+
+      const client = new FirebaseTestLabClient(pool, firebaseProjectId);
+      const result = await client.getTestResults(params.test_run_id);
+
+      if (!result) {
+        return { success: false, error: `Test run ${params.test_run_id} not found` };
+      }
+
+      return { success: true, ...result };
     } catch (error) {
       return {
         success: false,

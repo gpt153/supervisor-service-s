@@ -101,6 +101,45 @@ jobs:
             junit.xml
           retention-days: 7
 
+  test-firebase:
+    name: Firebase Test Lab
+    runs-on: ubuntu-latest
+    needs: build-android
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    timeout-minutes: 20
+
+    steps:
+      - name: Download APK artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: android-debug-apk
+          path: ./artifacts
+
+      - name: Authenticate to Google Cloud
+        uses: google-github-actions/auth@v2
+        with:
+          credentials_json: ${{ secrets.GOOGLE_CREDENTIALS }}
+
+      - name: Setup gcloud CLI
+        uses: google-github-actions/setup-gcloud@v2
+
+      - name: Run Robo Test on Firebase Test Lab
+        run: |
+          gcloud firebase test android run \
+            --type=robo \
+            --app=./artifacts/app-debug.apk \
+            --device model=redfin,version=30 \
+            --timeout=5m \
+            --project=${{ secrets.FIREBASE_PROJECT_ID }} \
+            --no-auto-google-login
+        continue-on-error: true
+
+      - name: Upload test results
+        if: always()
+        run: |
+          echo "Firebase Test Lab results available at:"
+          echo "https://console.firebase.google.com/project/${{ secrets.FIREBASE_PROJECT_ID }}/testlab/histories"
+
   lint:
     name: Lint & Type Check
     runs-on: ubuntu-latest
