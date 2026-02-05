@@ -14,6 +14,7 @@
   - /home/samuel/sv/supervisor-service-s/.supervisor-core/12-automatic-quality-workflows.md
   - /home/samuel/sv/supervisor-service-s/.supervisor-core/13-session-continuity.md
   - /home/samuel/sv/supervisor-service-s/.supervisor-core/14-deployment-safety.md
+  - /home/samuel/sv/supervisor-service-s/.supervisor-core/15-project-specific-overrides.md
   - /home/samuel/sv/supervisor-service-s/.supervisor-core/QUICK-START.md
   - /home/samuel/sv/supervisor-service-s/.supervisor-core/README.md
   - /home/samuel/sv/supervisor-service-s/.supervisor-meta/00-meta-identity.md
@@ -23,7 +24,7 @@
   - /home/samuel/sv/supervisor-service-s/.supervisor-meta/04-port-allocations.md
   - /home/samuel/sv/supervisor-service-s/.supervisor-specific/02-deployment-status.md
   - /home/samuel/sv/supervisor-service-s/.supervisor-specific/03-machine-config.md -->
-<!-- Generated: 2026-02-04T13:11:06.909Z -->
+<!-- Generated: 2026-02-05T16:11:31.653Z -->
 
 # Supervisor Identity
 
@@ -770,7 +771,7 @@ psql -d supervisor_meta -c "SELECT epic_id, verdict, confidence_score FROM verif
 **Infrastructure Host: odin3** - PostgreSQL + MCP Server
 **Development Machines: odin4, laptop** - Remote connections
 
-**Check `.supervisor-specific/03-machine-config.md` for connection details**
+**See `.supervisor-specific/03-machine-config.md` for connection details**
 
 ---
 
@@ -780,7 +781,7 @@ psql -d supervisor_meta -c "SELECT epic_id, verdict, confidence_score FROM verif
 
 ### 1. Check for Auto-Registration
 
-Look for this in conversation context:
+Look for this message in conversation context:
 ```
 🔄 **Session Auto-Registered**
 ✅ Instance: `[project]-PS-[id]`
@@ -793,55 +794,23 @@ export INSTANCE_ID="[the-id-from-SessionStart]"
 
 ### 2. Manual Registration (If Not Auto-Registered)
 
-```bash
-PROJECT="odin"  # Your project name
+**Use registration script from complete guide** (see References below)
 
-# Auto-detect machine
-HOST_MACHINE=$(hostname)
-
-# Set database connection based on machine
-if [[ "$HOST_MACHINE" == "odin3"* ]] || [[ "$HOST_MACHINE" == *"odin3"* ]]; then
-  PGHOST="localhost"
-  PGPORT="5434"
-elif [[ "$HOST_MACHINE" == "odin4"* ]] || [[ "$HOST_MACHINE" == *"odin4"* ]]; then
-  PGHOST="odin3"
-  PGPORT="5434"
-else
-  PGHOST="localhost"
-  PGPORT="5434"
-fi
-
-INSTANCE_ID="${PROJECT}-PS-$(openssl rand -hex 3)"
-
-psql -U supervisor -d supervisor_service -h $PGHOST -p $PGPORT << EOF
-INSERT INTO supervisor_sessions (
-  instance_id, project, instance_type, status,
-  context_percent, host_machine, created_at, last_heartbeat
-) VALUES (
-  '$INSTANCE_ID', '$PROJECT', 'PS', 'active',
-  0, '$HOST_MACHINE', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP
-);
-EOF
-
-export INSTANCE_ID
-export HOST_MACHINE
-export PGHOST
-export PGPORT
-```
+Key steps:
+- Auto-detect machine (hostname)
+- Set PGHOST/PGPORT from `.supervisor-specific/03-machine-config.md`
+- Generate instance ID: `${PROJECT}-PS-$(openssl rand -hex 3)`
+- Insert into supervisor_sessions table
+- Export INSTANCE_ID, HOST_MACHINE
 
 ### 3. Log Registration Event (MANDATORY)
 
-**Immediately after registration, log the event:**
 ```typescript
 ToolSearch({ query: "select:mcp_meta_emit_event" })
 mcp_meta_emit_event({
   instance_id: INSTANCE_ID,
   event_type: "instance_registered",
-  event_data: {
-    instance_type: "PS",  // or "MS"
-    project: PROJECT,
-    created_at: new Date().toISOString()
-  }
+  event_data: { instance_type: "PS", project: PROJECT }
 })
 ```
 
@@ -870,88 +839,18 @@ Instance: {id}@{machine} | Epic: {epic} | Context: {%}% | Active: {hours}h
 
 ## Heartbeat (Every 5-10 Responses)
 
-```bash
-psql -U supervisor -d supervisor_service -p 5434 << EOF
-UPDATE supervisor_sessions
-SET context_percent = 42, current_epic = 'epic-003',
-    last_heartbeat = CURRENT_TIMESTAMP
-WHERE instance_id = '$INSTANCE_ID';
-EOF
-```
+**Update session in database:**
+- Set context_percent (current context usage estimate)
+- Set current_epic (which epic you're working on)
+- Update last_heartbeat timestamp
 
-**Optional: Log heartbeat event for better debugging:**
-```typescript
-mcp_meta_emit_event({
-  instance_id: INSTANCE_ID,
-  event_type: "instance_heartbeat",
-  event_data: {
-    context_percent: 42,
-    current_epic: "epic-003",
-    age_seconds: 1800
-  }
-})
-```
+**See complete guide for SQL command**
 
 ---
 
 ## Event Logging (MANDATORY)
 
 **🚨 CRITICAL: You MUST log events or resume will be EMPTY**
-
-**Use MCP tool `mcp_meta_emit_event` for ALL critical actions:**
-
-```typescript
-// After spawning subagent
-ToolSearch({ query: "select:mcp_meta_emit_event" })
-mcp_meta_emit_event({
-  instance_id: INSTANCE_ID,
-  event_type: "task_spawned",
-  event_data: {
-    task_type: "epic_implementation",
-    subagent_type: "haiku",
-    epic_id: "epic-003",
-    description: "Implement authentication system"
-  }
-})
-
-// After git commit
-mcp_meta_emit_event({
-  instance_id: INSTANCE_ID,
-  event_type: "commit_created",
-  event_data: {
-    commit_hash: "a1b2c3d",
-    message: "feat: implement auth system",
-    files_changed: 7,
-    epic_id: "epic-003"
-  }
-})
-
-// After deployment
-mcp_meta_emit_event({
-  instance_id: INSTANCE_ID,
-  event_type: "deployment_completed",
-  event_data: {
-    service: "api",
-    environment: "development",
-    health_status: "healthy",
-    duration_seconds: 45,
-    port: 5100
-  }
-})
-
-// After epic completion
-mcp_meta_emit_event({
-  instance_id: INSTANCE_ID,
-  event_type: "epic_completed",
-  event_data: {
-    epic_id: "epic-003",
-    duration_hours: 2.5,
-    files_changed: 12,
-    tests_passed: true,
-    validation_confidence: 95
-  }
-})
-```
 
 **MANDATORY - Log these IMMEDIATELY after they happen:**
 - ✅ **task_spawned** - After EVERY Task tool call
@@ -961,7 +860,19 @@ mcp_meta_emit_event({
 - ✅ **epic_started** - When starting new epic
 - ✅ **pr_created** - After creating PR
 
-**Skip routine checks** (file reads, greps, status checks)
+**Skip routine operations** (file reads, greps, status checks)
+
+**Tool to use:**
+```typescript
+ToolSearch({ query: "select:mcp_meta_emit_event" })
+mcp_meta_emit_event({
+  instance_id: INSTANCE_ID,
+  event_type: "task_spawned",
+  event_data: { /* event-specific data */ }
+})
+```
+
+**See complete guide for all event examples**
 
 ---
 
@@ -969,7 +880,10 @@ mcp_meta_emit_event({
 
 **When user says:** `resume {instance_id}`
 
-Use `mcp_meta_smart_resume_context` tool.
+```typescript
+ToolSearch({ query: "select:mcp_meta_smart_resume_context" })
+mcp_meta_smart_resume_context({ instance_id: "{instance_id}" })
+```
 
 ---
 
@@ -978,18 +892,20 @@ Use `mcp_meta_smart_resume_context` tool.
 🚨 **REGISTER FIRST** (very first response - NO EXCEPTIONS)
 🚨 **ALWAYS show footer** (every response)
 ✅ **UPDATE heartbeat** (every 5-10 responses)
-✅ **LOG critical actions** (epic, git, spawn, deploy, error)
+✅ **LOG critical actions** (spawn, commit, deploy, epic events)
 
 ---
 
 ## References
 
-**Complete Guide:** `/home/samuel/sv/docs/guides/session-continuity-guide.md`
+**Complete Guide:** `/home/samuel/sv/docs/guides/session-continuity-complete-guide.md`
 
 **Includes:**
-- Detailed registration examples
+- Complete registration bash scripts
+- All event logging TypeScript examples
+- Heartbeat SQL commands
 - Footer generation code
-- Manual database logging (fallback)
+- Multi-machine setup details
 - Troubleshooting
 
 # Deployment Safety
@@ -1074,6 +990,46 @@ Multiple instances cause:
 ---
 
 **Priority**: 🚨 CRITICAL
+
+# Project-Specific Deployment Overrides
+
+**Some projects have non-standard deployment requirements**
+
+---
+
+## Consilio Deployment
+
+**CRITICAL**: Consilio MUST deploy from backend directory
+
+```bash
+cd /home/samuel/sv/consilio-s/backend
+docker compose up -d postgres
+```
+
+**When spawning deployment subagent for Consilio**:
+
+```json
+{
+  "project_path": "/home/samuel/sv/consilio-s/backend",
+  "docker_compose_file": "docker-compose.yml"
+}
+```
+
+**Reason**: Root directory has old docker-compose that creates empty volume. Backend has correct volume with production data.
+
+---
+
+## Other Projects
+
+Standard deployment from project root is fine for:
+- odin-s
+- health-agent-s
+- openhorizon-s
+- supervisor-service-s
+
+---
+
+**Check each project's `.supervisor-specific/03-deployment-workflow.md` for details**
 
 # Quick Start: Add New Core Instruction
 
@@ -1560,21 +1516,12 @@ TUNNEL_ID=aaffe732-9972-4f70-a758-a3ece1df4035
 
 # Machine Configuration
 
-**Auto-detect machine and configure database connection**
+**This machine: Auto-detected**
+**Project**: supervisor-service (Meta-Supervisor)
 
 ---
 
-## Services Running on odin3 (Infrastructure Host)
-
-- ✅ PostgreSQL: `localhost:5434`
-- ✅ MCP Server: `localhost:8081`
-- ✅ Tunnel Manager
-- ✅ Secrets Manager
-- ✅ Port Allocation
-
----
-
-## Connection Setup
+## Connection Variables
 
 ```bash
 # Auto-detect machine
@@ -1582,75 +1529,21 @@ HOST_MACHINE=$(hostname)
 
 # Set database connection based on machine
 if [[ "$HOST_MACHINE" == "odin3"* ]] || [[ "$HOST_MACHINE" == *"odin3"* ]]; then
-  # Infrastructure host - local connection
   PGHOST="localhost"
   PGPORT="5434"
 elif [[ "$HOST_MACHINE" == "odin4"* ]] || [[ "$HOST_MACHINE" == *"odin4"* ]]; then
-  # Development machine - remote connection to odin3
   PGHOST="odin3"
   PGPORT="5434"
 else
-  # Unknown machine - try localhost
   PGHOST="localhost"
   PGPORT="5434"
   echo "⚠️  Unknown machine: $HOST_MACHINE, using localhost"
 fi
 
-# Common settings
 PGUSER="supervisor"
 PGDATABASE="supervisor_service"
 
-export PGHOST PGPORT PGUSER PGDATABASE
-```
-
----
-
-## Session Registration
-
-```bash
-PROJECT="supervisor-service"
-INSTANCE_ID="${PROJECT}-MS-$(openssl rand -hex 3)"
-
-psql -U supervisor -d supervisor_service -h $PGHOST -p $PGPORT << EOF
-INSERT INTO supervisor_sessions (
-  instance_id, project, instance_type, status,
-  context_percent, host_machine, created_at, last_heartbeat
-) VALUES (
-  '$INSTANCE_ID', '$PROJECT', 'MS', 'active',
-  0, '$HOST_MACHINE', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP
-);
-EOF
-
-export INSTANCE_ID
-echo "✅ Registered: $INSTANCE_ID@$HOST_MACHINE"
-```
-
----
-
-## Heartbeat
-
-```bash
-psql -U supervisor -d supervisor_service -h $PGHOST -p $PGPORT << EOF
-UPDATE supervisor_sessions
-SET context_percent = 42, current_epic = 'epic-003',
-    last_heartbeat = CURRENT_TIMESTAMP
-WHERE instance_id = '$INSTANCE_ID';
-EOF
-```
-
----
-
-## Event Logging
-
-```bash
-# Source helper function
-source /home/samuel/sv/.claude/helpers/log-event.sh
-
-# Log events (helper uses auto-detected $PGHOST/$PGPORT)
-log_event "spawn" '{"description":"Description","subagent":"haiku"}' '{"tags":["spawn"]}'
-log_event "epic_start" '{"epic_id":"epic-003","feature":"authentication"}'
-log_event "commit" '{"message":"feat: implement auth","files_changed":7,"commit_hash":"a1b2c3d"}'
-log_event "deploy" '{"service":"api","port":5100,"status":"success"}'
+export PGHOST PGPORT PGUSER PGDATABASE HOST_MACHINE
 ```
 
 ---
@@ -1660,20 +1553,30 @@ log_event "deploy" '{"service":"api","port":5100,"status":"success"}'
 | Machine | Type | Connection |
 |---------|------|------------|
 | odin3 / gcp-odin3-vm | Infrastructure host | localhost:5434 |
-| odin4 | Development machine | odin3:5434 (remote) |
+| odin4 | Development VM | odin3:5434 (remote) |
 | laptop | Development machine | odin3:5434 (remote) |
+
+---
+
+## Services on odin3
+
+- PostgreSQL: `localhost:5434`
+- MCP Server: `localhost:8081`
+- Tunnel Manager, Secrets Manager, Port Allocation
+
+---
+
+## Usage
+
+**For session registration, heartbeat, event logging examples:**
+See `.supervisor-core/13-session-continuity.md` and complete guide
+
+**This file provides only connection variables.**
 
 ---
 
 ## Verification
 
 ```bash
-# Test connection
 psql -U supervisor -d supervisor_service -h $PGHOST -p $PGPORT -c "SELECT NOW();"
-
-# Should output current timestamp if connection works
 ```
-
----
-
-**Note:** All bash commands in CLAUDE.md should use `$PGHOST` and `$PGPORT` variables instead of hardcoded values.
