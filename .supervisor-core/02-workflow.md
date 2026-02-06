@@ -15,9 +15,31 @@
 **When**: After features, docs, CLAUDE.md regen, configs
 **Format**: `type: description` (feat/fix/docs/chore)
 **Push**: Immediately after commit
-**PR**: Features >50 lines, breaking changes
-**Direct commit**: Docs, small tweaks <10 lines
-**Auto-merge**: If "continue building", merge after tests
+
+---
+
+## 🚨 MANDATORY: Deploy After Code Changes
+
+**CRITICAL RULE**: After EVERY commit with code changes:
+
+1. ✅ Commit code changes
+2. ✅ Push to remote
+3. 🚨 **SPAWN DEPLOYMENT SUBAGENT IMMEDIATELY** (non-negotiable)
+4. ✅ Verify deployment succeeded
+5. ✅ Verify service health
+
+**This is NOT optional. You do NOT ask permission. You deploy automatically.**
+
+---
+
+## PR and Merge Workflow
+
+**PR creation**:
+- Features >50 lines: Create PR
+- Breaking changes: Create PR
+- Small tweaks <10 lines: Direct commit
+
+**Auto-merge**: If "continue building", merge after tests pass
 
 ---
 
@@ -37,7 +59,19 @@
 
 **NEVER deploy manually. ALWAYS spawn deployment subagent.**
 
-Subagent auto-handles: Kill old instances, rebuild --no-cache, health checks, verify single instance
+**When to deploy**:
+- After ANY code changes committed
+- After .env file modified
+- After config files modified
+- After database schema changes
+- When user says "deploy", "restart", "update"
+
+**Subagent auto-handles**:
+- Kill old instances (verify none remain)
+- Rebuild with --no-cache (prevents stale code)
+- Health checks (verify service works)
+- Verify single instance on port (prevent conflicts)
+- Project-specific safeguards (data protection, etc.)
 
 **See**: `14-deployment-safety.md`
 
@@ -46,3 +80,4 @@ Subagent auto-handles: Kill old instances, rebuild --no-cache, health checks, ve
 ## References
 
 **Workflows**: `/home/samuel/sv/docs/guides/ps-workflows.md`
+**Deployment safety**: `/home/samuel/sv/docs/guides/deployment-safety-guide.md`
