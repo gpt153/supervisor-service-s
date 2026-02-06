@@ -24,7 +24,7 @@
   - /home/samuel/sv/supervisor-service-s/.supervisor-meta/04-port-allocations.md
   - /home/samuel/sv/supervisor-service-s/.supervisor-specific/02-deployment-status.md
   - /home/samuel/sv/supervisor-service-s/.supervisor-specific/03-machine-config.md -->
-<!-- Generated: 2026-02-05T16:11:31.653Z -->
+<!-- Generated: 2026-02-06T07:47:15.495Z -->
 
 # Supervisor Identity
 
@@ -794,14 +794,24 @@ export INSTANCE_ID="[the-id-from-SessionStart]"
 
 ### 2. Manual Registration (If Not Auto-Registered)
 
-**Use registration script from complete guide** (see References below)
+**CRITICAL: Use MCP tool (works from any machine, no network issues):**
 
-Key steps:
-- Auto-detect machine (hostname)
-- Set PGHOST/PGPORT from `.supervisor-specific/03-machine-config.md`
-- Generate instance ID: `${PROJECT}-PS-$(openssl rand -hex 3)`
-- Insert into supervisor_sessions table
-- Export INSTANCE_ID, HOST_MACHINE
+```typescript
+// Load registration tool
+ToolSearch({ query: "select:mcp_meta_register_instance" })
+
+// Register instance (returns instance_id)
+const result = mcp_meta_register_instance({
+  project: "odin",  // Your project name
+  instance_type: "PS",  // or "MS"
+  host_machine: process.env.HOSTNAME || "unknown"
+})
+
+// Save the instance_id
+const INSTANCE_ID = result.instance_id
+```
+
+**Why MCP tool:** Works from odin3, odin4, laptop (no database connection needed).
 
 ### 3. Log Registration Event (MANDATORY)
 
